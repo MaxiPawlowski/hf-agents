@@ -12,7 +12,8 @@ test("runTask routes complex feature intents to TaskManager with task artifacts"
       successCriteria: []
     },
     {
-      mode: "balanced",
+      profile: "balanced",
+      contextStrategy: "standard",
       useWorktreesByDefault: false,
       manageGitByDefault: false,
       requireTests: false,
@@ -31,7 +32,7 @@ test("runTask routes complex feature intents to TaskManager with task artifacts"
   assert.ok(result.notes.some((note) => note.includes("hf-verification-before-completion")));
 });
 
-test("runTask includes enforced skills under strict policy", async () => {
+test("runTask includes enforced skills under strict settings profile", async () => {
   const result = await runTask(
     {
       id: "task-200",
@@ -40,7 +41,8 @@ test("runTask includes enforced skills under strict policy", async () => {
       successCriteria: []
     },
     {
-      mode: "strict",
+      profile: "strict",
+      contextStrategy: "standard",
       useWorktreesByDefault: false,
       manageGitByDefault: false,
       requireTests: true,

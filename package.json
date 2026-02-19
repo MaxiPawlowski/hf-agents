@@ -4,13 +4,11 @@
   "private": true,
   "description": "Selective agentic framework with OAC-style delegation and modular skills.",
   "type": "module",
-  "bin": {
-    "framework": "./dist/cli/index.js"
+  "exports": {
+    ".": "./dist/src/index.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "node --loader ts-node/esm cli/index.ts",
-    "start": "node dist/cli/index.js",
     "test": "npm run build && node --test tests/**/*.test.mjs",
     "validate:registry": "node scripts/validation/validate-registry.mjs",
     "validate:deps": "node scripts/validation/check-dependencies.mjs",
@@ -22,8 +20,6 @@
     "uninstall:opencode": "node scripts/install/uninstall-opencode-assets.mjs"
   },
   "dependencies": {
-    "commander": "^13.1.0",
-    "yaml": "^2.7.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {

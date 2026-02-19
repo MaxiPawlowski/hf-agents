@@ -9,6 +9,8 @@ description: Use when executing a plan through TaskPlanner -> Coder -> Reviewer 
 
 Execute implementation with focused subagent handoffs in one session and minimal orchestration overhead.
 
+Use this only after scope and plan are explicit.
+
 ## Default sequence
 
 1. TaskPlanner: refine implementation steps
@@ -19,6 +21,7 @@ Execute implementation with focused subagent handoffs in one session and minimal
 ## Execution rules
 
 - Provide full task context to each subagent.
+- Use `@.opencode/context/project/subagent-handoff-template.md` for every delegation.
 - Keep one active implementation stream unless tasks are independent.
 - Re-run both review passes after non-trivial fixes.
 - Stop when scope is satisfied; avoid extra "nice to have" additions.
@@ -45,3 +48,8 @@ Pass 1 should fail fast on scope drift. Pass 2 should prioritize risk and qualit
 - Requirement ambiguity -> return question to orchestrator before coding.
 - Scope conflict -> prioritize explicit user instruction.
 - Missing context -> call ContextScout before proceeding.
+
+## When to use this vs core delegation
+
+- Use `hf-subagent-driven-development` when planning is complete and the remaining work is execution.
+- Use `hf-core-delegation` when discovery, routing, and planning still need orchestration.

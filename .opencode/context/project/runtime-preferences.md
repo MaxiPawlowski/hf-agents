@@ -15,12 +15,16 @@ This project is OpenCode-configured and markdown-first.
 - Do not force test execution; manual validation is the default.
 - Do not use approval-gate blocking as default workflow.
 
+Canonical runtime policy lives in:
+
+- `@.opencode/context/project/policy-contract.md`
+
 ## Preferred execution style
 
 - Fast autonomous delegation
 - Minimal overhead
 - Clear summaries of what changed
-- Mode-aware quality gates (`fast`, `balanced`, `strict`)
+- Profile-aware quality gates (`fast`, `balanced`, `strict`)
 - Dependency-aware task artifacts for complex work
 
 ## Baseline skill set
@@ -32,11 +36,18 @@ Prefer these markdown skills for normal operation:
 - hf-systematic-debugging
 - hf-verification-before-completion
 - hf-dispatching-parallel-agents
+- hf-bounded-parallel-scouting
 
-Use `hf-test-driven-development` only when explicitly requested or strict policy requires it.
+Use `hf-test-driven-development` only when explicitly requested or strict profile requires it.
 
-## Mode intent
+## Profile intent
 
-- `fast`: prioritize velocity, lightweight verification
+- `fast`: prioritize velocity, minimal context, lightweight verification
 - `balanced`: require verification and explicit review
 - `strict`: require tests, approval-oriented flow, verification, and review
+
+## Optional task loop (v2)
+
+- Task lifecycle tracking is optional by default.
+- Enable it for complex or long-running feature work that benefits from explicit checkpoints.
+- Artifacts live in `.tmp/task-lifecycle.json`.

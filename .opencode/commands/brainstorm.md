@@ -24,6 +24,7 @@ Invoke `hf-brainstorming` skill and follow it exactly.
 - Alternatives and trade-offs.
 - In-scope and out-of-scope boundaries.
 - Key risks and assumptions.
+- Decision log from the one-question-at-a-time clarification loop.
 
 ## Failure Contract
 

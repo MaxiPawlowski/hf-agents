@@ -10,7 +10,7 @@ Reduce stale task/session artifacts while preserving active work.
 
 ## Preconditions
 
-- Temporary directories are readable (`.tmp/task-lifecycle.json`, `.tmp/sessions`, optional caches).
+- Temporary directories are readable (`.tmp/sessions`, optional caches, and optional `.tmp/task-lifecycle.json` when present).
 - Cleanup target is defined (feature-specific or global).
 
 ## Execution Contract

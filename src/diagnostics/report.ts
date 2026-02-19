@@ -3,33 +3,40 @@ import path from "node:path";
 import { diagnosticsReportSchema, type DiagnosticsItem, type DiagnosticsReport } from "../contracts/index.js";
 import { lintCommandContracts } from "./command-contract-lint.js";
 import { listSkills } from "../skills/skill-engine.js";
-import { loadPolicy, policyFileForMode } from "../policies/policy-loader.js";
+import { loadRuntimeSettings, resolveRuntimeSettings } from "../settings/runtime-settings.js";
 
-function buildPolicyItem(repoRoot: string): DiagnosticsItem {
-  const modes = ["fast", "balanced", "strict"] as const;
+function buildSettingsItem(repoRoot: string): DiagnosticsItem {
+  const profiles = ["light", "balanced", "strict"] as const;
   const details: string[] = [];
   let failed = false;
 
-  for (const mode of modes) {
-    const filePath = path.join(repoRoot, policyFileForMode(mode));
-    if (!existsSync(filePath)) {
-      failed = true;
-      details.push(`Missing policy file: ${policyFileForMode(mode)}`);
-      continue;
-    }
+  for (const profile of profiles) {
     try {
-      loadPolicy(filePath);
-      details.push(`Parsed policy: ${policyFileForMode(mode)}`);
+      resolveRuntimeSettings({ profile });
+      details.push(`Preset loaded: ${profile}`);
     } catch (error) {
       failed = true;
-      details.push(`Invalid policy (${mode}): ${(error as Error).message}`);
+      details.push(`Invalid preset (${profile}): ${(error as Error).message}`);
     }
   }
 
+  const projectSettingsPath = path.join(repoRoot, "settings", "framework-settings.json");
+  if (existsSync(projectSettingsPath)) {
+    try {
+      loadRuntimeSettings(projectSettingsPath);
+      details.push("Parsed project settings: settings/framework-settings.json");
+    } catch (error) {
+      failed = true;
+      details.push(`Invalid project settings: ${(error as Error).message}`);
+    }
+  } else {
+    details.push("Project settings file not found; using light preset defaults.");
+  }
+
   return {
-    id: "policy",
+    id: "settings",
     status: failed ? "fail" : "pass",
-    summary: failed ? "Policy checks failed." : "Policy files are present and parse correctly.",
+    summary: failed ? "Runtime settings checks failed." : "Runtime settings are valid.",
     details
   };
 }
@@ -175,7 +182,7 @@ function buildOptionalArtifactsItem(repoRoot: string): DiagnosticsItem {
 
 export function generateDiagnosticsReport(repoRoot = process.cwd()): DiagnosticsReport {
   const items = [
-    buildPolicyItem(repoRoot),
+    buildSettingsItem(repoRoot),
     buildRegistryItem(repoRoot),
     buildCommandContractItem(repoRoot),
     buildSkillsItem(repoRoot),

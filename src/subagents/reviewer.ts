@@ -1,15 +1,15 @@
 import {
   codePatchSchema,
   executionPlanSchema,
-  policySchema,
+  runtimeSettingsSchema,
   reviewReportSchema,
   type ReviewReport
 } from "../contracts/index.js";
 
-export function runReviewer(planInput: unknown, patchInput: unknown, policyInput: unknown): ReviewReport {
+export function runReviewer(planInput: unknown, patchInput: unknown, settingsInput: unknown): ReviewReport {
   const plan = executionPlanSchema.parse(planInput);
   const patch = codePatchSchema.parse(patchInput);
-  const policy = policySchema.parse(policyInput);
+  const settings = runtimeSettingsSchema.parse(settingsInput);
 
   const findings: string[] = [];
   const blockingFindings: string[] = [];
@@ -26,10 +26,10 @@ export function runReviewer(planInput: unknown, patchInput: unknown, policyInput
   if (patch.safeguards.managedGit) {
     findings.push("Policy enabled git management for this run.");
   }
-  if (policy.requireTests && !patch.safeguards.autoTestsRun) {
-    blockingFindings.push("Policy requires tests but no automated test run evidence was produced.");
+  if (settings.requireTests && !patch.safeguards.autoTestsRun) {
+    blockingFindings.push("Settings require tests but no automated test run evidence was produced.");
   }
-  if (policy.requireVerification) {
+  if (settings.requireVerification) {
     findings.push("Verification is required and must be completed before closeout.");
   }
 

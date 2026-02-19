@@ -11,7 +11,7 @@ Prompt variants let the framework tune instructions by mode or model without dup
 ## Selection Rules
 
 1. If `--prompt-variant=<id>` is provided, use that variant when present.
-2. If policy mode is `strict`, prefer `strict` variant.
+2. If settings profile is `strict`, prefer `strict` variant.
 3. Fallback to `default` if variant is missing.
 
 ## Validation

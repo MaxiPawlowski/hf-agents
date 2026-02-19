@@ -18,7 +18,7 @@ function buildPlanSteps(taskIntent: string, hasCriteria: boolean): ExecutionPlan
     },
     {
       id: "step-3",
-      description: "Verify scope and policy compliance before completion"
+      description: "Verify scope and settings compliance before completion"
     }
   ];
 
@@ -52,7 +52,7 @@ export function runTaskPlanner(taskInput: unknown, contextInput?: unknown): Exec
     assumptions: [
       task.successCriteria.length > 0
         ? "Use provided success criteria as acceptance checks."
-        : "Treat policy defaults and user intent as acceptance baseline."
+        : "Treat settings defaults and user intent as acceptance baseline."
     ]
   };
 

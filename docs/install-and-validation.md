@@ -82,15 +82,9 @@ Markdown files using `@.opencode/context/...` are transformed during install for
 
 Cross-platform wrapper files are available in `scripts/hooks/` and hook declaration is in `hooks/hooks.json`.
 
-## Lifecycle and Diagnostics Commands
+## Lifecycle and Diagnostics
 
-```bash
-framework doctor
-framework doctor --json
-framework task-status
-framework task-status --feature <feature-id>
-framework task-resume --feature <feature-id>
-framework task-next --feature <feature-id>
-framework task-blocked --feature <feature-id>
-framework task-complete --feature <feature-id> --seq <NN>
-```
+Use runtime APIs instead of CLI wrappers:
+
+- `generateDiagnosticsReport()` and `formatDiagnosticsReport()`
+- task lifecycle helpers in `src/tasks/task-lifecycle.ts`

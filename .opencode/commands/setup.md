@@ -1,7 +1,7 @@
 ---
 name: hf-setup
-description: Initialize command, context, and policy prerequisites for this framework.
-argument-hint: [--mode=<fast|balanced|strict>] [--with-sample-context]
+description: Initialize command, context, and settings prerequisites for this framework.
+argument-hint: [--profile=<fast|balanced|strict>] [--with-sample-context]
 ---
 
 ## Purpose
@@ -16,14 +16,14 @@ Prepare a repository to use the framework command workflow safely.
 ## Execution Contract
 
 1. Verify required directories (`.opencode/agents`, `.opencode/commands`, `.opencode/skills`, `.opencode/context`).
-2. Verify policy files exist and resolve selected mode.
+2. Verify settings contract exists and resolve selected profile.
 3. Optionally seed sample context when `--with-sample-context` is supplied.
 4. Return next-step commands for planning and verification.
 
 ## Required Output
 
 - `Installed/Verified`: required directories and files.
-- `Policy Mode`: selected mode and rationale.
+- `Profile`: selected profile and rationale.
 - `Missing Items`: any blockers to normal workflow.
 - `Next Steps`: concrete command sequence.
 

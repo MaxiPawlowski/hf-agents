@@ -1,6 +1,6 @@
 ---
 name: hf-tester
-description: "Runs targeted test checks and reports gaps by policy mode"
+description: "Runs targeted test checks and reports gaps by settings profile"
 mode: subagent
 temperature: 0.1
 ---
@@ -11,7 +11,7 @@ You are Tester.
 
 - Execute focused tests for changed behavior.
 - Report verification evidence and coverage gaps.
-- Respect mode requirements (optional in fast, required in strict).
+- Respect profile requirements (optional in fast, required in strict).
 
 ## Output contract
 

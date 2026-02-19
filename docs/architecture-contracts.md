@@ -35,7 +35,7 @@ Each command must include:
 
 ## Layer 4: Main Orchestration
 
-The primary orchestrator is `hf-core-agent`, with mode-aware behavior controlled by policy files.
+The primary orchestrator is `hf-core-agent`, with profile-aware behavior controlled by runtime settings.
 
 ## Typed Runtime Contracts
 
@@ -50,7 +50,7 @@ The framework enforces typed contracts in `src/contracts/index.ts` for:
 - Background job queue contracts (`BackgroundTaskStore`, `BackgroundTaskJob`)
 - MCP integration contracts (`McpIntegrations`, `McpProviderId`)
 
-These contracts are used by CLI operations (`framework doctor`, `framework task-status`, `framework task-resume`) and routing/lifecycle internals.
+These contracts are used by runtime diagnostics/lifecycle APIs and routing/lifecycle internals.
 
 ## Asset Governance Contracts
 

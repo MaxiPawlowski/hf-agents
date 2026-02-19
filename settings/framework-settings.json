@@ -1,0 +1,5 @@
+{
+  "profile": "light",
+  "contextStrategy": "minimal",
+  "enableTaskArtifacts": false
+}

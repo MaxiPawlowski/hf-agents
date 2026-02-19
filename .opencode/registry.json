@@ -5,7 +5,7 @@
       "id": "agent-core",
       "type": "agent",
       "path": ".opencode/agents/core-agent.md",
-      "dependsOn": ["agent-context-scout", "agent-external-docs-scout", "agent-task-planner", "agent-coder", "agent-reviewer", "skill-core-delegation"]
+      "dependsOn": ["agent-context-scout", "agent-external-docs-scout", "agent-task-planner", "agent-coder", "agent-reviewer", "skill-core-delegation", "skill-bounded-parallel-scouting", "context-policy-contract"]
     },
     {
       "id": "agent-task-manager",
@@ -71,13 +71,13 @@
       "id": "command-verify",
       "type": "command",
       "path": ".opencode/commands/verify.md",
-      "dependsOn": ["skill-verification-before-completion", "agent-reviewer"]
+      "dependsOn": ["skill-verification-before-completion", "agent-reviewer", "context-verification-evidence-schema", "context-policy-contract"]
     },
     {
       "id": "command-finish",
       "type": "command",
       "path": ".opencode/commands/finish.md",
-      "dependsOn": ["command-verify"]
+      "dependsOn": ["command-verify", "context-verification-evidence-schema", "context-policy-contract"]
     },
     {
       "id": "command-setup",
@@ -101,7 +101,7 @@
       "id": "command-plan-feature",
       "type": "command",
       "path": ".opencode/commands/plan-feature.md",
-      "dependsOn": ["agent-task-planner", "agent-task-manager"]
+      "dependsOn": ["agent-task-planner", "agent-task-manager", "context-policy-contract"]
     },
     {
       "id": "command-help",
@@ -152,6 +152,12 @@
       "dependsOn": []
     },
     {
+      "id": "skill-bounded-parallel-scouting",
+      "type": "skill",
+      "path": ".opencode/skills/bounded-parallel-scouting/SKILL.md",
+      "dependsOn": ["agent-context-scout", "agent-external-docs-scout"]
+    },
+    {
       "id": "skill-test-driven-development",
       "type": "skill",
       "path": ".opencode/skills/test-driven-development/SKILL.md",
@@ -192,6 +198,24 @@
       "type": "context",
       "path": ".opencode/context/project/runtime-preferences.md",
       "dependsOn": ["context-navigation"]
+    },
+    {
+      "id": "context-policy-contract",
+      "type": "context",
+      "path": ".opencode/context/project/policy-contract.md",
+      "dependsOn": ["context-runtime-preferences"]
+    },
+    {
+      "id": "context-verification-evidence-schema",
+      "type": "context",
+      "path": ".opencode/context/project/verification-evidence-schema.md",
+      "dependsOn": ["context-policy-contract"]
+    },
+    {
+      "id": "context-subagent-handoff-template",
+      "type": "context",
+      "path": ".opencode/context/project/subagent-handoff-template.md",
+      "dependsOn": ["context-policy-contract"]
     },
     {
       "id": "context-technical-domain",

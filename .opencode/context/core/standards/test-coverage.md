@@ -1,6 +1,6 @@
 # Test Coverage Standard
 
-## Policy-aware defaults
+## Profile-aware defaults
 
 - fast: tests optional unless user asks.
 - balanced: run targeted verification for changed behavior.

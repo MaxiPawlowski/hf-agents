@@ -1,15 +1,21 @@
-# Policies
+# Runtime Settings
 
-## fast
+Profiles are resolved by runtime settings, not CLI modes.
 
-- Max autonomy
+Default local settings file:
+
+- `settings/framework-settings.json`
+
+## light
+
+- Max autonomy with minimal context
 - No approval gates
 - Worktrees off by default
 - Git management off by default
 - Tests optional/manual
 - Verification optional
 - Code review optional
-- Task artifacts enabled
+- Task artifacts disabled by default
 - Hook runtime config via `hookRuntime` (per-hook enable/settings)
 
 ## balanced

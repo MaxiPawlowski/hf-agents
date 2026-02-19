@@ -1,4 +1,4 @@
-import { codePatchSchema, policySchema, executionPlanSchema, type CodePatch } from "../contracts/index.js";
+import { codePatchSchema, runtimeSettingsSchema, executionPlanSchema, type CodePatch } from "../contracts/index.js";
 
 function inferFilesFromPlan(plan: { contextFiles: string[]; objective: string }): string[] {
   if (plan.contextFiles.length > 0) {
@@ -6,8 +6,8 @@ function inferFilesFromPlan(plan: { contextFiles: string[]; objective: string })
   }
 
   const normalized = plan.objective.toLowerCase();
-  if (normalized.includes("policy")) {
-    return ["policies/fast.yaml", "policies/balanced.yaml", "policies/strict.yaml"];
+  if (normalized.includes("settings") || normalized.includes("profile")) {
+    return ["settings/framework-settings.json", "src/settings/runtime-settings.ts"];
   }
   if (normalized.includes("docs") || normalized.includes("documentation")) {
     return ["README.md", "docs/architecture.md"];
@@ -15,16 +15,16 @@ function inferFilesFromPlan(plan: { contextFiles: string[]; objective: string })
   return ["src/orchestrator/core-agent.ts"];
 }
 
-export function runCoder(planInput: unknown, policyInput: unknown): CodePatch {
+export function runCoder(planInput: unknown, settingsInput: unknown): CodePatch {
   const plan = executionPlanSchema.parse(planInput);
-  const policy = policySchema.parse(policyInput);
+  const settings = runtimeSettingsSchema.parse(settingsInput);
   const filesTouched = inferFilesFromPlan({ contextFiles: plan.contextFiles, objective: plan.objective });
   const validationNotes = [
-    policy.requireVerification
+    settings.requireVerification
       ? "Verification evidence required before completion."
-      : "Verification is optional in current policy mode.",
-    policy.requireTests
-      ? "Tests are required by policy but are not auto-executed by Coder stage."
+      : "Verification is optional in current settings profile.",
+    settings.requireTests
+      ? "Tests are required by settings but are not auto-executed by Coder stage."
       : "Tests are optional unless explicitly requested."
   ];
 
@@ -34,8 +34,8 @@ export function runCoder(planInput: unknown, policyInput: unknown): CodePatch {
     filesTouched,
     validationNotes,
     safeguards: {
-      usedWorktrees: policy.useWorktreesByDefault,
-      managedGit: policy.manageGitByDefault,
+      usedWorktrees: settings.useWorktreesByDefault,
+      managedGit: settings.manageGitByDefault,
       autoTestsRun: false
     }
   };

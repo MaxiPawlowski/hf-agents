@@ -10,6 +10,9 @@ Use this file to quickly route context loading.
 - Project patterns: `@.opencode/context/project-intelligence/technical-domain.md`
 - External inspiration profile: `@.opencode/context/project-intelligence/external-inspirations.md`
 - Runtime behavior defaults: `@.opencode/context/project/runtime-preferences.md`
+- Canonical runtime policy: `@.opencode/context/project/policy-contract.md`
+- Verification schema: `@.opencode/context/project/verification-evidence-schema.md`
+- Subagent handoff bundle: `@.opencode/context/project/subagent-handoff-template.md`
 
 ## Loading guidance
 

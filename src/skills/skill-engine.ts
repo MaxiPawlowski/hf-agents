@@ -1,4 +1,4 @@
-import type { PolicyMode, Skill } from "../contracts/index.js";
+import type { SettingsProfile, Skill } from "../contracts/index.js";
 
 const CORE_SKILLS: Skill[] = [
   {
@@ -27,6 +27,11 @@ const CORE_SKILLS: Skill[] = [
     triggerHints: ["done", "complete", "fixed"]
   },
   {
+    id: "hf-bounded-parallel-scouting",
+    strictIn: [],
+    triggerHints: ["discover", "context", "scout"]
+  },
+  {
     id: "hf-task-management",
     strictIn: [],
     triggerHints: ["task", "dependency", "subtask"]
@@ -47,7 +52,7 @@ export function listSkills(): Skill[] {
   return CORE_SKILLS;
 }
 
-export function shouldEnforceSkill(skillId: string, mode: PolicyMode): boolean {
+export function shouldEnforceSkill(skillId: string, mode: SettingsProfile): boolean {
   const skill = CORE_SKILLS.find((entry) => entry.id === skillId);
   if (!skill) return false;
   return skill.strictIn.includes(mode);
@@ -62,6 +67,6 @@ export function suggestSkills(input: string): string[] {
   return Array.from(new Set(matched));
 }
 
-export function requiredSkillsForMode(mode: PolicyMode): string[] {
+export function requiredSkillsForMode(mode: SettingsProfile): string[] {
   return CORE_SKILLS.filter((skill) => skill.strictIn.includes(mode)).map((skill) => skill.id);
 }

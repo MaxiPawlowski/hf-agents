@@ -1,12 +1,14 @@
 ---
 name: hf-run-core-delegation
-description: Run the default mode-aware delegation path for implementation tasks.
-argument-hint: <task description> [--mode=<fast|balanced|strict>]
+description: Run the default profile-aware delegation path for implementation tasks.
+argument-hint: <task description> [--profile=<fast|balanced|strict>] [--task-loop=on|off]
 ---
 
 ## Purpose
 
 Route implementation work through the default delegation pipeline with deterministic stage outputs.
+
+Policy source of truth: `@.opencode/context/project/policy-contract.md`
 
 ## Preconditions
 
@@ -17,14 +19,26 @@ Route implementation work through the default delegation pipeline with determini
 ## Execution Contract
 
 1. `ContextScout` loads minimal relevant local context; call `ExternalDocsScout` when needed.
-2. `TaskPlanner` creates scoped implementation plan and identifies risks.
-3. `Coder` executes plan with minimal, scope-correct changes.
-4. `Reviewer` validates in two passes: spec-fit, then quality/risk.
+2. If routing thresholds are met, call `TaskManager`; otherwise continue direct path.
+3. `TaskPlanner` creates scoped implementation plan and identifies risks.
+4. `Coder` executes plan with minimal, scope-correct changes.
+5. `Reviewer` validates in two passes: spec-fit, then quality/risk.
 
-Mode behavior:
+Use `@.opencode/context/project/subagent-handoff-template.md` for all delegated handoffs.
+
+Profile behavior:
 - `fast`: no mandatory test gate; flag missing verification as risk.
 - `balanced`: require explicit verification evidence before completion recommendation.
 - `strict`: require verification evidence plus test/build/type checks before completion recommendation.
+
+Execution flavors:
+- `fast`: bounded parallel scouting allowed.
+- `governed-balanced`: explicit reviewer/evidence required.
+- `compliance-strict`: strict verification artifacts required.
+
+Optional task loop (v2):
+- `--task-loop=on` enables lifecycle checkpoint updates in `.tmp/task-lifecycle.json` after each major stage.
+- `--task-loop=off` keeps orchestration stateless (default for speed).
 
 Defaults:
 - No worktrees unless explicitly requested.
@@ -36,6 +50,7 @@ Defaults:
 - `Implementation Status`: completed/in-progress/blocked with evidence.
 - `Review Findings`: must-fix items, non-blocking risks, open questions.
 - `Next Action`: specific recommended next command.
+- `Readiness`: `ready|not-ready (<profile>)`
 
 ## Failure Contract
 

@@ -4,11 +4,11 @@ This catalog documents framework command intent and common usage. Source command
 
 ## Core Flow
 
-1. `hf-setup` - verify command/context/policy prerequisites.
+1. `hf-setup` - verify command/context/settings prerequisites.
 2. `hf-brainstorm` - clarify approach when requirements are ambiguous.
 3. `hf-plan-feature` - create dependency-aware implementation plan.
 4. `hf-run-core-delegation` - implement via delegated workflow.
-5. `hf-verify` - run mode-aware verification checks.
+5. `hf-verify` - run profile-aware verification checks.
 6. `hf-finish` - produce completion recommendation.
 
 ## Command Groups
@@ -23,7 +23,6 @@ This catalog documents framework command intent and common usage. Source command
 - Operations:
   - `hf-add-context`
   - `hf-status`
-  - lifecycle helpers: `task-status`, `task-resume`, `task-next`, `task-blocked`, `task-complete`, `task-block`
   - `hf-setup`
   - `hf-cleanup`
   - `hf-help`

@@ -4,7 +4,7 @@ A markdown-first OpenCode framework that combines:
 - OAC-style orchestration, governance, and context discipline
 - Superpowers-style skill workflows and delegation patterns
 
-The system is designed for fast autonomous execution with mode-aware quality gates and clear operational contracts.
+The system is designed for fast autonomous execution with settings-driven quality gates and clear operational contracts.
 
 ## What This Includes
 
@@ -26,8 +26,11 @@ The system is designed for fast autonomous execution with mode-aware quality gat
 - No mandatory tests by default (manual validation acceptable)
 - No approval-gate blocking by default
 
-Policy modes:
-- `fast`: speed-first, lightweight verification
+Canonical runtime policy contract:
+- `.opencode/context/project/policy-contract.md`
+
+Settings profiles:
+- `light`: speed-first, minimal context, lightweight verification
 - `balanced`: verification + explicit review
 - `strict`: tests/build/type checks + verification + explicit review
 
@@ -52,33 +55,23 @@ npm run build
 npm run test  # optional unless mode/user requires tests
 ```
 
-Check framework runtime profile:
+Use runtime settings API:
 
 ```bash
-node dist/cli/index.js doctor
-node dist/cli/index.js doctor --json
+npm run build
 ```
 
-`doctor` runs policy, registry, command-contract, skill artifact, and optional artifact checks. Text output is passed through hook runtime guards; `--json` returns the structured diagnostics payload directly.
+Diagnostics run through `generateDiagnosticsReport()` and can be formatted with `formatDiagnosticsReport()`.
 
-## CLI Commands
+## Library API
 
-`framework ...` commands are operational/runtime helpers (diagnostics and lifecycle).
-Slash commands are markdown contracts under `.opencode/commands/*.md` and use the `hf-*` names.
+This project now ships as a library-first runtime.
 
-- `framework agents`
-- `framework skills`
-- `framework policy --mode fast`
-- `framework run --intent "implement feature" --mode fast`
-- `framework task-bundle --intent "implement feature"`
-- `framework doctor`
-- `framework doctor --json`
-- `framework task-status [--feature <feature-id>] [--json]`
-- `framework task-resume --feature <feature-id> [--mark-in-progress] [--json]`
-- `framework task-next --feature <feature-id> [--json]`
-- `framework task-blocked --feature <feature-id> [--json]`
-- `framework task-complete --feature <feature-id> --seq <NN>`
-- `framework task-block --feature <feature-id> --seq <NN> --reason "<text>"`
+- `runTask(task, settings)`
+- `resolveRuntimeSettings(overrides)`
+- `loadRuntimeSettings(path?)`
+- `generateDiagnosticsReport(repoRoot?)`
+- `formatDiagnosticsReport(report)`
 
 ## Validation and Operations
 
@@ -95,14 +88,7 @@ Individual validators:
 - `npm run validate:context-refs`
 - `npm run validate:command-contracts`
 
-Task lifecycle commands:
-
-- `framework task-status` lists tracked lifecycle entries
-- `framework task-status --feature <feature-id>` prints subtask state for one feature
-- `framework task-resume --feature <feature-id>` suggests next ready subtask and runtime notes
-- `framework task-next --feature <feature-id>` prints the next dependency-ready subtask
-- `framework task-blocked --feature <feature-id>` lists blocked subtasks with reasons
-- `framework task-complete --feature <feature-id> --seq <NN>` enforces dependency checks before completion
+Task lifecycle helpers are exposed in `src/tasks/task-lifecycle.ts`.
 
 Safe install/update with collision handling:
 
@@ -155,6 +141,7 @@ Current command contracts in `.opencode/commands/`:
 - `hf-systematic-debugging`
 - `hf-verification-before-completion`
 - `hf-dispatching-parallel-agents`
+- `hf-bounded-parallel-scouting`
 - `hf-test-driven-development` (optional by default)
 - `hf-task-management`
 - `hf-core-delegation`
@@ -170,7 +157,7 @@ Current command contracts in `.opencode/commands/`:
 ## Notes
 
 - This repo is markdown-first: behavior should primarily be authored in `.opencode/**/*.md`.
-- TypeScript runtime/CLI provides a thin execution and validation scaffold around those markdown contracts.
-- Delegation routing is category-based when policy `delegationProfiles` is present, with deterministic heuristic fallback when no valid profile match is available.
+- TypeScript runtime provides a thin execution and validation scaffold around those markdown contracts.
+- Delegation routing is category-based when settings `delegationProfiles` is present, with deterministic heuristic fallback when no valid profile match is available.
 - Hook runtime appends markdown-first context notes, output truncation summaries, and resume-stage continuation reminders.
-- Hook runtime is now config-driven (`policy.hookRuntime`) with per-hook enable/disable and settings.
+- Hook runtime is config-driven (`settings.hookRuntime`) with per-hook enable/disable and settings.
