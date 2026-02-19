@@ -20,8 +20,10 @@ Return:
 - Version assumptions
 - Recommended API usage patterns
 - Known pitfalls and compatibility notes
+- Source links for each recommendation
 
 ## Constraints
 
 - No code edits
 - No git operations
+- Keep recommendations aligned with runtime defaults (no implicit git/worktrees/tests).

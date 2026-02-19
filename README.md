@@ -49,7 +49,7 @@ Policy modes:
 ```bash
 npm install
 npm run build
-npm run test
+npm run test  # optional unless mode/user requires tests
 ```
 
 Check framework runtime profile:
@@ -99,6 +99,7 @@ Current command contracts in `.opencode/commands/`:
 
 - `setup`
 - `help`
+- `brainstorm`
 - `plan-feature`
 - `run-core-delegation`
 - `write-plan`

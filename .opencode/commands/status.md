@@ -18,7 +18,8 @@ Provide a fast health snapshot to identify missing pieces before execution.
 1. Report command, agent, and skill availability.
 2. Report active policy mode and key gates.
 3. If feature is provided, run task status check via hf-task-management routing.
-4. Surface warnings with highest-risk-first ordering.
+4. Report workflow phase readiness (discovery/planning/implementation/review).
+5. Surface warnings with highest-risk-first ordering.
 
 ## Required Output
 

@@ -16,9 +16,10 @@ Route implementation work through the default delegation pipeline with determini
 
 ## Execution Contract
 
-1. `TaskPlanner` creates scoped implementation plan and identifies risks.
-2. `Coder` executes plan with minimal, scope-correct changes.
-3. `Reviewer` validates fit, quality, and unresolved risks.
+1. `ContextScout` loads minimal relevant local context; call `ExternalDocsScout` when needed.
+2. `TaskPlanner` creates scoped implementation plan and identifies risks.
+3. `Coder` executes plan with minimal, scope-correct changes.
+4. `Reviewer` validates in two passes: spec-fit, then quality/risk.
 
 Mode behavior:
 - `fast`: no mandatory test gate; flag missing verification as risk.

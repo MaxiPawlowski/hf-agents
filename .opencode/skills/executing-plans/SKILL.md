@@ -12,9 +12,10 @@ Execute approved plans in bounded batches while preserving policy-mode quality r
 ## Flow
 
 1. Load the plan and identify dependencies.
-2. Execute the next small batch (default 2-3 tasks).
-3. Verify according to policy mode.
-4. Report outcomes and blockers.
+2. Select the next batch of ready tasks (default 2-3 tasks).
+3. Run independent tasks in parallel when they do not share edited files.
+4. Verify according to policy mode.
+5. Report outcomes, blockers, and next ready set.
 
 ## Verification by mode
 
@@ -25,6 +26,7 @@ Execute approved plans in bounded batches while preserving policy-mode quality r
 ## Output
 
 - Completed tasks
+- Parallelized tasks (if any)
 - Verification evidence
 - Open blockers
 - Recommended next batch

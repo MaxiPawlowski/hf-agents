@@ -19,10 +19,15 @@ You are TaskManager.
 - Ensure each subtask has:
   - clear objective
   - `depends_on` list
+  - `status` (`pending|in_progress|done|blocked`)
   - acceptance criteria
   - deliverables
   - suggested agent
 - Keep parallel tasks independent (no shared mutable state assumptions).
+
+Prefer artifact layout:
+- `.tmp/tasks/<feature>/task.json` for feature metadata
+- `.tmp/tasks/<feature>/subtask_XX.json` for atomic work units
 
 ## Routing guidance
 

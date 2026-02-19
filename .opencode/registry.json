@@ -5,7 +5,7 @@
       "id": "agent-core",
       "type": "agent",
       "path": ".opencode/agents/core-agent.md",
-      "dependsOn": ["agent-task-planner", "agent-coder", "agent-reviewer", "skill-core-delegation"]
+      "dependsOn": ["agent-context-scout", "agent-external-docs-scout", "agent-task-planner", "agent-coder", "agent-reviewer", "skill-core-delegation"]
     },
     {
       "id": "agent-task-manager",
@@ -54,6 +54,12 @@
       "type": "agent",
       "path": ".opencode/agents/build-validator.md",
       "dependsOn": []
+    },
+    {
+      "id": "command-brainstorm",
+      "type": "command",
+      "path": ".opencode/commands/brainstorm.md",
+      "dependsOn": ["skill-brainstorming"]
     },
     {
       "id": "command-run-core-delegation",
@@ -122,6 +128,12 @@
       "dependsOn": ["skill-task-management"]
     },
     {
+      "id": "skill-brainstorming",
+      "type": "skill",
+      "path": ".opencode/skills/brainstorming/SKILL.md",
+      "dependsOn": []
+    },
+    {
       "id": "skill-core-delegation",
       "type": "skill",
       "path": ".opencode/skills/core-delegation/SKILL.md",
@@ -143,6 +155,54 @@
       "id": "skill-verification-before-completion",
       "type": "skill",
       "path": ".opencode/skills/verification-before-completion/SKILL.md",
+      "dependsOn": []
+    },
+    {
+      "id": "skill-subagent-driven-development",
+      "type": "skill",
+      "path": ".opencode/skills/subagent-driven-development/SKILL.md",
+      "dependsOn": ["agent-task-planner", "agent-coder", "agent-reviewer"]
+    },
+    {
+      "id": "skill-systematic-debugging",
+      "type": "skill",
+      "path": ".opencode/skills/systematic-debugging/SKILL.md",
+      "dependsOn": []
+    },
+    {
+      "id": "skill-dispatching-parallel-agents",
+      "type": "skill",
+      "path": ".opencode/skills/dispatching-parallel-agents/SKILL.md",
+      "dependsOn": []
+    },
+    {
+      "id": "skill-test-driven-development",
+      "type": "skill",
+      "path": ".opencode/skills/test-driven-development/SKILL.md",
+      "dependsOn": []
+    },
+    {
+      "id": "skill-requesting-code-review",
+      "type": "skill",
+      "path": ".opencode/skills/requesting-code-review/SKILL.md",
+      "dependsOn": ["agent-reviewer"]
+    },
+    {
+      "id": "skill-receiving-code-review",
+      "type": "skill",
+      "path": ".opencode/skills/receiving-code-review/SKILL.md",
+      "dependsOn": []
+    },
+    {
+      "id": "skill-finishing-a-development-branch",
+      "type": "skill",
+      "path": ".opencode/skills/finishing-a-development-branch/SKILL.md",
+      "dependsOn": ["command-verify"]
+    },
+    {
+      "id": "skill-using-git-worktrees",
+      "type": "skill",
+      "path": ".opencode/skills/using-git-worktrees/SKILL.md",
       "dependsOn": []
     },
     {
@@ -179,6 +239,12 @@
       "id": "context-runtime-preferences",
       "type": "context",
       "path": ".opencode/context/project/runtime-preferences.md",
+      "dependsOn": ["context-navigation"]
+    },
+    {
+      "id": "context-external-inspirations",
+      "type": "context",
+      "path": ".opencode/context/project-intelligence/external-inspirations.md",
       "dependsOn": ["context-navigation"]
     }
   ]

@@ -10,10 +10,12 @@ Required behaviors:
 - require verification evidence before completion claims
 - require explicit review signoff
 - require tests/build checks when policy requires them
+- require context discovery before implementation planning
 
 Routing remains:
-1. TaskPlanner
-2. Coder
-3. Reviewer
+1. ContextScout (and ExternalDocsScout when needed)
+2. TaskPlanner
+3. Coder
+4. Reviewer
 
 Escalate unresolved risks explicitly.

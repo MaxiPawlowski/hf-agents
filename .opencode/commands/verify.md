@@ -24,6 +24,7 @@ Mode checks:
 Evidence rules:
 - Checks requiring evidence must include concrete output or file references.
 - Missing required evidence in `balanced`/`strict` is an automatic no-go.
+- In `fast`, missing optional evidence is allowed only with explicit risk disclosure.
 
 ## Required Output
 

@@ -21,7 +21,7 @@ Provide quick command discovery and route users to the correct next action.
 ## Required Output
 
 - `Command Catalog`: grouped command list with one-line intent.
-- `Workflow`: common sequence (hf-setup -> hf-plan-feature -> hf-run-core-delegation -> hf-verify -> hf-finish).
+- `Workflow`: common sequence (hf-setup -> hf-brainstorm -> hf-plan-feature -> hf-run-core-delegation -> hf-verify -> hf-finish).
 - `Mode Guidance`: when to use each policy mode.
 - `Examples`: two to three concise command examples.
 

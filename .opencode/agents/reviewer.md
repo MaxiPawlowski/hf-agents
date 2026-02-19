@@ -15,7 +15,11 @@ You are Reviewer.
 
 ## Review checklist
 
+Pass 1 (spec-fit):
 - Scope correctness
+- No unrequested behavior
+
+Pass 2 (quality/policy):
 - Policy compliance (tests/verification/review requirements)
 - Risk disclosure quality
 - Task artifact consistency when present

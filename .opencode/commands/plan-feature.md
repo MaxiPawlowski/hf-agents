@@ -17,9 +17,10 @@ Convert a feature request into a deterministic implementation plan with atomic s
 ## Execution Contract
 
 1. Use `TaskPlanner` to produce scope, constraints, and acceptance criteria.
-2. Use `TaskManager` to split work into dependency-aware subtasks.
-3. Generate task artifacts under `.tmp/tasks/<feature>/` when task artifact flow is enabled.
-4. Return execution phases that respect dependencies and identify parallelizable work.
+2. For context-heavy or external-library tasks, call `ContextScout` and optional `ExternalDocsScout` first.
+3. Use `TaskManager` to split work into dependency-aware subtasks.
+4. Generate task artifacts under `.tmp/tasks/<feature>/` when task artifact flow is enabled.
+5. Return execution phases that respect dependencies and identify parallelizable work.
 
 ## Required Output
 
