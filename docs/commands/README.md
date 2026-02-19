@@ -1,6 +1,6 @@
 # Command Catalog
 
-This catalog documents framework command intent and common usage. Source command definitions live in `hybrid-framework/.opencode/commands/`.
+This catalog documents framework command intent and common usage. Source command definitions live in `.opencode/commands/`.
 
 ## Core Flow
 
@@ -23,6 +23,9 @@ This catalog documents framework command intent and common usage. Source command
 - Operations:
   - `hf-add-context`
   - `hf-status`
+  - lifecycle helpers: `task-status`, `task-resume`, `task-next`, `task-blocked`, `task-complete`, `task-block`
+  - research helpers: `mcp-search` (providers: `tavily`, `gh-grep`)
+  - background runtime: `background-enqueue`, `background-dispatch`, `background-status`
   - `hf-setup`
   - `hf-cleanup`
   - `hf-help`

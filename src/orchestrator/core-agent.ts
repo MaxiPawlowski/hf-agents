@@ -1,15 +1,18 @@
 import { policySchema, taskSchema } from "../contracts/index.js";
 import type { z } from "zod";
-import { routeTask } from "../router/delegation-router.js";
+import { routeTaskDetailed } from "../router/delegation-router.js";
 import { requiredSkillsForMode, shouldEnforceSkill, suggestSkills } from "../skills/skill-engine.js";
 import { executeCoreDelegationPath } from "../delegation/execute-core-path.js";
 import type { CoreDelegationResult } from "../contracts/index.js";
 import type { TaskBundle } from "../contracts/index.js";
 import { createTaskBundle } from "../tasks/task-bundle.js";
+import { loadDelegationProfiles, loadMcpIntegrations } from "../policies/policy-loader.js";
 
 export type OrchestrationResult = {
   taskId: string;
   assignedSubagent: string;
+  routingSource: "profile" | "heuristic";
+  matchedCategory?: string;
   suggestedSkills: string[];
   enforcedSkills: string[];
   requiresApproval: boolean;
@@ -28,10 +31,21 @@ export async function runTask(taskInput: TaskInput, policyInput: PolicyInput): P
   const task = taskSchema.parse(taskInput);
   const policy = policySchema.parse(policyInput);
 
-  const assignedSubagent = routeTask(task.intent);
+  const delegationProfiles = loadDelegationProfiles(policy);
+  const mcp = loadMcpIntegrations(policy);
+  const routeDecision = routeTaskDetailed({
+    intent: task.intent,
+    category: task.category,
+    profiles: delegationProfiles
+  });
+  const assignedSubagent = routeDecision.assignedSubagent;
+  const profileSkills = routeDecision.matchedCategory
+    ? delegationProfiles[routeDecision.matchedCategory]?.requiredSkills ?? []
+    : [];
   const suggestedSkills = suggestSkills(task.intent);
   const enforcedSkills = Array.from(
     new Set([
+      ...profileSkills,
       ...suggestedSkills.filter((skill) => shouldEnforceSkill(skill, policy.mode)),
       ...requiredSkillsForMode(policy.mode)
     ])
@@ -55,6 +69,12 @@ export async function runTask(taskInput: TaskInput, policyInput: PolicyInput): P
   if (policy.requireCodeReview) {
     notes.push("Policy requires explicit review before closing tasks.");
   }
+  if (mcp.tavily.enabled) {
+    notes.push("Tavily MCP search is available for context and planning workflows.");
+  }
+  if (mcp.ghGrep.enabled) {
+    notes.push("gh-grep MCP search is available for repository pattern discovery.");
+  }
 
   let executionPath: OrchestrationResult["executionPath"];
   let taskBundle: OrchestrationResult["taskBundle"];
@@ -77,6 +97,8 @@ export async function runTask(taskInput: TaskInput, policyInput: PolicyInput): P
   return {
     taskId: task.id,
     assignedSubagent,
+    routingSource: routeDecision.source,
+    matchedCategory: routeDecision.matchedCategory,
     suggestedSkills,
     enforcedSkills,
     requiresApproval: policy.requireApprovalGates,

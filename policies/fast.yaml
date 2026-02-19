@@ -6,3 +6,44 @@ requireApprovalGates: false
 requireVerification: false
 requireCodeReview: false
 enableTaskArtifacts: true
+backgroundTask:
+  defaultConcurrency: 2
+  staleTimeoutMs: 180000
+hookRuntime:
+  enabled: true
+  hooks:
+    context-injection-note:
+      enabled: true
+      note: Using markdown-first context and contracts.
+    output-truncation-guard:
+      enabled: true
+      maxOutputChars: 12000
+    completion-continuation-reminder:
+      enabled: true
+      note: Continue from the next ready subtask and preserve dependency order.
+mcp:
+  tavily:
+    enabled: true
+    maxResults: 5
+  ghGrep:
+    enabled: true
+    maxResults: 10
+delegationProfiles:
+  feature:
+    preferredSubagent: TaskManager
+  planning:
+    preferredSubagent: TaskPlanner
+  context:
+    preferredSubagent: ContextScout
+  validation:
+    preferredSubagent: Tester
+  review:
+    preferredSubagent: Reviewer
+  build:
+    preferredSubagent: BuildValidator
+  docs:
+    preferredSubagent: ExternalDocsScout
+  completion:
+    preferredSubagent: Reviewer
+  implementation:
+    preferredSubagent: Coder

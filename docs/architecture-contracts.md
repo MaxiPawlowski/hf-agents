@@ -9,6 +9,7 @@ Atomic operations with deterministic output:
 - `scripts/validation/validate-registry.mjs`
 - `scripts/validation/check-dependencies.mjs`
 - `scripts/validation/validate-context-refs.mjs`
+- `scripts/validation/lint-command-contracts.mjs`
 - `scripts/install/install-opencode-assets.mjs`
 - `evals/command-agent/transcript-token-harness.mjs`
 
@@ -36,6 +37,21 @@ Each command must include:
 
 The primary orchestrator is `hf-core-agent`, with mode-aware behavior controlled by policy files.
 
+## Typed Runtime Contracts
+
+The framework enforces typed contracts in `src/contracts/index.ts` for:
+
+- Diagnostics report output (`DiagnosticsReport`, `DiagnosticsItem`)
+- Markdown command contract lint findings (`MarkdownContractLintResult`)
+- Task lifecycle persistence (`TaskLifecycleStore`, `TaskLifecycleState`)
+- Delegation category profiles (`DelegationCategoryProfiles`)
+- Hook runtime context/result structures (`HookRuntimeContext`, `HookRuntimeResult`)
+- Hook registry/config structures (`HookRuntimeConfig`, `HookSettings`)
+- Background job queue contracts (`BackgroundTaskStore`, `BackgroundTaskJob`)
+- MCP integration contracts (`McpIntegrations`, `McpProviderId`)
+
+These contracts are used by CLI operations (`framework doctor`, `framework task-status`, `framework task-resume`) and routing/lifecycle internals.
+
 ## Asset Governance Contracts
 
 ### Registry Contract
@@ -57,3 +73,18 @@ When using `@` context references in markdown, use:
 `@.opencode/context/path/to/file.md`
 
 This keeps references transformable for local/global installation.
+
+### Command Markdown Contract
+
+Every markdown command in `.opencode/commands/*.md` must contain:
+
+- YAML frontmatter
+- `## Purpose`
+- `## Preconditions`
+- `## Execution Contract`
+- `## Required Output`
+- `## Failure Contract`
+
+Validation command:
+
+`npm run validate:command-contracts`

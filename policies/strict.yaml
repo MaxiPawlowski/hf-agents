@@ -6,3 +6,48 @@ requireApprovalGates: true
 requireVerification: true
 requireCodeReview: true
 enableTaskArtifacts: true
+backgroundTask:
+  defaultConcurrency: 1
+  staleTimeoutMs: 180000
+hookRuntime:
+  enabled: true
+  hooks:
+    context-injection-note:
+      enabled: true
+      note: Using markdown-first context and contracts.
+    output-truncation-guard:
+      enabled: true
+      maxOutputChars: 8000
+    completion-continuation-reminder:
+      enabled: true
+      note: Continue from the next ready subtask and preserve dependency order.
+mcp:
+  tavily:
+    enabled: true
+    maxResults: 10
+  ghGrep:
+    enabled: true
+    maxResults: 15
+delegationProfiles:
+  feature:
+    preferredSubagent: TaskManager
+    requiredSkills: [hf-task-management]
+  planning:
+    preferredSubagent: TaskPlanner
+  context:
+    preferredSubagent: ContextScout
+  validation:
+    preferredSubagent: Tester
+    requiredSkills: [hf-test-driven-development, hf-verification-before-completion]
+  review:
+    preferredSubagent: Reviewer
+    requiredSkills: [hf-requesting-code-review]
+  build:
+    preferredSubagent: BuildValidator
+  docs:
+    preferredSubagent: ExternalDocsScout
+  completion:
+    preferredSubagent: Reviewer
+    requiredSkills: [hf-finishing-a-development-branch]
+  implementation:
+    preferredSubagent: Coder

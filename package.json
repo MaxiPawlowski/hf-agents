@@ -15,8 +15,11 @@
     "validate:registry": "node scripts/validation/validate-registry.mjs",
     "validate:deps": "node scripts/validation/check-dependencies.mjs",
     "validate:context-refs": "node scripts/validation/validate-context-refs.mjs",
-    "validate:assets": "npm run validate:registry && npm run validate:deps && npm run validate:context-refs",
+    "validate:command-contracts": "node scripts/validation/lint-command-contracts.mjs",
+    "validate:assets": "npm run validate:registry && npm run validate:deps && npm run validate:context-refs && npm run validate:command-contracts",
     "install:opencode": "node scripts/install/install-opencode-assets.mjs",
+    "install:opencode:copy": "node scripts/install/install-opencode-assets.mjs --mode copy",
+    "uninstall:opencode": "node scripts/install/uninstall-opencode-assets.mjs",
     "eval:transcript": "node evals/command-agent/transcript-token-harness.mjs --fixture evals/command-agent/fixtures/sample-run.jsonl"
   },
   "dependencies": {

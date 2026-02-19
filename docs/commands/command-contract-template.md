@@ -33,5 +33,5 @@ argument-hint: <args>
 
 Notes:
 - Keep command files concise and deterministic.
-- Move long walkthroughs and examples to `hybrid-framework/docs/commands/README.md`.
+- Move long walkthroughs and examples to `docs/commands/README.md`.
 - Never hide failure states; always return explicit blockers and next actions.

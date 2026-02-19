@@ -56,7 +56,10 @@ Check framework runtime profile:
 
 ```bash
 node dist/cli/index.js doctor
+node dist/cli/index.js doctor --json
 ```
+
+`doctor` runs policy, registry, command-contract, skill artifact, and optional artifact checks. Text output is passed through hook runtime guards; `--json` returns the structured diagnostics payload directly.
 
 ## CLI Commands
 
@@ -66,6 +69,17 @@ node dist/cli/index.js doctor
 - `framework run --intent "implement feature" --mode fast`
 - `framework task-bundle --intent "implement feature"`
 - `framework doctor`
+- `framework doctor --json`
+- `framework task-status [--feature <feature-id>] [--json]`
+- `framework task-resume --feature <feature-id> [--mark-in-progress] [--json]`
+- `framework task-next --feature <feature-id> [--json]`
+- `framework task-blocked --feature <feature-id> [--json]`
+- `framework task-complete --feature <feature-id> --seq <NN>`
+- `framework task-block --feature <feature-id> --seq <NN> --reason "<text>"`
+- `framework mcp-search --provider tavily|gh-grep --query "<query>" [--feature <feature-id>]`
+- `framework background-enqueue --kind run-task|mcp-search ...`
+- `framework background-dispatch --mode fast`
+- `framework background-status [--job <job-id>]`
 
 ## Validation and Operations
 
@@ -80,11 +94,62 @@ Individual validators:
 - `npm run validate:registry`
 - `npm run validate:deps`
 - `npm run validate:context-refs`
+- `npm run validate:command-contracts`
+
+Task lifecycle commands:
+
+- `framework task-status` lists tracked lifecycle entries
+- `framework task-status --feature <feature-id>` prints subtask state for one feature
+- `framework task-resume --feature <feature-id>` suggests next ready subtask and runtime notes
+- `framework task-next --feature <feature-id>` prints the next dependency-ready subtask
+- `framework task-blocked --feature <feature-id>` lists blocked subtasks with reasons
+- `framework task-complete --feature <feature-id> --seq <NN>` enforces dependency checks before completion
+
+MCP research workflow:
+
+- `framework mcp-search --provider tavily --query "topic" --feature <feature-id>`
+- `framework mcp-search --provider gh-grep --query "useState(" --feature <feature-id>`
+- Results can be attached to lifecycle `researchLog` for traceable context.
+
+MCP provider setup:
+
+- Tavily live search supports either `TAVILY_API_KEY` or `TAVILY_MCP_URL` (with `tavilyApiKey` query param).
+- gh-grep live search uses `https://grep.app/api/search` and does not require a key.
+- If Tavily key is missing, CLI returns a clear summary and zero Tavily items.
+
+Background runtime workflow:
+
+- `framework background-enqueue ...` queues async jobs.
+- `framework background-dispatch` executes queued jobs up to policy concurrency limits.
+- `framework background-status` lists job states and completed payloads.
 
 Safe install/update with collision handling:
 
 ```bash
 node scripts/install/install-opencode-assets.mjs --target .opencode.local --collision backup --dry-run
+node scripts/install/install-opencode-assets.mjs --target .opencode.local --collision backup --open-env
+```
+
+Installer notes:
+
+- Seeds `<target>/.env` with Tavily placeholders if the file does not exist.
+- Use `--open-env` to open `<target>/.env` in your default editor after install.
+- Default mode is `symlink` (linked install).
+- Use `--mode copy` if you want standalone copied files instead.
+
+Superpowers-style global install flow:
+
+```bash
+git clone <your-repo-url> ~/.config/opencode/hybrid-framework
+cd ~/.config/opencode/hybrid-framework
+node scripts/install/install-opencode-assets.mjs --target ~/.config/opencode --mode symlink --collision backup --open-env
+```
+
+Uninstall from a target:
+
+```bash
+node scripts/install/uninstall-opencode-assets.mjs --target ~/.config/opencode --dry-run
+node scripts/install/uninstall-opencode-assets.mjs --target ~/.config/opencode
 ```
 
 Transcript token analysis:
@@ -139,3 +204,7 @@ Current command contracts in `.opencode/commands/`:
 
 - This repo is markdown-first: behavior should primarily be authored in `.opencode/**/*.md`.
 - TypeScript runtime/CLI provides a thin execution and validation scaffold around those markdown contracts.
+- Delegation routing is category-based when policy `delegationProfiles` is present, with deterministic heuristic fallback when no valid profile match is available.
+- Hook runtime appends markdown-first context notes, output truncation summaries, and resume-stage continuation reminders.
+- Hook runtime is now config-driven (`policy.hookRuntime`) with per-hook enable/disable and settings.
+- Policy includes `backgroundTask` concurrency/timeouts and MCP integration toggles (`mcp.tavily`, `mcp.ghGrep`).

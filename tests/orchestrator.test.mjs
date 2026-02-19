@@ -24,6 +24,8 @@ test("runTask routes complex feature intents to TaskManager with task artifacts"
   );
 
   assert.equal(result.assignedSubagent, "TaskManager");
+  assert.equal(result.routingSource, "heuristic");
+  assert.equal(result.matchedCategory, "feature");
   assert.ok(result.taskBundle);
   assert.ok(result.notes.some((note) => note.includes("hf-verification-before-completion")));
 });
@@ -50,5 +52,7 @@ test("runTask includes enforced skills under strict policy", async () => {
 
   assert.ok(result.enforcedSkills.includes("hf-test-driven-development"));
   assert.ok(result.enforcedSkills.includes("hf-finishing-a-development-branch"));
+  assert.equal(result.routingSource, "heuristic");
+  assert.equal(result.matchedCategory, "implementation");
   assert.equal(result.requiresApproval, true);
 });
