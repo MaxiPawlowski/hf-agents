@@ -5,17 +5,17 @@ This catalog documents framework command intent and common usage. Source command
 ## Core Flow
 
 1. `hf-setup` - verify command/context/policy prerequisites.
-2. `hf-plan-feature` or `hf-write-plan` - create implementation plan.
-3. `hf-run-core-delegation` or `hf-execute-plan` - implement via delegated workflow.
-4. `hf-verify` - run mode-aware verification checks.
-5. `hf-finish` - produce completion recommendation.
+2. `hf-brainstorm` - clarify approach when requirements are ambiguous.
+3. `hf-plan-feature` - create dependency-aware implementation plan.
+4. `hf-run-core-delegation` - implement via delegated workflow.
+5. `hf-verify` - run mode-aware verification checks.
+6. `hf-finish` - produce completion recommendation.
 
 ## Command Groups
 
 - Planning:
+  - `hf-brainstorm`
   - `hf-plan-feature`
-  - `hf-write-plan`
-  - `hf-execute-plan`
 - Execution and completion:
   - `hf-run-core-delegation`
   - `hf-verify`
@@ -24,8 +24,6 @@ This catalog documents framework command intent and common usage. Source command
   - `hf-add-context`
   - `hf-status`
   - lifecycle helpers: `task-status`, `task-resume`, `task-next`, `task-blocked`, `task-complete`, `task-block`
-  - research helpers: `mcp-search` (providers: `tavily`, `gh-grep`)
-  - background runtime: `background-enqueue`, `background-dispatch`, `background-status`
   - `hf-setup`
   - `hf-cleanup`
   - `hf-help`

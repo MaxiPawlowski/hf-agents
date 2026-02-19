@@ -1,6 +1,6 @@
 ---
 name: hf-core-delegation
-description: Use when implementing coding tasks that should run through TaskPlanner -> Coder -> Reviewer without approval-gate blocking.
+description: Use when implementing coding tasks that should run through TaskPlanner -> Coder -> Reviewer with mode-aware gates.
 ---
 
 # Core Delegation
@@ -12,8 +12,8 @@ Use this skill for the default implementation workflow in this repository.
 ## Execution chain
 
 0. ContextScout identifies minimum relevant local context.
-1. TaskManager (for complex work) generates dependency-aware task artifacts.
-2. TaskPlanner produces concise implementation steps.
+1. TaskPlanner produces concise implementation steps.
+2. TaskManager (for complex work) generates dependency-aware task artifacts.
 3. Coder implements only the scoped changes.
 4. Reviewer validates scope fit and quality.
 
@@ -46,12 +46,6 @@ Default safety:
 - no implicit git operations
 - no implicit worktree creation
 - no mandatory tests unless mode/user requires them
-
-## Project Defaults
-
-- No worktrees unless user explicitly requests them.
-- No git management unless user explicitly requests it.
-- No mandatory tests; user validates manually by default.
 
 ## Red flags
 

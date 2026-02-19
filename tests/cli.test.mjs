@@ -64,7 +64,6 @@ function createLifecycleFixture() {
             updatedAt: "2026-02-19T00:00:00.000Z"
           }
         ],
-        researchLog: [],
         createdAt: "2026-02-19T00:00:00.000Z",
         updatedAt: "2026-02-19T00:00:00.000Z"
       }
@@ -153,69 +152,4 @@ test("task-complete enforces dependency checks", () => {
   const passComplete = runCli(["task-complete", "--feature", "feature-alpha", "--seq", "02"], fixtureRoot);
   assert.equal(passComplete.status, 0, passComplete.stderr);
   assert.match(passComplete.stdout, /Updated subtask 02 to completed/);
-});
-
-test("mcp-search can attach research to lifecycle", () => {
-  const fixtureRoot = createLifecycleFixture();
-  const result = runCli(
-    ["mcp-search", "--provider", "tavily", "--query", "react suspense patterns", "--feature", "feature-alpha", "--json"],
-    fixtureRoot
-  );
-  assert.equal(result.status, 0, result.stderr);
-  const payload = JSON.parse(result.stdout);
-  assert.equal(payload.provider, "tavily");
-  assert.ok(Array.isArray(payload.items));
-
-  const storePath = path.join(fixtureRoot, ".tmp", "task-lifecycle.json");
-  const lifecycleStore = JSON.parse(readFileSync(storePath, "utf8"));
-  const currentTask = lifecycleStore.tasks.find((task) => task.featureId === "feature-alpha");
-  assert.equal(currentTask.researchLog.length, 1);
-  assert.equal(currentTask.researchLog[0].provider, "tavily");
-});
-
-test("background queue supports enqueue dispatch and status", () => {
-  const fixtureRoot = createLifecycleFixture();
-  const enqueue = runCli(
-    ["background-enqueue", "--kind", "mcp-search", "--provider", "gh-grep", "--query", "useState(", "--feature", "feature-alpha"],
-    fixtureRoot
-  );
-  assert.equal(enqueue.status, 0, enqueue.stderr);
-  const queuedJob = JSON.parse(enqueue.stdout);
-  assert.equal(queuedJob.status, "queued");
-
-  const dispatch = runCli(["background-dispatch", "--mode", "fast"], fixtureRoot);
-  assert.equal(dispatch.status, 0, dispatch.stderr);
-  const dispatchPayload = JSON.parse(dispatch.stdout);
-  assert.equal(dispatchPayload.dispatched, 1);
-
-  const status = runCli(["background-status", "--job", queuedJob.id], fixtureRoot);
-  assert.equal(status.status, 0, status.stderr);
-  const completedJob = JSON.parse(status.stdout);
-  assert.equal(completedJob.status, "completed");
-});
-
-test("background-enqueue rejects invalid kinds", () => {
-  const fixtureRoot = createLifecycleFixture();
-  const invalid = runCli(["background-enqueue", "--kind", "invalid-kind"], fixtureRoot);
-  assert.equal(invalid.status, 1);
-  assert.match(invalid.stderr, /Invalid --kind/);
-});
-
-test("background mcp job fails when lifecycle feature is missing", () => {
-  const fixtureRoot = createLifecycleFixture();
-  const enqueue = runCli(
-    ["background-enqueue", "--kind", "mcp-search", "--provider", "tavily", "--query", "routing", "--feature", "missing-feature"],
-    fixtureRoot
-  );
-  assert.equal(enqueue.status, 0, enqueue.stderr);
-  const queuedJob = JSON.parse(enqueue.stdout);
-
-  const dispatch = runCli(["background-dispatch"], fixtureRoot);
-  assert.equal(dispatch.status, 0, dispatch.stderr);
-
-  const status = runCli(["background-status", "--job", queuedJob.id], fixtureRoot);
-  assert.equal(status.status, 0, status.stderr);
-  const failedJob = JSON.parse(status.stdout);
-  assert.equal(failedJob.status, "failed");
-  assert.match(failedJob.error, /Task not found/);
 });

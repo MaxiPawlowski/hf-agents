@@ -45,7 +45,7 @@ test("routeTaskDetailed infers category and routes via profile", () => {
     profiles: {
       review: {
         preferredSubagent: "Reviewer",
-        requiredSkills: ["hf-requesting-code-review"],
+        requiredSkills: ["hf-verification-before-completion"],
         notes: []
       }
     }

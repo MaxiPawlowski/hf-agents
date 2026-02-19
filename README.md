@@ -63,6 +63,9 @@ node dist/cli/index.js doctor --json
 
 ## CLI Commands
 
+`framework ...` commands are operational/runtime helpers (diagnostics and lifecycle).
+Slash commands are markdown contracts under `.opencode/commands/*.md` and use the `hf-*` names.
+
 - `framework agents`
 - `framework skills`
 - `framework policy --mode fast`
@@ -76,10 +79,6 @@ node dist/cli/index.js doctor --json
 - `framework task-blocked --feature <feature-id> [--json]`
 - `framework task-complete --feature <feature-id> --seq <NN>`
 - `framework task-block --feature <feature-id> --seq <NN> --reason "<text>"`
-- `framework mcp-search --provider tavily|gh-grep --query "<query>" [--feature <feature-id>]`
-- `framework background-enqueue --kind run-task|mcp-search ...`
-- `framework background-dispatch --mode fast`
-- `framework background-status [--job <job-id>]`
 
 ## Validation and Operations
 
@@ -104,24 +103,6 @@ Task lifecycle commands:
 - `framework task-next --feature <feature-id>` prints the next dependency-ready subtask
 - `framework task-blocked --feature <feature-id>` lists blocked subtasks with reasons
 - `framework task-complete --feature <feature-id> --seq <NN>` enforces dependency checks before completion
-
-MCP research workflow:
-
-- `framework mcp-search --provider tavily --query "topic" --feature <feature-id>`
-- `framework mcp-search --provider gh-grep --query "useState(" --feature <feature-id>`
-- Results can be attached to lifecycle `researchLog` for traceable context.
-
-MCP provider setup:
-
-- Tavily live search supports either `TAVILY_API_KEY` or `TAVILY_MCP_URL` (with `tavilyApiKey` query param).
-- gh-grep live search uses `https://grep.app/api/search` and does not require a key.
-- If Tavily key is missing, CLI returns a clear summary and zero Tavily items.
-
-Background runtime workflow:
-
-- `framework background-enqueue ...` queues async jobs.
-- `framework background-dispatch` executes queued jobs up to policy concurrency limits.
-- `framework background-status` lists job states and completed payloads.
 
 Safe install/update with collision handling:
 
@@ -152,12 +133,6 @@ node scripts/install/uninstall-opencode-assets.mjs --target ~/.config/opencode -
 node scripts/install/uninstall-opencode-assets.mjs --target ~/.config/opencode
 ```
 
-Transcript token analysis:
-
-```bash
-npm run eval:transcript
-```
-
 ## Command Set
 
 Current command contracts in `.opencode/commands/`:
@@ -167,8 +142,6 @@ Current command contracts in `.opencode/commands/`:
 - `brainstorm`
 - `plan-feature`
 - `run-core-delegation`
-- `write-plan`
-- `execute-plan`
 - `verify`
 - `finish`
 - `add-context`
@@ -178,17 +151,11 @@ Current command contracts in `.opencode/commands/`:
 ## Core Skills
 
 - `hf-brainstorming`
-- `hf-writing-plans`
 - `hf-subagent-driven-development`
 - `hf-systematic-debugging`
 - `hf-verification-before-completion`
 - `hf-dispatching-parallel-agents`
 - `hf-test-driven-development` (optional by default)
-- `hf-executing-plans`
-- `hf-requesting-code-review`
-- `hf-receiving-code-review`
-- `hf-finishing-a-development-branch`
-- `hf-using-git-worktrees` (opt-in)
 - `hf-task-management`
 - `hf-core-delegation`
 
@@ -207,4 +174,3 @@ Current command contracts in `.opencode/commands/`:
 - Delegation routing is category-based when policy `delegationProfiles` is present, with deterministic heuristic fallback when no valid profile match is available.
 - Hook runtime appends markdown-first context notes, output truncation summaries, and resume-stage continuation reminders.
 - Hook runtime is now config-driven (`policy.hookRuntime`) with per-hook enable/disable and settings.
-- Policy includes `backgroundTask` concurrency/timeouts and MCP integration toggles (`mcp.tavily`, `mcp.ghGrep`).

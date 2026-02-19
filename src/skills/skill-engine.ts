@@ -3,8 +3,13 @@ import type { PolicyMode, Skill } from "../contracts/index.js";
 const CORE_SKILLS: Skill[] = [
   {
     id: "hf-brainstorming",
-    strictIn: ["balanced", "strict"],
+    strictIn: [],
     triggerHints: ["design", "approach", "architecture"]
+  },
+  {
+    id: "hf-subagent-driven-development",
+    strictIn: [],
+    triggerHints: ["delegate", "subagent", "workflow"]
   },
   {
     id: "hf-test-driven-development",
@@ -13,7 +18,7 @@ const CORE_SKILLS: Skill[] = [
   },
   {
     id: "hf-systematic-debugging",
-    strictIn: ["balanced", "strict"],
+    strictIn: [],
     triggerHints: ["bug", "failure", "unexpected"]
   },
   {
@@ -22,39 +27,19 @@ const CORE_SKILLS: Skill[] = [
     triggerHints: ["done", "complete", "fixed"]
   },
   {
-    id: "hf-executing-plans",
-    strictIn: ["balanced", "strict"],
-    triggerHints: ["implement", "execute", "plan"]
-  },
-  {
-    id: "hf-requesting-code-review",
-    strictIn: ["balanced", "strict"],
-    triggerHints: ["review", "quality", "complete"]
-  },
-  {
-    id: "hf-receiving-code-review",
-    strictIn: ["balanced", "strict"],
-    triggerHints: ["feedback", "review"]
-  },
-  {
-    id: "hf-finishing-a-development-branch",
-    strictIn: ["strict"],
-    triggerHints: ["finish", "merge", "pr"]
-  },
-  {
-    id: "hf-using-git-worktrees",
-    strictIn: ["strict"],
-    triggerHints: ["worktree", "isolate"]
-  },
-  {
     id: "hf-task-management",
-    strictIn: ["fast", "balanced", "strict"],
+    strictIn: [],
     triggerHints: ["task", "dependency", "subtask"]
   },
   {
     id: "hf-dispatching-parallel-agents",
-    strictIn: ["fast", "balanced", "strict"],
+    strictIn: [],
     triggerHints: ["parallel", "independent", "batch"]
+  },
+  {
+    id: "hf-core-delegation",
+    strictIn: [],
+    triggerHints: ["core delegation", "delegation path"]
   }
 ];
 

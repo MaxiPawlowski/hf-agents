@@ -10,9 +10,7 @@
 - Verification optional
 - Code review optional
 - Task artifacts enabled
-- Background concurrency/timeouts configured via `backgroundTask`
 - Hook runtime config via `hookRuntime` (per-hook enable/settings)
-- MCP integrations for Exa and gh-grep via `mcp`
 
 ## balanced
 
@@ -22,9 +20,7 @@
 - Verification required before completion
 - Explicit review required before completion
 - Task artifacts enabled
-- Background concurrency/timeouts configured via `backgroundTask`
 - Hook runtime config via `hookRuntime` (per-hook enable/settings)
-- MCP integrations for Exa and gh-grep via `mcp`
 
 ## strict
 
@@ -35,9 +31,7 @@
 - Verification required
 - Explicit review required
 - Task artifacts enabled
-- Background concurrency/timeouts configured via `backgroundTask`
 - Hook runtime config via `hookRuntime` (per-hook enable/settings)
-- MCP integrations for Exa and gh-grep via `mcp`
 
 ## Why these defaults
 

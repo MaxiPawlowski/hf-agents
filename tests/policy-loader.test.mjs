@@ -5,10 +5,8 @@ import path from "node:path";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 
 import {
-  loadBackgroundTaskConfig,
   loadDelegationProfiles,
   loadHookRuntimeConfig,
-  loadMcpIntegrations,
   loadPolicy,
   policyFileForMode
 } from "../dist/src/policies/policy-loader.js";
@@ -25,12 +23,6 @@ test("policy loader parses delegationProfiles and default requiredSkills", () =>
   assert.equal(hooks.enabled, true);
   assert.equal(hooks.hooks["output-truncation-guard"].maxOutputChars, 12000);
 
-  const background = loadBackgroundTaskConfig(policy);
-  assert.equal(background.defaultConcurrency, 2);
-
-  const mcp = loadMcpIntegrations(policy);
-  assert.equal(mcp.tavily.enabled, true);
-  assert.equal(mcp.ghGrep.maxResults, 10);
 });
 
 test("policy loader rejects unknown delegation profile categories", () => {

@@ -5,7 +5,6 @@ import path from "node:path";
 import { mkdtempSync } from "node:fs";
 
 import {
-  addTaskResearchEntry,
   buildTaskResume,
   setTaskSubtaskStatusValidated,
   upsertTaskLifecycle
@@ -79,25 +78,10 @@ test("validated lifecycle status mutation enforces dependencies", () => {
   assert.equal(goodComplete.ok, true);
 });
 
-test("task lifecycle research entries integrate with resume", () => {
+test("task resume returns next dependency-ready subtask", () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "lifecycle-research-"));
   const storePath = path.join(root, "task-lifecycle.json");
   upsertTaskLifecycle(createBundle(), storePath);
-
-  const added = addTaskResearchEntry(
-    "feature-lifecycle",
-    {
-      provider: "tavily",
-      query: "async queue design",
-      summary: "Research references collected",
-      links: ["https://tavily.com/search?q=async+queue+design"]
-    },
-    storePath
-  );
-  assert.equal(added.ok, true);
-  if (added.ok) {
-    assert.equal(added.task.researchLog.length, 1);
-  }
 
   const resume = buildTaskResume("feature-lifecycle", storePath);
   assert.ok(resume);

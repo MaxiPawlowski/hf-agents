@@ -15,7 +15,7 @@ This project borrows proven workflow ideas from:
 
 - Discovery-first routing: resolve local context before implementation.
 - Thin command wrappers: keep command contracts short, move execution detail into skills.
-- Dependency-aware task artifacts: use `.tmp/tasks/<feature>/` for deterministic delegation.
+- Dependency-aware task artifacts: use `.tmp/task-lifecycle.json` for deterministic delegation.
 - Batch execution: run independent tasks in parallel, then checkpoint before next batch.
 - Two-pass review: check scope/spec-fit first, then quality/risk.
 - MVI context usage: load minimal context needed for the active task.

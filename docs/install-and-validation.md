@@ -27,7 +27,7 @@ node scripts/install/install-opencode-assets.mjs --target .opencode.local --coll
 
 Default install mode is `symlink`.
 
-The installer also seeds a `.env` file in the target directory if missing, with Tavily placeholders.
+The installer also seeds a `.env` file in the target directory if missing.
 
 Open that `.env` file automatically with your default editor:
 
@@ -93,23 +93,4 @@ framework task-resume --feature <feature-id>
 framework task-next --feature <feature-id>
 framework task-blocked --feature <feature-id>
 framework task-complete --feature <feature-id> --seq <NN>
-framework mcp-search --provider tavily --query "react patterns" --feature <feature-id>
-framework background-enqueue --kind mcp-search --provider gh-grep --query "useEffect(" --feature <feature-id>
-framework background-dispatch --mode fast
-framework background-status
-```
-
-## MCP Credentials and Live Search
-
-- Tavily provider reads `TAVILY_API_KEY` or `TAVILY_MCP_URL` (`tavilyApiKey` query param) from environment.
-- gh-grep provider uses public grep.app API and works without credentials.
-
-PowerShell example:
-
-```powershell
-$env:TAVILY_API_KEY="your_tavily_key"
-# or
-$env:TAVILY_MCP_URL="https://mcp.tavily.com/mcp/?tavilyApiKey=<your_tavily_key>"
-framework mcp-search --provider tavily --query "agent routing"
-framework mcp-search --provider gh-grep --query "useState(" --feature <feature-id>
 ```

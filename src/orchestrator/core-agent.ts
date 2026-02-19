@@ -6,7 +6,13 @@ import { executeCoreDelegationPath } from "../delegation/execute-core-path.js";
 import type { CoreDelegationResult } from "../contracts/index.js";
 import type { TaskBundle } from "../contracts/index.js";
 import { createTaskBundle } from "../tasks/task-bundle.js";
-import { loadDelegationProfiles, loadMcpIntegrations } from "../policies/policy-loader.js";
+import { runTaskManager, summarizeTaskManagerBundle } from "../subagents/task-manager.js";
+import { loadDelegationProfiles } from "../policies/policy-loader.js";
+import { runContextScout } from "../subagents/context-scout.js";
+import { runTaskPlanner } from "../subagents/task-planner.js";
+import { runCoder } from "../subagents/coder.js";
+import { runReviewer } from "../subagents/reviewer.js";
+import { coreDelegationResultSchema } from "../contracts/index.js";
 
 export type OrchestrationResult = {
   taskId: string;
@@ -19,7 +25,7 @@ export type OrchestrationResult = {
   notes: string[];
   taskBundle?: TaskBundle;
   executionPath?: {
-    stages: ["TaskPlanner", "Coder", "Reviewer"];
+    stages: string[];
     result: CoreDelegationResult;
   };
 };
@@ -32,7 +38,6 @@ export async function runTask(taskInput: TaskInput, policyInput: PolicyInput): P
   const policy = policySchema.parse(policyInput);
 
   const delegationProfiles = loadDelegationProfiles(policy);
-  const mcp = loadMcpIntegrations(policy);
   const routeDecision = routeTaskDetailed({
     intent: task.intent,
     category: task.category,
@@ -69,29 +74,41 @@ export async function runTask(taskInput: TaskInput, policyInput: PolicyInput): P
   if (policy.requireCodeReview) {
     notes.push("Policy requires explicit review before closing tasks.");
   }
-  if (mcp.tavily.enabled) {
-    notes.push("Tavily MCP search is available for context and planning workflows.");
-  }
-  if (mcp.ghGrep.enabled) {
-    notes.push("gh-grep MCP search is available for repository pattern discovery.");
-  }
-
   let executionPath: OrchestrationResult["executionPath"];
   let taskBundle: OrchestrationResult["taskBundle"];
-
-  if (policy.enableTaskArtifacts && (assignedSubagent === "TaskManager" || assignedSubagent === "Coder")) {
-    taskBundle = createTaskBundle(task);
-  }
 
   if (assignedSubagent === "Coder") {
     const result = executeCoreDelegationPath(task, policy);
     if (policy.enableTaskArtifacts) {
       taskBundle = createTaskBundle(task, result.plan);
+      const bundleSummary = summarizeTaskManagerBundle(taskBundle);
+      notes.push(
+        `Task artifacts prepared (${bundleSummary.subtaskCount} subtasks, ${bundleSummary.parallelizable} parallelizable).`
+      );
     }
     executionPath = {
-      stages: ["TaskPlanner", "Coder", "Reviewer"],
+      stages: ["ContextScout", "TaskPlanner", "Coder", "Reviewer"],
       result
     };
+  } else if (assignedSubagent === "TaskManager") {
+    const context = runContextScout(task);
+    const plan = runTaskPlanner(task, context);
+    if (policy.enableTaskArtifacts) {
+      taskBundle = runTaskManager(task, plan);
+      const bundleSummary = summarizeTaskManagerBundle(taskBundle);
+      notes.push(
+        `Task artifacts prepared (${bundleSummary.subtaskCount} subtasks, ${bundleSummary.parallelizable} parallelizable).`
+      );
+    }
+    const patch = runCoder(plan, policy);
+    const review = runReviewer(plan, patch, policy);
+    const result: CoreDelegationResult = coreDelegationResultSchema.parse({ context, plan, patch, review });
+    executionPath = {
+      stages: ["ContextScout", "TaskPlanner", "TaskManager", "Coder", "Reviewer"],
+      result
+    };
+  } else if (policy.enableTaskArtifacts) {
+    taskBundle = createTaskBundle(task);
   }
 
   return {

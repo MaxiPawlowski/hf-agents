@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
@@ -9,7 +10,6 @@ import { loadPolicy, policyFileForMode } from "../src/policies/policy-loader.js"
 import { runTask } from "../src/orchestrator/core-agent.js";
 import { createTaskBundle } from "../src/tasks/task-bundle.js";
 import {
-  addTaskResearchEntry,
   buildTaskResume,
   getNextReadySubtask,
   getTaskLifecycle,
@@ -20,17 +20,8 @@ import {
 } from "../src/tasks/task-lifecycle.js";
 import { formatDiagnosticsReport, generateDiagnosticsReport } from "../src/diagnostics/report.js";
 import { runHookRuntime } from "../src/hooks/runtime.js";
-import {
-  enqueueBackgroundTask,
-  executeBackgroundTask,
-  getBackgroundTask,
-  listBackgroundTasks,
-  listDispatchableTasks,
-  markStaleTasks
-} from "../src/background/runtime.js";
-import { runMcpSearch } from "../src/mcp/providers.js";
 import { delegationCategorySchema, policyModeSchema } from "../src/contracts/index.js";
-import { loadHookRuntimeConfig, loadMcpIntegrations } from "../src/policies/policy-loader.js";
+import { loadHookRuntimeConfig } from "../src/policies/policy-loader.js";
 
 const program = new Command();
 
@@ -85,7 +76,7 @@ program
     const mode = policyModeSchema.parse(options.mode);
     const category = options.category ? delegationCategorySchema.parse(options.category) : undefined;
     const task = {
-      id: `task-${Date.now()}`,
+      id: `task-${randomUUID()}`,
       intent: options.intent,
       category,
       constraints: [],
@@ -134,7 +125,7 @@ program
   .requiredOption("-i, --intent <intent>", "Task intent")
   .action((options: { intent: string }) => {
     const task = {
-      id: `task-${Date.now()}`,
+      id: `task-${randomUUID()}`,
       intent: options.intent,
       constraints: [],
       successCriteria: []
@@ -329,165 +320,6 @@ program
       return;
     }
     console.log(mutation.message);
-  });
-
-program
-  .command("mcp-search")
-  .description("Run MCP research via tavily or gh-grep")
-  .requiredOption("-p, --provider <provider>", "Provider: tavily|gh-grep")
-  .requiredOption("-q, --query <query>", "Search query")
-  .option("-m, --mode <mode>", "Policy mode", "fast")
-  .option("-f, --feature <featureId>", "Attach result to task lifecycle research log")
-  .option("--json", "Output as JSON", false)
-  .action(async (options: { provider: string; query: string; mode: string; feature?: string; json?: boolean }) => {
-    const mode = policyModeSchema.parse(options.mode);
-    const policy = loadPolicy(policyPathForMode(mode));
-    const integrations = loadMcpIntegrations(policy);
-    const result = await runMcpSearch(options.provider, options.query, integrations);
-
-    if (options.feature) {
-      const mutation = addTaskResearchEntry(options.feature, {
-        provider: result.provider,
-        query: result.query,
-        summary: result.summary,
-        links: result.items.map((item) => item.locator)
-      });
-      if (!mutation.ok) {
-        console.error(mutation.message);
-        process.exitCode = 1;
-        return;
-      }
-    }
-
-    if (options.json) {
-      console.log(JSON.stringify(result, null, 2));
-      return;
-    }
-
-    console.log(result.summary);
-    for (const item of result.items) {
-      console.log(`- ${item.title}: ${item.locator}`);
-    }
-  });
-
-program
-  .command("background-enqueue")
-  .description("Queue a background task run or mcp search")
-  .requiredOption("-k, --kind <kind>", "Kind: run-task|mcp-search")
-  .option("-i, --intent <intent>", "Task intent for run-task")
-  .option("-c, --category <category>", "Task category for run-task")
-  .option("-p, --provider <provider>", "MCP provider for mcp-search")
-  .option("-q, --query <query>", "Query for mcp-search")
-  .option("-f, --feature <featureId>", "Feature id for lifecycle integration")
-  .option("-m, --mode <mode>", "Policy mode", "fast")
-  .action((options: {
-    kind: string;
-    intent?: string;
-    category?: string;
-    provider?: string;
-    query?: string;
-    feature?: string;
-    mode: string;
-  }) => {
-    const mode = policyModeSchema.parse(options.mode);
-    if (options.kind !== "run-task" && options.kind !== "mcp-search") {
-      console.error("Invalid --kind. Expected run-task or mcp-search.");
-      process.exitCode = 1;
-      return;
-    }
-    if (options.kind === "run-task" && !options.intent) {
-      console.error("run-task requires --intent");
-      process.exitCode = 1;
-      return;
-    }
-    if (options.kind === "mcp-search" && (!options.provider || !options.query)) {
-      console.error("mcp-search requires --provider and --query");
-      process.exitCode = 1;
-      return;
-    }
-
-    const payload =
-      options.kind === "run-task"
-        ? {
-            kind: "run-task" as const,
-            mode,
-            task: {
-              id: `task-${Date.now()}`,
-              intent: options.intent as string,
-              category: options.category ? delegationCategorySchema.parse(options.category) : undefined,
-              constraints: [],
-              successCriteria: []
-            }
-          }
-        : {
-            kind: "mcp-search" as const,
-            mode,
-            mcpProvider: options.provider,
-            query: options.query,
-            featureId: options.feature
-          };
-
-    const job = enqueueBackgroundTask(payload);
-    console.log(JSON.stringify(job, null, 2));
-  });
-
-program
-  .command("background-dispatch")
-  .description("Dispatch queued background jobs based on concurrency limits")
-  .option("-m, --mode <mode>", "Policy mode", "fast")
-  .action(async (options: { mode: string }) => {
-    const mode = policyModeSchema.parse(options.mode);
-    const policy = loadPolicy(policyPathForMode(mode));
-    const stale = markStaleTasks(policy);
-    const dispatchable = listDispatchableTasks(policy);
-    if (dispatchable.length === 0) {
-      console.log(JSON.stringify({ staleMarked: stale, dispatched: 0 }, null, 2));
-      return;
-    }
-
-    const completed = await Promise.all(dispatchable.map((job) => executeBackgroundTask(job.id, policy)));
-    console.log(
-      JSON.stringify(
-        {
-          staleMarked: stale,
-          dispatched: completed.length,
-          jobIds: completed.map((job) => job.id)
-        },
-        null,
-        2
-      )
-    );
-  });
-
-program
-  .command("background-status")
-  .description("List background jobs or fetch one job")
-  .option("-j, --job <jobId>", "Background job id")
-  .option("--json", "Output as JSON", false)
-  .action((options: { job?: string; json?: boolean }) => {
-    if (options.job) {
-      const job = getBackgroundTask(options.job);
-      if (!job) {
-        console.error(`Background job not found: ${options.job}`);
-        process.exitCode = 1;
-        return;
-      }
-      console.log(JSON.stringify(job, null, 2));
-      return;
-    }
-
-    const jobs = listBackgroundTasks();
-    if (options.json) {
-      console.log(JSON.stringify(jobs, null, 2));
-      return;
-    }
-    if (jobs.length === 0) {
-      console.log("No background jobs.");
-      return;
-    }
-    for (const job of jobs) {
-      console.log(`${job.id} [${job.status}] ${job.payload.kind}`);
-    }
   });
 
 program.parse();

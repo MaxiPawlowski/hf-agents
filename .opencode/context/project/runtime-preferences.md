@@ -28,7 +28,6 @@ This project is OpenCode-configured and markdown-first.
 Prefer these markdown skills for normal operation:
 
 - hf-brainstorming
-- hf-writing-plans
 - hf-subagent-driven-development
 - hf-systematic-debugging
 - hf-verification-before-completion

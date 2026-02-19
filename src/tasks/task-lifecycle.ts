@@ -1,14 +1,12 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import {
-  taskResearchEntrySchema,
   taskLifecycleStateSchema,
   taskLifecycleStoreSchema,
   type TaskBundle,
   type TaskLifecycleState,
   type TaskLifecycleStore,
-  type TaskLifecycleSubtask,
-  type TaskResearchEntry
+  type TaskLifecycleSubtask
 } from "../contracts/index.js";
 
 const DEFAULT_STORAGE_PATH = path.join(".tmp", "task-lifecycle.json");
@@ -90,7 +88,6 @@ function toLifecycleState(bundle: TaskBundle): TaskLifecycleState {
     referenceFiles: bundle.referenceFiles,
     exitCriteria: bundle.exitCriteria,
     subtasks,
-    researchLog: [],
     createdAt: timestamp,
     updatedAt: timestamp
   });
@@ -300,43 +297,4 @@ export function listBlockedSubtasks(
       subtask,
       reason: subtask.blockedReason ?? "No reason recorded."
     }));
-}
-
-export function addTaskResearchEntry(
-  featureId: string,
-  entryInput: Omit<TaskResearchEntry, "createdAt" | "id">,
-  storagePath?: string
-): LifecycleMutationResult {
-  const store = readTaskLifecycleStore(storagePath);
-  const task = store.tasks.find((entry) => entry.featureId === featureId);
-  if (!task) {
-    return { ok: false, message: `Task not found: ${featureId}` };
-  }
-
-  const timestamp = nowIso();
-  const entry = taskResearchEntrySchema.parse({
-    ...entryInput,
-    id: `research-${Date.now()}`,
-    createdAt: timestamp
-  });
-
-  const updated = taskLifecycleStateSchema.parse({
-    ...task,
-    researchLog: [...task.researchLog, entry],
-    updatedAt: timestamp
-  });
-
-  writeTaskLifecycleStore(
-    {
-      ...store,
-      tasks: store.tasks.map((entryTask) => (entryTask.featureId === featureId ? updated : entryTask))
-    },
-    storagePath
-  );
-
-  return {
-    ok: true,
-    task: updated,
-    message: `Recorded ${entry.provider} research for ${featureId}.`
-  };
 }

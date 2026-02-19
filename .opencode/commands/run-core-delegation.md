@@ -33,7 +33,7 @@ Defaults:
 ## Required Output
 
 - `Plan`: scoped steps, touched areas, key assumptions.
-- `Implementation Status`: done/in-progress/blocked with evidence.
+- `Implementation Status`: completed/in-progress/blocked with evidence.
 - `Review Findings`: must-fix items, non-blocking risks, open questions.
 - `Next Action`: specific recommended next command.
 

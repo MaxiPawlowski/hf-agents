@@ -35,7 +35,7 @@ function parseArgs(argv) {
   return args;
 }
 
-const ENV_TEMPLATE = `# OpenCode environment overrides\n# Loaded by plugins/framework-bootstrap.js when present.\n\n# Tavily API key (recommended)\nTAVILY_API_KEY=\n\n# Optional alternative form:\n# TAVILY_MCP_URL=https://mcp.tavily.com/mcp/?tavilyApiKey=your_tavily_key\n`;
+const ENV_TEMPLATE = `# OpenCode environment overrides\n# Loaded by plugins/framework-bootstrap.js when present.\n`;
 
 function listFilesRecursive(rootPath, base = rootPath, output = []) {
   const entries = fs.readdirSync(rootPath, { withFileTypes: true });

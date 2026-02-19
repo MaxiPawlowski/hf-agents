@@ -6,9 +6,6 @@ requireApprovalGates: true
 requireVerification: true
 requireCodeReview: true
 enableTaskArtifacts: true
-backgroundTask:
-  defaultConcurrency: 1
-  staleTimeoutMs: 180000
 hookRuntime:
   enabled: true
   hooks:
@@ -21,13 +18,6 @@ hookRuntime:
     completion-continuation-reminder:
       enabled: true
       note: Continue from the next ready subtask and preserve dependency order.
-mcp:
-  tavily:
-    enabled: true
-    maxResults: 10
-  ghGrep:
-    enabled: true
-    maxResults: 15
 delegationProfiles:
   feature:
     preferredSubagent: TaskManager
@@ -41,13 +31,13 @@ delegationProfiles:
     requiredSkills: [hf-test-driven-development, hf-verification-before-completion]
   review:
     preferredSubagent: Reviewer
-    requiredSkills: [hf-requesting-code-review]
+    requiredSkills: [hf-verification-before-completion]
   build:
     preferredSubagent: BuildValidator
   docs:
     preferredSubagent: ExternalDocsScout
   completion:
     preferredSubagent: Reviewer
-    requiredSkills: [hf-finishing-a-development-branch]
+    requiredSkills: [hf-verification-before-completion]
   implementation:
     preferredSubagent: Coder

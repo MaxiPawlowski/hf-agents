@@ -22,7 +22,7 @@ Use this ordered core path for implementation:
 2. Coder
 3. Reviewer
 
-When complexity is high (multi-file, multi-stage, or dependency-heavy), route to TaskManager first to generate task artifacts.
+When complexity is high (multi-file, multi-stage, or dependency-heavy), route through TaskManager before Coder to generate task artifacts.
 
 ## Routing policy
 
@@ -47,22 +47,8 @@ For cross-cutting requests, start with ContextScout before planning.
 ## Skill strategy
 
 Always consider and load relevant skills before acting.
-
-Baseline skills:
-- hf-brainstorming
-- hf-writing-plans
-- hf-subagent-driven-development
-- hf-systematic-debugging
-- hf-verification-before-completion
-- hf-dispatching-parallel-agents
-- hf-core-delegation
-
-Lifecycle skills:
-- hf-executing-plans
-- hf-requesting-code-review
-- hf-receiving-code-review
-- hf-finishing-a-development-branch
-- hf-using-git-worktrees (only when requested)
+Use `@.opencode/context/project/runtime-preferences.md` as the canonical skill baseline.
+Use `@.opencode/skills/core-delegation/SKILL.md` as the canonical implementation workflow.
 
 ## Mode-aware behavior
 

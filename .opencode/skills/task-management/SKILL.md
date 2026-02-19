@@ -7,20 +7,16 @@ description: Use for managing dependency-aware task artifacts and delegation seq
 
 ## Overview
 
-Track and validate `.tmp/tasks/<feature>/` artifacts so delegation remains deterministic and auditable.
+Track and validate lifecycle artifacts in `.tmp/task-lifecycle.json` so delegation remains deterministic and auditable.
 
 ## Commands
 
-Run via:
+Run via framework lifecycle commands:
 
-`bash .opencode/skills/task-management/router.sh <command> [feature]`
-
-Supported commands:
-- `status [feature]`
-- `next [feature]`
-- `blocked [feature]`
-- `parallel [feature]`
-- `validate [feature]`
+- `framework task-status [--feature <feature-id>]`
+- `framework task-next --feature <feature-id>`
+- `framework task-blocked --feature <feature-id>`
+- `framework task-resume --feature <feature-id>`
 
 ## Rules
 

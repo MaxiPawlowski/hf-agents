@@ -3,12 +3,7 @@ import path from "node:path";
 import { diagnosticsReportSchema, type DiagnosticsItem, type DiagnosticsReport } from "../contracts/index.js";
 import { lintCommandContracts } from "./command-contract-lint.js";
 import { listSkills } from "../skills/skill-engine.js";
-import {
-  loadBackgroundTaskConfig,
-  loadMcpIntegrations,
-  loadPolicy,
-  policyFileForMode
-} from "../policies/policy-loader.js";
+import { loadPolicy, policyFileForMode } from "../policies/policy-loader.js";
 
 function buildPolicyItem(repoRoot: string): DiagnosticsItem {
   const modes = ["fast", "balanced", "strict"] as const;
@@ -105,18 +100,38 @@ function buildCommandContractItem(repoRoot: string): DiagnosticsItem {
 }
 
 function buildSkillsItem(repoRoot: string): DiagnosticsItem {
-  const missing = listSkills()
+  const registryPath = path.join(repoRoot, ".opencode", "registry.json");
+  const runtimeSkillIds = listSkills().map((skill) => skill.id);
+
+  let registrySkillIds: string[] = [];
+  if (existsSync(registryPath)) {
+    try {
+      const parsed = JSON.parse(readFileSync(registryPath, "utf8")) as {
+        assets?: Array<{ id?: string; type?: string }>;
+      };
+      registrySkillIds = (parsed.assets ?? [])
+        .filter((asset) => asset.type === "skill" && typeof asset.id === "string")
+        .map((asset) => String(asset.id).replace(/^skill-/, "hf-"));
+    } catch {
+      registrySkillIds = [];
+    }
+  }
+
+  const allSkillIds = Array.from(new Set([...runtimeSkillIds, ...registrySkillIds]));
+  const missing = allSkillIds
     .map((skill) => ({
-      id: skill.id,
-      path: path.join(".opencode", "skills", skill.id.replace(/^hf-/, ""), "SKILL.md")
+      id: skill,
+      path: path.join(".opencode", "skills", skill.replace(/^hf-/, ""), "SKILL.md")
     }))
     .filter((entry) => !existsSync(path.join(repoRoot, entry.path)));
 
-  if (missing.length === 0) {
+  const missingFromRuntime = registrySkillIds.filter((id) => !runtimeSkillIds.includes(id));
+
+  if (missing.length === 0 && missingFromRuntime.length === 0) {
     return {
       id: "skills",
       status: "pass",
-      summary: "All registered skills have markdown artifacts.",
+      summary: "All skills are consistent across runtime, registry, and markdown artifacts.",
       details: []
     };
   }
@@ -124,8 +139,11 @@ function buildSkillsItem(repoRoot: string): DiagnosticsItem {
   return {
     id: "skills",
     status: "fail",
-    summary: "Some skill artifacts are missing.",
-    details: missing.map((entry) => `${entry.id} -> ${entry.path}`)
+    summary: "Skill registry/runtime drift detected.",
+    details: [
+      ...missing.map((entry) => `${entry.id} -> missing artifact at ${entry.path}`),
+      ...missingFromRuntime.map((id) => `${id} -> present in registry but missing in src/skills/skill-engine.ts`)
+    ]
   };
 }
 
@@ -155,41 +173,13 @@ function buildOptionalArtifactsItem(repoRoot: string): DiagnosticsItem {
   };
 }
 
-function buildRuntimeIntegrationsItem(repoRoot: string): DiagnosticsItem {
-  try {
-    const policy = loadPolicy(path.join(repoRoot, policyFileForMode("fast")));
-    const background = loadBackgroundTaskConfig(policy);
-    const mcp = loadMcpIntegrations(policy);
-
-    return {
-      id: "runtime-integrations",
-      status: "pass",
-      summary: "Background runtime and MCP integrations are configured.",
-      details: [
-        `background.defaultConcurrency=${background.defaultConcurrency}`,
-        `background.staleTimeoutMs=${background.staleTimeoutMs}`,
-        `mcp.tavily=${mcp.tavily.enabled ? "enabled" : "disabled"} (maxResults=${mcp.tavily.maxResults})`,
-        `mcp.ghGrep=${mcp.ghGrep.enabled ? "enabled" : "disabled"} (maxResults=${mcp.ghGrep.maxResults})`
-      ]
-    };
-  } catch (error) {
-    return {
-      id: "runtime-integrations",
-      status: "fail",
-      summary: "Runtime integration checks failed.",
-      details: [(error as Error).message]
-    };
-  }
-}
-
 export function generateDiagnosticsReport(repoRoot = process.cwd()): DiagnosticsReport {
   const items = [
     buildPolicyItem(repoRoot),
     buildRegistryItem(repoRoot),
     buildCommandContractItem(repoRoot),
     buildSkillsItem(repoRoot),
-    buildOptionalArtifactsItem(repoRoot),
-    buildRuntimeIntegrationsItem(repoRoot)
+    buildOptionalArtifactsItem(repoRoot)
   ];
 
   return diagnosticsReportSchema.parse({

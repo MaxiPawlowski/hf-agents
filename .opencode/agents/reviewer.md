@@ -28,7 +28,7 @@ Pass 2 (quality/policy):
 
 Return:
 - Approval: yes/no
-- Findings (prioritized: critical, important, advisory)
+- Findings (prioritized: critical, high, medium)
 - Required next action
 
 ## Constraints

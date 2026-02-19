@@ -11,19 +11,6 @@
     },
     "webfetch": "allow"
   },
-  "mcp": {
-    "gh_grep": {
-      "type": "remote",
-      "url": "https://mcp.grep.app",
-      "enabled": true
-    },
-    "tavily": {
-      "type": "remote",
-      "url": "{env:TAVILY_MCP_URL}",
-      "enabled": true,
-      "oauth": false
-    }
-  },
   "watcher": {
     "ignore": ["dist/**", "node_modules/**", ".git/**"]
   }

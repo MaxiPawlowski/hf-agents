@@ -41,23 +41,6 @@ export const hookRuntimeConfigSchema = z.object({
   hooks: z.record(hookIdSchema, hookSettingsSchema).default({})
 });
 
-export const backgroundTaskConfigSchema = z.object({
-  defaultConcurrency: z.number().int().min(1).default(2),
-  staleTimeoutMs: z.number().int().min(60_000).default(180_000)
-});
-
-export const mcpProviderIdSchema = z.enum(["tavily", "gh-grep"]);
-
-export const mcpProviderConfigSchema = z.object({
-  enabled: z.boolean().default(true),
-  maxResults: z.number().int().min(1).max(50).default(5)
-});
-
-export const mcpIntegrationsSchema = z.object({
-  tavily: mcpProviderConfigSchema.default({ enabled: true, maxResults: 5 }),
-  ghGrep: mcpProviderConfigSchema.default({ enabled: true, maxResults: 10 })
-});
-
 export const taskSchema = z.object({
   id: z.string().min(1),
   intent: z.string().min(1),
@@ -65,6 +48,14 @@ export const taskSchema = z.object({
   constraints: z.array(z.string()).default([]),
   successCriteria: z.array(z.string()).default([]),
   riskLevel: z.enum(["low", "medium", "high"]).default("medium")
+});
+
+export const contextBundleSchema = z.object({
+  taskId: z.string().min(1),
+  summary: z.string().min(1),
+  relevantFiles: z.array(z.string()).default([]),
+  constraints: z.array(z.string()).default([]),
+  unresolvedQuestions: z.array(z.string()).default([])
 });
 
 export const policySchema = z.object({
@@ -77,12 +68,7 @@ export const policySchema = z.object({
   requireCodeReview: z.boolean().default(false),
   enableTaskArtifacts: z.boolean().default(true),
   delegationProfiles: delegationCategoryProfilesSchema.default({}),
-  hookRuntime: hookRuntimeConfigSchema.default({ enabled: true, hooks: {} }),
-  backgroundTask: backgroundTaskConfigSchema.default({ defaultConcurrency: 2, staleTimeoutMs: 180000 }),
-  mcp: mcpIntegrationsSchema.default({
-    tavily: { enabled: true, maxResults: 5 },
-    ghGrep: { enabled: true, maxResults: 10 }
-  })
+  hookRuntime: hookRuntimeConfigSchema.default({ enabled: true, hooks: {} })
 });
 
 export const agentSchema = z.object({
@@ -112,13 +98,17 @@ export const executionStepSchema = z.object({
 export const executionPlanSchema = z.object({
   taskId: z.string().min(1),
   objective: z.string().min(1),
-  steps: z.array(executionStepSchema).min(1)
+  steps: z.array(executionStepSchema).min(1),
+  contextFiles: z.array(z.string()).default([]),
+  risks: z.array(z.string()).default([]),
+  assumptions: z.array(z.string()).default([])
 });
 
 export const codePatchSchema = z.object({
   taskId: z.string().min(1),
   summary: z.string().min(1),
   filesTouched: z.array(z.string()).default([]),
+  validationNotes: z.array(z.string()).default([]),
   safeguards: z.object({
     usedWorktrees: z.boolean(),
     managedGit: z.boolean(),
@@ -130,10 +120,12 @@ export const reviewReportSchema = z.object({
   taskId: z.string().min(1),
   approved: z.boolean(),
   findings: z.array(z.string()).default([]),
+  blockingFindings: z.array(z.string()).default([]),
   reviewer: z.literal("Reviewer")
 });
 
 export const coreDelegationResultSchema = z.object({
+  context: contextBundleSchema,
   plan: executionPlanSchema,
   patch: codePatchSchema,
   review: reviewReportSchema
@@ -176,15 +168,6 @@ export const taskLifecycleSubtaskSchema = z.object({
   updatedAt: z.string().datetime()
 });
 
-export const taskResearchEntrySchema = z.object({
-  id: z.string().min(1),
-  provider: mcpProviderIdSchema,
-  query: z.string().min(1),
-  summary: z.string().min(1),
-  links: z.array(z.string().min(1)).default([]),
-  createdAt: z.string().datetime()
-});
-
 export const taskLifecycleStateSchema = z.object({
   featureId: z.string().min(1),
   name: z.string().min(1),
@@ -194,7 +177,6 @@ export const taskLifecycleStateSchema = z.object({
   referenceFiles: z.array(z.string()).default([]),
   exitCriteria: z.array(z.string()).default([]),
   subtasks: z.array(taskLifecycleSubtaskSchema).min(1),
-  researchLog: z.array(taskResearchEntrySchema).default([]),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime()
 });
@@ -267,31 +249,6 @@ export const diagnosticsReportSchema = z.object({
   items: z.array(diagnosticsItemSchema).min(1)
 });
 
-export const backgroundTaskPayloadSchema = z.object({
-  kind: z.enum(["run-task", "mcp-search"]),
-  mode: policyModeSchema.optional(),
-  task: taskSchema.optional(),
-  mcpProvider: mcpProviderIdSchema.optional(),
-  query: z.string().min(1).optional(),
-  featureId: z.string().min(1).optional()
-});
-
-export const backgroundTaskJobSchema = z.object({
-  id: z.string().min(1),
-  status: z.enum(["queued", "running", "completed", "failed"]),
-  payload: backgroundTaskPayloadSchema,
-  createdAt: z.string().datetime(),
-  startedAt: z.string().datetime().optional(),
-  finishedAt: z.string().datetime().optional(),
-  error: z.string().min(1).optional(),
-  result: z.unknown().optional()
-});
-
-export const backgroundTaskStoreSchema = z.object({
-  version: z.literal(1),
-  jobs: z.array(backgroundTaskJobSchema).default([])
-});
-
 export type Task = z.infer<typeof taskSchema>;
 export type Policy = z.infer<typeof policySchema>;
 export type DelegationCategory = z.infer<typeof delegationCategorySchema>;
@@ -300,14 +257,11 @@ export type DelegationCategoryProfiles = z.infer<typeof delegationCategoryProfil
 export type HookId = z.infer<typeof hookIdSchema>;
 export type HookSettings = z.infer<typeof hookSettingsSchema>;
 export type HookRuntimeConfig = z.infer<typeof hookRuntimeConfigSchema>;
-export type BackgroundTaskConfig = z.infer<typeof backgroundTaskConfigSchema>;
-export type McpProviderId = z.infer<typeof mcpProviderIdSchema>;
-export type McpProviderConfig = z.infer<typeof mcpProviderConfigSchema>;
-export type McpIntegrations = z.infer<typeof mcpIntegrationsSchema>;
 export type Agent = z.infer<typeof agentSchema>;
 export type Subagent = z.infer<typeof subagentSchema>;
 export type Skill = z.infer<typeof skillSchema>;
 export type PolicyMode = z.infer<typeof policyModeSchema>;
+export type ContextBundle = z.infer<typeof contextBundleSchema>;
 export type ExecutionPlan = z.infer<typeof executionPlanSchema>;
 export type CodePatch = z.infer<typeof codePatchSchema>;
 export type ReviewReport = z.infer<typeof reviewReportSchema>;
@@ -315,7 +269,6 @@ export type CoreDelegationResult = z.infer<typeof coreDelegationResultSchema>;
 export type TaskArtifact = z.infer<typeof taskArtifactSchema>;
 export type TaskBundle = z.infer<typeof taskBundleSchema>;
 export type TaskLifecycleSubtask = z.infer<typeof taskLifecycleSubtaskSchema>;
-export type TaskResearchEntry = z.infer<typeof taskResearchEntrySchema>;
 export type TaskLifecycleState = z.infer<typeof taskLifecycleStateSchema>;
 export type TaskLifecycleStore = z.infer<typeof taskLifecycleStoreSchema>;
 export type MarkdownContractLintFinding = z.infer<typeof markdownContractLintFindingSchema>;
@@ -327,6 +280,3 @@ export type HookRuntimeContext = z.infer<typeof hookRuntimeContextSchema>;
 export type HookRuntimeResult = z.infer<typeof hookRuntimeResultSchema>;
 export type DiagnosticsItem = z.infer<typeof diagnosticsItemSchema>;
 export type DiagnosticsReport = z.infer<typeof diagnosticsReportSchema>;
-export type BackgroundTaskPayload = z.infer<typeof backgroundTaskPayloadSchema>;
-export type BackgroundTaskJob = z.infer<typeof backgroundTaskJobSchema>;
-export type BackgroundTaskStore = z.infer<typeof backgroundTaskStoreSchema>;

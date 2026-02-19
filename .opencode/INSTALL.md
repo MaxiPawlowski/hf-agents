@@ -52,13 +52,8 @@ Uninstall options:
 - `--force` removes matching target paths even if they no longer match source content
 - `--remove-env` also removes `<target>/.env`
 
-## Tavily Environment
+## Environment
 
-Installer seeds `<target>/.env` with placeholders when missing.
+Installer seeds `<target>/.env` when missing.
 
-Set either:
-
-- `TAVILY_API_KEY=...`
-- or `TAVILY_MCP_URL=https://mcp.tavily.com/mcp/?tavilyApiKey=...`
-
-Restart OpenCode after editing env values.
+Use this file for any local runtime overrides your project needs.

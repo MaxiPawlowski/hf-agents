@@ -104,18 +104,6 @@
       "dependsOn": ["agent-task-planner", "agent-task-manager"]
     },
     {
-      "id": "command-write-plan",
-      "type": "command",
-      "path": ".opencode/commands/write-plan.md",
-      "dependsOn": ["skill-writing-plans"]
-    },
-    {
-      "id": "command-execute-plan",
-      "type": "command",
-      "path": ".opencode/commands/execute-plan.md",
-      "dependsOn": ["skill-executing-plans"]
-    },
-    {
       "id": "command-help",
       "type": "command",
       "path": ".opencode/commands/help.md",
@@ -138,18 +126,6 @@
       "type": "skill",
       "path": ".opencode/skills/core-delegation/SKILL.md",
       "dependsOn": ["agent-task-planner", "agent-coder", "agent-reviewer"]
-    },
-    {
-      "id": "skill-writing-plans",
-      "type": "skill",
-      "path": ".opencode/skills/writing-plans/SKILL.md",
-      "dependsOn": []
-    },
-    {
-      "id": "skill-executing-plans",
-      "type": "skill",
-      "path": ".opencode/skills/executing-plans/SKILL.md",
-      "dependsOn": []
     },
     {
       "id": "skill-verification-before-completion",
@@ -179,30 +155,6 @@
       "id": "skill-test-driven-development",
       "type": "skill",
       "path": ".opencode/skills/test-driven-development/SKILL.md",
-      "dependsOn": []
-    },
-    {
-      "id": "skill-requesting-code-review",
-      "type": "skill",
-      "path": ".opencode/skills/requesting-code-review/SKILL.md",
-      "dependsOn": ["agent-reviewer"]
-    },
-    {
-      "id": "skill-receiving-code-review",
-      "type": "skill",
-      "path": ".opencode/skills/receiving-code-review/SKILL.md",
-      "dependsOn": []
-    },
-    {
-      "id": "skill-finishing-a-development-branch",
-      "type": "skill",
-      "path": ".opencode/skills/finishing-a-development-branch/SKILL.md",
-      "dependsOn": ["command-verify"]
-    },
-    {
-      "id": "skill-using-git-worktrees",
-      "type": "skill",
-      "path": ".opencode/skills/using-git-worktrees/SKILL.md",
       "dependsOn": []
     },
     {
@@ -242,10 +194,16 @@
       "dependsOn": ["context-navigation"]
     },
     {
+      "id": "context-technical-domain",
+      "type": "context",
+      "path": ".opencode/context/project-intelligence/technical-domain.md",
+      "dependsOn": ["context-navigation"]
+    },
+    {
       "id": "context-external-inspirations",
       "type": "context",
       "path": ".opencode/context/project-intelligence/external-inspirations.md",
-      "dependsOn": ["context-navigation"]
+      "dependsOn": ["context-navigation", "context-technical-domain"]
     }
   ]
 }

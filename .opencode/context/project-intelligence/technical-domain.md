@@ -13,7 +13,7 @@
 
 - Primary orchestrator routes to specialized subagents.
 - Core coding path uses `TaskPlanner -> Coder -> Reviewer`.
-- Complex features should generate task artifacts before implementation.
+- Complex features should generate lifecycle task artifacts in `.tmp/task-lifecycle.json` before implementation.
 
 ## Naming and file patterns
 

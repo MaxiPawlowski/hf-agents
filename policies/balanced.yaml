@@ -6,9 +6,6 @@ requireApprovalGates: false
 requireVerification: true
 requireCodeReview: true
 enableTaskArtifacts: true
-backgroundTask:
-  defaultConcurrency: 2
-  staleTimeoutMs: 180000
 hookRuntime:
   enabled: true
   hooks:
@@ -21,13 +18,6 @@ hookRuntime:
     completion-continuation-reminder:
       enabled: true
       note: Continue from the next ready subtask and preserve dependency order.
-mcp:
-  tavily:
-    enabled: true
-    maxResults: 8
-  ghGrep:
-    enabled: true
-    maxResults: 12
 delegationProfiles:
   feature:
     preferredSubagent: TaskManager
