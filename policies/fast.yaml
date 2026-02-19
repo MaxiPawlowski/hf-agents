@@ -1,0 +1,8 @@
+mode: fast
+useWorktreesByDefault: false
+manageGitByDefault: false
+requireTests: false
+requireApprovalGates: false
+requireVerification: false
+requireCodeReview: false
+enableTaskArtifacts: true

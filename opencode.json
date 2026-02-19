@@ -1,0 +1,17 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "hf-core-agent",
+  "permission": {
+    "edit": "allow",
+    "bash": {
+      "*": "allow",
+      "rm -rf /*": "deny",
+      "rm -rf *": "ask",
+      "git push --force*": "deny"
+    },
+    "webfetch": "allow"
+  },
+  "watcher": {
+    "ignore": ["dist/**", "node_modules/**", ".git/**"]
+  }
+}

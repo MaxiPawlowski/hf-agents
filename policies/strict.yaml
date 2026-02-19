@@ -1,0 +1,8 @@
+mode: strict
+useWorktreesByDefault: false
+manageGitByDefault: false
+requireTests: true
+requireApprovalGates: true
+requireVerification: true
+requireCodeReview: true
+enableTaskArtifacts: true

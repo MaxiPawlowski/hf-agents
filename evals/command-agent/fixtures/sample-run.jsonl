@@ -1,0 +1,4 @@
+{"type":"assistant","role":"main","usage":{"input_tokens":102,"output_tokens":410,"cache_read_input_tokens":2200,"cache_creation_input_tokens":0}}
+{"type":"tool_result","agentId":"task-planner","usage":{"input_tokens":44,"output_tokens":188,"cache_read_input_tokens":910,"cache_creation_input_tokens":0}}
+{"type":"tool_result","agentId":"coder","usage":{"input_tokens":88,"output_tokens":355,"cache_read_input_tokens":1220,"cache_creation_input_tokens":0}}
+{"type":"tool_result","agentId":"reviewer","usage":{"input_tokens":61,"output_tokens":201,"cache_read_input_tokens":980,"cache_creation_input_tokens":0}}

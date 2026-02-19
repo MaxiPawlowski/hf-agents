@@ -1,0 +1,185 @@
+{
+  "version": "1.0.0",
+  "assets": [
+    {
+      "id": "agent-core",
+      "type": "agent",
+      "path": ".opencode/agents/core-agent.md",
+      "dependsOn": ["agent-task-planner", "agent-coder", "agent-reviewer", "skill-core-delegation"]
+    },
+    {
+      "id": "agent-task-manager",
+      "type": "agent",
+      "path": ".opencode/agents/task-manager.md",
+      "dependsOn": ["context-navigation"]
+    },
+    {
+      "id": "agent-task-planner",
+      "type": "agent",
+      "path": ".opencode/agents/task-planner.md",
+      "dependsOn": ["context-navigation"]
+    },
+    {
+      "id": "agent-coder",
+      "type": "agent",
+      "path": ".opencode/agents/coder.md",
+      "dependsOn": ["context-code-quality"]
+    },
+    {
+      "id": "agent-reviewer",
+      "type": "agent",
+      "path": ".opencode/agents/reviewer.md",
+      "dependsOn": ["skill-verification-before-completion"]
+    },
+    {
+      "id": "agent-context-scout",
+      "type": "agent",
+      "path": ".opencode/agents/context-scout.md",
+      "dependsOn": ["context-navigation"]
+    },
+    {
+      "id": "agent-external-docs-scout",
+      "type": "agent",
+      "path": ".opencode/agents/external-docs-scout.md",
+      "dependsOn": []
+    },
+    {
+      "id": "agent-tester",
+      "type": "agent",
+      "path": ".opencode/agents/tester.md",
+      "dependsOn": ["context-test-coverage"]
+    },
+    {
+      "id": "agent-build-validator",
+      "type": "agent",
+      "path": ".opencode/agents/build-validator.md",
+      "dependsOn": []
+    },
+    {
+      "id": "command-run-core-delegation",
+      "type": "command",
+      "path": ".opencode/commands/run-core-delegation.md",
+      "dependsOn": ["skill-core-delegation", "agent-task-planner", "agent-coder", "agent-reviewer"]
+    },
+    {
+      "id": "command-verify",
+      "type": "command",
+      "path": ".opencode/commands/verify.md",
+      "dependsOn": ["skill-verification-before-completion", "agent-reviewer"]
+    },
+    {
+      "id": "command-finish",
+      "type": "command",
+      "path": ".opencode/commands/finish.md",
+      "dependsOn": ["command-verify"]
+    },
+    {
+      "id": "command-setup",
+      "type": "command",
+      "path": ".opencode/commands/setup.md",
+      "dependsOn": ["context-navigation"]
+    },
+    {
+      "id": "command-status",
+      "type": "command",
+      "path": ".opencode/commands/status.md",
+      "dependsOn": ["skill-task-management"]
+    },
+    {
+      "id": "command-add-context",
+      "type": "command",
+      "path": ".opencode/commands/add-context.md",
+      "dependsOn": ["context-navigation"]
+    },
+    {
+      "id": "command-plan-feature",
+      "type": "command",
+      "path": ".opencode/commands/plan-feature.md",
+      "dependsOn": ["agent-task-planner", "agent-task-manager"]
+    },
+    {
+      "id": "command-write-plan",
+      "type": "command",
+      "path": ".opencode/commands/write-plan.md",
+      "dependsOn": ["skill-writing-plans"]
+    },
+    {
+      "id": "command-execute-plan",
+      "type": "command",
+      "path": ".opencode/commands/execute-plan.md",
+      "dependsOn": ["skill-executing-plans"]
+    },
+    {
+      "id": "command-help",
+      "type": "command",
+      "path": ".opencode/commands/help.md",
+      "dependsOn": []
+    },
+    {
+      "id": "command-cleanup",
+      "type": "command",
+      "path": ".opencode/commands/cleanup.md",
+      "dependsOn": ["skill-task-management"]
+    },
+    {
+      "id": "skill-core-delegation",
+      "type": "skill",
+      "path": ".opencode/skills/core-delegation/SKILL.md",
+      "dependsOn": ["agent-task-planner", "agent-coder", "agent-reviewer"]
+    },
+    {
+      "id": "skill-writing-plans",
+      "type": "skill",
+      "path": ".opencode/skills/writing-plans/SKILL.md",
+      "dependsOn": []
+    },
+    {
+      "id": "skill-executing-plans",
+      "type": "skill",
+      "path": ".opencode/skills/executing-plans/SKILL.md",
+      "dependsOn": []
+    },
+    {
+      "id": "skill-verification-before-completion",
+      "type": "skill",
+      "path": ".opencode/skills/verification-before-completion/SKILL.md",
+      "dependsOn": []
+    },
+    {
+      "id": "skill-task-management",
+      "type": "skill",
+      "path": ".opencode/skills/task-management/SKILL.md",
+      "dependsOn": []
+    },
+    {
+      "id": "context-navigation",
+      "type": "context",
+      "path": ".opencode/context/navigation.md",
+      "dependsOn": ["context-code-quality", "context-test-coverage", "context-documentation"]
+    },
+    {
+      "id": "context-code-quality",
+      "type": "context",
+      "path": ".opencode/context/core/standards/code-quality.md",
+      "dependsOn": []
+    },
+    {
+      "id": "context-test-coverage",
+      "type": "context",
+      "path": ".opencode/context/core/standards/test-coverage.md",
+      "dependsOn": []
+    },
+    {
+      "id": "context-documentation",
+      "type": "context",
+      "path": ".opencode/context/core/standards/documentation.md",
+      "dependsOn": []
+    },
+    {
+      "id": "context-runtime-preferences",
+      "type": "context",
+      "path": ".opencode/context/project/runtime-preferences.md",
+      "dependsOn": ["context-navigation"]
+    }
+  ]
+}

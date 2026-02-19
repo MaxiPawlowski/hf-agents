@@ -1,0 +1,8 @@
+mode: balanced
+useWorktreesByDefault: false
+manageGitByDefault: false
+requireTests: false
+requireApprovalGates: false
+requireVerification: true
+requireCodeReview: true
+enableTaskArtifacts: true

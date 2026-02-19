@@ -1,0 +1,16 @@
+{
+  "agent": "hf-core-agent",
+  "default": "default",
+  "variants": [
+    {
+      "id": "default",
+      "path": ".opencode/prompts/core/core-agent/default.md",
+      "targets": ["all"]
+    },
+    {
+      "id": "strict",
+      "path": ".opencode/prompts/core/core-agent/strict.md",
+      "targets": ["strict"]
+    }
+  ]
+}
