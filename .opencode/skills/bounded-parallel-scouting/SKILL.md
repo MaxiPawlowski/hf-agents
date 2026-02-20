@@ -1,6 +1,6 @@
 ---
 name: hf-bounded-parallel-scouting
-description: Use in fast profile to run short parallel discovery bursts before planning.
+description: Use to run short parallel discovery bursts before planning.
 ---
 
 # Bounded Parallel Scouting
@@ -13,7 +13,7 @@ This skill is optimized for speed and low overhead.
 
 ## When to use
 
-- `fast` profile implementation requests.
+- Scope-unclear implementation requests.
 - Cross-cutting tasks where context is unclear.
 - External dependency questions that need both local and docs signals.
 

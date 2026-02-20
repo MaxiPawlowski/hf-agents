@@ -9,7 +9,7 @@ description: Use for managing dependency-aware task artifacts and delegation seq
 
 Track and validate lifecycle artifacts in `.tmp/task-lifecycle.json` so delegation remains deterministic and auditable.
 
-This flow is optional in `fast` mode and recommended for complex, multi-stage work.
+This flow is optional by default and recommended for complex, multi-stage work.
 
 ## Integration
 
@@ -19,7 +19,7 @@ Run via task lifecycle APIs in `src/tasks/task-lifecycle.ts`.
 
 - Keep subtasks atomic and dependency-correct.
 - Never mark a task complete when dependencies are unresolved.
-- Use Reviewer verification before closing final subtasks in balanced/strict profile.
+- Use Reviewer verification before closing final subtasks when the `requireVerification` runtime toggle gate is enabled.
 - Keep updates append-only per feature checkpoint; avoid destructive rewrites.
 
 ## Lifecycle fields

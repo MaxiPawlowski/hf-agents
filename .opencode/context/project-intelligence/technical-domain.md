@@ -25,11 +25,11 @@
 
 - No automatic worktrees or git management unless explicitly requested.
 - Avoid destructive shell commands by default.
-- Mode-driven verification gates for balanced/strict flows.
+- Verification and review gates are controlled by runtime toggles.
 
 ## Codebase references
 
 - `src/orchestrator/core-agent.ts`
 - `src/tasks/task-bundle.ts`
-- `.opencode/agents/core-agent.md`
+- `.opencode/agents/core-agent-base.md`
 - `.opencode/context/project/runtime-preferences.md`

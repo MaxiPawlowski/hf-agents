@@ -1,5 +1,12 @@
 {
-  "profile": "light",
   "contextStrategy": "minimal",
-  "enableTaskArtifacts": false
+  "toggles": {
+    "useWorktreesByDefault": false,
+    "manageGitByDefault": false,
+    "requireTests": false,
+    "requireApprovalGates": false,
+    "requireVerification": false,
+    "requireCodeReview": false,
+    "enableTaskArtifacts": true
+  }
 }

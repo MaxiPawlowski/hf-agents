@@ -15,17 +15,22 @@ This project is OpenCode-configured and markdown-first.
 - Do not force test execution; manual validation is the default.
 - Do not use approval-gate blocking as default workflow.
 
-Canonical runtime policy lives in:
-
-- `@.opencode/context/project/policy-contract.md`
-
 ## Preferred execution style
 
 - Fast autonomous delegation
 - Minimal overhead
 - Clear summaries of what changed
-- Profile-aware quality gates (`fast`, `balanced`, `strict`)
+- Toggle-aware quality gates from runtime settings
 - Dependency-aware task artifacts for complex work
+
+## Runtime interpolation contract
+
+- Markdown assets may include runtime placeholders resolved by plugin hooks.
+- Supported forms:
+  - `{{toggle.<key>}}` for ON/OFF state
+  - `{{rule.<key>}}` for conditional guidance text
+- Current keys:
+  - `use_worktree`, `require_tests`, `require_verification`, `task_artifacts`
 
 ## Baseline skill set
 
@@ -38,13 +43,7 @@ Prefer these markdown skills for normal operation:
 - hf-dispatching-parallel-agents
 - hf-bounded-parallel-scouting
 
-Use `hf-test-driven-development` only when explicitly requested or strict profile requires it.
-
-## Profile intent
-
-- `fast`: prioritize velocity, minimal context, lightweight verification
-- `balanced`: require verification and explicit review
-- `strict`: require tests, approval-oriented flow, verification, and review
+Use `hf-test-driven-development` only when explicitly requested.
 
 ## Optional task loop (v2)
 

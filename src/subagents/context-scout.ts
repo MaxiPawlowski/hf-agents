@@ -1,8 +1,9 @@
-import { contextBundleSchema, runtimeSettingsSchema, taskSchema, type ContextBundle } from "../contracts/index.js";
+import { contextBundleSchema, taskSchema, type ContextBundle } from "../contracts/index.js";
+import { resolveRuntimeSettings } from "../settings/runtime-settings.js";
 
 const MINIMAL_CONTEXT_FILES = [
   ".opencode/context/navigation.md",
-  ".opencode/context/project/policy-contract.md",
+  ".opencode/context/project/runtime-preferences.md",
   ".opencode/context/project/subagent-handoff-template.md"
 ];
 
@@ -15,7 +16,7 @@ const STANDARD_CONTEXT_FILES = [
 
 export function runContextScout(taskInput: unknown, settingsInput?: unknown): ContextBundle {
   const task = taskSchema.parse(taskInput);
-  const settings = runtimeSettingsSchema.parse(settingsInput ?? { profile: "light" });
+  const settings = resolveRuntimeSettings(settingsInput ?? {});
   const normalized = task.intent.toLowerCase();
   const relevantFiles = [
     ...(settings.contextStrategy === "minimal" ? MINIMAL_CONTEXT_FILES : STANDARD_CONTEXT_FILES)

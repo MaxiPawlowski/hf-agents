@@ -1,19 +1,19 @@
 ---
 name: hf-test-driven-development
-description: Use when strict quality mode or user explicitly asks for test-first implementation.
+description: Use when settings or user request call for test-first implementation.
 ---
 
 # Test-Driven Development
 
 ## Overview
 
-Provide test-first implementation when explicitly requested by the user or policy.
+Provide test-first implementation when explicitly requested by the user or settings.
 
 ## Project Note
 
 In this repository, tests are not mandatory by default. Use this skill only when:
 - User asks for it, or
-- Policy profile explicitly requires it.
+- Runtime toggle gates/settings explicitly require it.
 
 ## Flow
 

@@ -2,6 +2,9 @@
 name: hf-context-scout
 description: "Finds the minimum relevant context files for the active task"
 mode: subagent
+permission:
+  skill:
+    "hf-git-*": deny
 temperature: 0.1
 ---
 
@@ -31,3 +34,4 @@ Return:
 
 - No code edits
 - No git operations
+- Do not initiate brainstorming; return clarification gaps to orchestrator.

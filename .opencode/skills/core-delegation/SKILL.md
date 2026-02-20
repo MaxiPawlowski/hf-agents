@@ -1,6 +1,6 @@
 ---
 name: hf-core-delegation
-description: Use when implementing coding tasks that should run through TaskPlanner -> Coder -> Reviewer with profile-aware gates.
+description: Use when implementing coding tasks that should run through TaskPlanner -> Coder -> Reviewer with runtime toggle gates.
 ---
 
 # Core Delegation
@@ -19,6 +19,10 @@ Use this skill for the default implementation workflow in this repository.
 
 Use ExternalDocsScout when external library behavior is uncertain.
 
+Brainstorming ownership:
+- Orchestrator handles user brainstorming directly using `hf-brainstorming`.
+- Subagents do not start brainstorming unless explicitly delegated.
+
 ## Handoff contract
 
 - TaskPlanner -> Objective + steps + risks
@@ -28,33 +32,31 @@ Use ExternalDocsScout when external library behavior is uncertain.
 
 Reviewer performs two passes:
 - pass 1: scope/spec fit
-- pass 2: quality/risk/policy fit
+- pass 2: quality/risk/runtime fit
 
 ## When to use support subagents
 
 - `ContextScout` when constraints, standards, or context are unclear
 - `ExternalDocsScout` when external libraries or APIs are involved
-- `BuildValidator` and `Tester` when user request or settings profile requires verification
+- `BuildValidator` and `Tester` when user request or runtime toggle gates require verification
 
 Skill selection matrix:
 
 - Use `hf-core-delegation` when request needs end-to-end orchestration.
 - Use `hf-subagent-driven-development` when plan is already approved and execution is the primary task.
-- Use `hf-bounded-parallel-scouting` for `fast` profile discovery bursts.
+- Use `hf-bounded-parallel-scouting` for lightweight discovery bursts.
 
-## Mode-aware quality gates
+## Runtime toggle gates
 
-- `fast`: keep flow lightweight
-- `balanced`: require hf-verification-before-completion and explicit review signoff
-- `strict`: require tests and explicit approval-oriented validation
+- `requireVerification=true`: require `hf-verification-before-completion` evidence.
+- `requireCodeReview=true`: require explicit review signoff.
 
-Use `@.opencode/context/project/policy-contract.md` as mode/routing source of truth.
 Use `@.opencode/context/project/subagent-handoff-template.md` for delegation handoffs.
 
 Default safety:
 - no implicit git operations
 - no implicit worktree creation
-- no mandatory tests unless mode/user requires them
+- no mandatory tests unless runtime toggle gates or user request require them
 
 ## Red flags
 

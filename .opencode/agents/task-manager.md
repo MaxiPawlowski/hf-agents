@@ -2,6 +2,9 @@
 name: hf-task-manager
 description: "Builds dependency-aware task bundles for complex feature execution"
 mode: subagent
+permission:
+  skill:
+    "hf-git-*": deny
 temperature: 0.1
 ---
 
@@ -53,5 +56,6 @@ Return:
 
 - No git operations.
 - No worktree creation.
-- Keep scope aligned with user request and settings profile.
+- Keep scope aligned with user request and runtime settings.
 - Do not emit circular dependencies.
+- Do not initiate brainstorming unless explicitly delegated.

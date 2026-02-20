@@ -1,6 +1,6 @@
 ---
 name: hf-cleanup
-description: Clean stale framework temporary artifacts with safety checks.
+description: HF: Clean stale framework temporary artifacts with safety checks.
 argument-hint: [--feature=<key>] [--force] [--dry-run]
 ---
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-printf '{"event":"session-start","status":"ok"}\n'
+# Intentionally produce no stdout to avoid hook payload validation errors.
+exit 0

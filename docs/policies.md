@@ -1,12 +1,27 @@
 # Runtime Settings
 
-Profiles are resolved by runtime settings, not CLI modes.
+Runtime gates are toggle-first and resolved by settings, not CLI modes.
 
 Default local settings file:
 
 - `settings/framework-settings.json`
 
-## light
+## Canonical toggles
+
+- `useWorktreesByDefault`
+- `manageGitByDefault`
+- `requireTests`
+- `requireApprovalGates`
+- `requireVerification`
+- `requireCodeReview`
+- `enableTaskArtifacts`
+
+Resolution precedence:
+
+1. built-in defaults
+2. `toggles` overrides
+
+## Built-in defaults
 
 - Max autonomy with minimal context
 - No approval gates
@@ -16,27 +31,6 @@ Default local settings file:
 - Verification optional
 - Code review optional
 - Task artifacts disabled by default
-- Hook runtime config via `hookRuntime` (per-hook enable/settings)
-
-## balanced
-
-- Worktrees off by default
-- Git management off by default
-- Tests optional/manual
-- Verification required before completion
-- Explicit review required before completion
-- Task artifacts enabled
-- Hook runtime config via `hookRuntime` (per-hook enable/settings)
-
-## strict
-
-- Worktrees off by default unless explicitly requested
-- Git management off by default unless explicitly requested
-- Tests required
-- Approval gates required
-- Verification required
-- Explicit review required
-- Task artifacts enabled
 - Hook runtime config via `hookRuntime` (per-hook enable/settings)
 
 ## Why these defaults

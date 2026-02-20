@@ -1,15 +1,16 @@
 import {
   codePatchSchema,
   executionPlanSchema,
-  runtimeSettingsSchema,
   reviewReportSchema,
   type ReviewReport
 } from "../contracts/index.js";
+import { resolveRuntimeSettings } from "../settings/runtime-settings.js";
 
 export function runReviewer(planInput: unknown, patchInput: unknown, settingsInput: unknown): ReviewReport {
   const plan = executionPlanSchema.parse(planInput);
   const patch = codePatchSchema.parse(patchInput);
-  const settings = runtimeSettingsSchema.parse(settingsInput);
+  const settings = resolveRuntimeSettings(settingsInput);
+  const toggles = settings.toggles;
 
   const findings: string[] = [];
   const blockingFindings: string[] = [];
@@ -26,10 +27,10 @@ export function runReviewer(planInput: unknown, patchInput: unknown, settingsInp
   if (patch.safeguards.managedGit) {
     findings.push("Policy enabled git management for this run.");
   }
-  if (settings.requireTests && !patch.safeguards.autoTestsRun) {
+  if (toggles.requireTests && !patch.safeguards.autoTestsRun) {
     blockingFindings.push("Settings require tests but no automated test run evidence was produced.");
   }
-  if (settings.requireVerification) {
+  if (toggles.requireVerification) {
     findings.push("Verification is required and must be completed before closeout.");
   }
 

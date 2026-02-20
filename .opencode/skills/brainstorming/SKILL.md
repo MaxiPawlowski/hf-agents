@@ -9,6 +9,9 @@ description: Use when a request needs design clarification before implementation
 
 Convert rough intent into a validated design with clear scope, constraints, and success criteria.
 
+Orchestrator ownership: this skill is led by the primary orchestrator in direct conversation with the user.
+Subagents should use this flow only when brainstorming is explicitly delegated or explicitly requested.
+
 ## Why this exists
 
 Skipping design causes the same failures repeatedly: wrong scope, wrong assumptions, and expensive rework.

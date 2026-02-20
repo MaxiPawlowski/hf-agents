@@ -1,19 +1,16 @@
 ---
 name: hf-plan-feature
-description: Create dependency-aware feature plan and execution phases.
-argument-hint: <feature description> [--profile=<fast|balanced|strict>] [--task-loop=on|off]
+description: HF: Create dependency-aware feature plan and execution phases.
+argument-hint: <feature description> [--task-loop=on|off]
 ---
 
 ## Purpose
 
 Convert a feature request into a deterministic implementation plan with atomic subtasks.
 
-Policy source of truth: `@.opencode/context/project/policy-contract.md`
-
 ## Preconditions
 
 - A clear feature description is provided.
-- Profile is resolved from argument or project default.
 - Required agents are available: `TaskPlanner`, `TaskManager`.
 
 ## Execution Contract

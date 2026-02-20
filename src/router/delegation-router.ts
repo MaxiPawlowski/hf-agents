@@ -77,11 +77,11 @@ export function routeTaskDetailed(input: string | RouteTaskInput): RouteTaskDeci
       : { ...input, category: input.category ?? inferDelegationCategory(input.intent) }
   );
 
-  const profile = parsed.category ? parsed.profiles[parsed.category] : undefined;
-  if (profile && hasSubagent(profile.preferredSubagent)) {
+  const configuredRule = parsed.category ? parsed.rules[parsed.category] : undefined;
+  if (configuredRule && hasSubagent(configuredRule.preferredSubagent)) {
     return {
-      assignedSubagent: profile.preferredSubagent,
-      source: "profile",
+      assignedSubagent: configuredRule.preferredSubagent,
+      source: "configured",
       matchedCategory: parsed.category
     };
   }

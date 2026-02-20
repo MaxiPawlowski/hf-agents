@@ -1,19 +1,19 @@
 ---
 name: hf-run-core-delegation
-description: Run the default profile-aware delegation path for implementation tasks.
-argument-hint: <task description> [--profile=<fast|balanced|strict>] [--task-loop=on|off]
+description: HF: Run the default toggle-aware delegation path for implementation tasks.
+argument-hint: <task description> [--task-loop=on|off]
 ---
 
 ## Purpose
 
 Route implementation work through the default delegation pipeline with deterministic stage outputs.
 
-Policy source of truth: `@.opencode/context/project/policy-contract.md`
+Runtime gates are resolved from `settings.toggles.*`.
 
 ## Preconditions
 
 - A non-empty task description is provided.
-- Policy mode is resolved from argument or project default.
+- Runtime settings are resolved from project defaults plus overrides.
 - Required agents are available: `TaskPlanner`, `Coder`, `Reviewer`.
 
 ## Execution Contract
@@ -26,15 +26,10 @@ Policy source of truth: `@.opencode/context/project/policy-contract.md`
 
 Use `@.opencode/context/project/subagent-handoff-template.md` for all delegated handoffs.
 
-Profile behavior:
-- `fast`: no mandatory test gate; flag missing verification as risk.
-- `balanced`: require explicit verification evidence before completion recommendation.
-- `strict`: require verification evidence plus test/build/type checks before completion recommendation.
-
-Execution flavors:
-- `fast`: bounded parallel scouting allowed.
-- `governed-balanced`: explicit reviewer/evidence required.
-- `compliance-strict`: strict verification artifacts required.
+Toggle behavior:
+- `requireTests=false`: no mandatory test gate; flag missing evidence as risk.
+- `requireVerification=true`: require explicit verification evidence before completion recommendation.
+- `requireCodeReview=true`: require explicit review signoff before completion recommendation.
 
 Optional task loop (v2):
 - `--task-loop=on` enables lifecycle checkpoint updates in `.tmp/task-lifecycle.json` after each major stage.
@@ -50,7 +45,7 @@ Defaults:
 - `Implementation Status`: completed/in-progress/blocked with evidence.
 - `Review Findings`: must-fix items, non-blocking risks, open questions.
 - `Next Action`: specific recommended next command.
-- `Readiness`: `ready|not-ready (<profile>)`
+- `Readiness`: `ready|not-ready`
 
 ## Failure Contract
 

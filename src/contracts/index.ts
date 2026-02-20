@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-export const settingsProfileSchema = z.enum(["light", "balanced", "strict"]);
 export const contextStrategySchema = z.enum(["minimal", "standard"]);
 
 export const delegationCategorySchema = z.enum([
@@ -15,14 +14,14 @@ export const delegationCategorySchema = z.enum([
   "implementation"
 ]);
 
-export const delegationCategoryProfileSchema = z.object({
+export const delegationCategoryRuleSchema = z.object({
   preferredSubagent: z.string().min(1),
   requiredSkills: z.array(z.string().min(1)).default([]),
   notes: z.array(z.string().min(1)).default([])
 });
 
-export const delegationCategoryProfilesSchema = z
-  .record(delegationCategorySchema, delegationCategoryProfileSchema)
+export const delegationCategoryRulesSchema = z
+  .record(delegationCategorySchema, delegationCategoryRuleSchema)
   .default({});
 
 export const hookIdSchema = z.enum([
@@ -42,6 +41,18 @@ export const hookRuntimeConfigSchema = z.object({
   hooks: z.record(hookIdSchema, hookSettingsSchema).default({})
 });
 
+export const runtimeTogglesSchema = z.object({
+  useWorktreesByDefault: z.boolean().default(false),
+  manageGitByDefault: z.boolean().default(false),
+  requireTests: z.boolean().default(false),
+  requireApprovalGates: z.boolean().default(false),
+  requireVerification: z.boolean().default(false),
+  requireCodeReview: z.boolean().default(false),
+  enableTaskArtifacts: z.boolean().default(true)
+});
+
+export const runtimeTogglesOverridesSchema = runtimeTogglesSchema.partial();
+
 export const taskSchema = z.object({
   id: z.string().min(1),
   intent: z.string().min(1),
@@ -60,30 +71,16 @@ export const contextBundleSchema = z.object({
 });
 
 export const runtimeSettingsSchema = z.object({
-  profile: settingsProfileSchema,
   contextStrategy: contextStrategySchema.default("minimal"),
-  useWorktreesByDefault: z.boolean().default(false),
-  manageGitByDefault: z.boolean().default(false),
-  requireTests: z.boolean().default(false),
-  requireApprovalGates: z.boolean().default(false),
-  requireVerification: z.boolean().default(false),
-  requireCodeReview: z.boolean().default(false),
-  enableTaskArtifacts: z.boolean().default(true),
-  delegationProfiles: delegationCategoryProfilesSchema.default({}),
+  toggles: runtimeTogglesSchema.default({}),
+  delegationRules: delegationCategoryRulesSchema.default({}),
   hookRuntime: hookRuntimeConfigSchema.default({ enabled: true, hooks: {} })
 });
 
 export const runtimeSettingsOverridesSchema = z.object({
-  profile: settingsProfileSchema.optional(),
   contextStrategy: contextStrategySchema.optional(),
-  useWorktreesByDefault: z.boolean().optional(),
-  manageGitByDefault: z.boolean().optional(),
-  requireTests: z.boolean().optional(),
-  requireApprovalGates: z.boolean().optional(),
-  requireVerification: z.boolean().optional(),
-  requireCodeReview: z.boolean().optional(),
-  enableTaskArtifacts: z.boolean().optional(),
-  delegationProfiles: delegationCategoryProfilesSchema.optional(),
+  toggles: runtimeTogglesOverridesSchema.optional(),
+  delegationRules: delegationCategoryRulesSchema.optional(),
   hookRuntime: hookRuntimeConfigSchema.optional()
 });
 
@@ -102,7 +99,6 @@ export const subagentSchema = z.object({
 
 export const skillSchema = z.object({
   id: z.string().min(1),
-  strictIn: z.array(settingsProfileSchema).default([]),
   triggerHints: z.array(z.string()).default([])
 });
 
@@ -224,12 +220,12 @@ export const markdownContractLintResultSchema = z.object({
 export const routeTaskInputSchema = z.object({
   intent: z.string().min(1),
   category: delegationCategorySchema.optional(),
-  profiles: delegationCategoryProfilesSchema.default({})
+  rules: delegationCategoryRulesSchema.default({})
 });
 
 export const routeTaskDecisionSchema = z.object({
   assignedSubagent: z.string().min(1),
-  source: z.enum(["profile", "heuristic"]),
+  source: z.enum(["configured", "heuristic"]),
   matchedCategory: delegationCategorySchema.optional()
 });
 
@@ -268,16 +264,17 @@ export const diagnosticsReportSchema = z.object({
 export type Task = z.infer<typeof taskSchema>;
 export type RuntimeSettings = z.infer<typeof runtimeSettingsSchema>;
 export type RuntimeSettingsOverrides = z.infer<typeof runtimeSettingsOverridesSchema>;
+export type RuntimeToggles = z.infer<typeof runtimeTogglesSchema>;
+export type RuntimeTogglesOverrides = z.infer<typeof runtimeTogglesOverridesSchema>;
 export type DelegationCategory = z.infer<typeof delegationCategorySchema>;
-export type DelegationCategoryProfile = z.infer<typeof delegationCategoryProfileSchema>;
-export type DelegationCategoryProfiles = z.infer<typeof delegationCategoryProfilesSchema>;
+export type DelegationCategoryRule = z.infer<typeof delegationCategoryRuleSchema>;
+export type DelegationCategoryRules = z.infer<typeof delegationCategoryRulesSchema>;
 export type HookId = z.infer<typeof hookIdSchema>;
 export type HookSettings = z.infer<typeof hookSettingsSchema>;
 export type HookRuntimeConfig = z.infer<typeof hookRuntimeConfigSchema>;
 export type Agent = z.infer<typeof agentSchema>;
 export type Subagent = z.infer<typeof subagentSchema>;
 export type Skill = z.infer<typeof skillSchema>;
-export type SettingsProfile = z.infer<typeof settingsProfileSchema>;
 export type ContextBundle = z.infer<typeof contextBundleSchema>;
 export type ExecutionPlan = z.infer<typeof executionPlanSchema>;
 export type CodePatch = z.infer<typeof codePatchSchema>;

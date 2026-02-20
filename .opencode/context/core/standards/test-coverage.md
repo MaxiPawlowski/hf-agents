@@ -1,10 +1,9 @@
 # Test Coverage Standard
 
-## Profile-aware defaults
+## Toggle-aware defaults
 
-- fast: tests optional unless user asks.
-- balanced: run targeted verification for changed behavior.
-- strict: tests required before completion.
+- Tests are optional unless user requests them or settings require them.
+- When verification toggles are enabled, run targeted checks for changed behavior.
 
 ## Requirements
 

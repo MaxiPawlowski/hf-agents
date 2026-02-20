@@ -1,6 +1,6 @@
 ---
 name: hf-status
-description: Show framework readiness status for agents, skills, policies, and tasks.
+description: HF: Show framework readiness status for agents, skills, runtime gates, and tasks.
 argument-hint: [feature] [--task-loop=on|off]
 ---
 
@@ -16,8 +16,7 @@ Provide a fast health snapshot to identify missing pieces before execution.
 ## Execution Contract
 
 1. Report command, agent, and skill availability.
-2. Report active profile and key gates.
-3. Report active execution profile.
+2. Report effective runtime toggles.
 4. If feature is provided and `--task-loop=on`, run lifecycle status check from `.tmp/task-lifecycle.json`.
 5. Report workflow phase readiness (discovery/planning/implementation/review).
 6. Surface warnings with highest-risk-first ordering.
@@ -26,8 +25,7 @@ Provide a fast health snapshot to identify missing pieces before execution.
 
 - `System Status`: ready/degraded/not-ready.
 - `Components`: available vs missing agents/skills/commands.
-- `Policy`: active profile and enforced gates.
-- `Profile`: active execution profile.
+- `Runtime Gates`: toggle-driven enforced gates.
 - `Task Status`: progress summary for selected feature when task loop is enabled.
 - `Next Command`: best next command for current state.
 

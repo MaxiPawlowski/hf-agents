@@ -41,11 +41,13 @@ Pass 1 should fail fast on scope drift. Pass 2 should prioritize risk and qualit
 
 - No worktrees unless explicitly requested.
 - No automatic git actions unless explicitly requested.
-- Tests are optional unless user/policy requires them.
+- Tests are optional unless user or runtime toggle gates require them.
+- Subagents do not run unsolicited brainstorming loops.
 
 ## Escalation path
 
 - Requirement ambiguity -> return question to orchestrator before coding.
+- Brainstorming need -> return to orchestrator unless explicit delegation is provided.
 - Scope conflict -> prioritize explicit user instruction.
 - Missing context -> call ContextScout before proceeding.
 

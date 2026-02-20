@@ -12,18 +12,16 @@ Related docs:
 - `src/registry`: Subagent registry
 - `src/skills`: Skill selection and enforcement logic
 - `src/context`: Context resolution and external docs adapter
-- `src/settings`: Runtime settings profiles and loading
+- `src/settings`: Runtime settings and loading
 - `src/tasks`: Dependency-aware task artifact generation
 - `src/diagnostics`: Runtime diagnostics and command contract lint integration
 - `src/hooks`: Runtime hook handlers for output and resume stages
 
 ## Runtime Settings Model
 
-Settings profiles control strictness, context depth, and defaults.
+Settings are resolved with built-in defaults plus toggle overrides.
 
-- `light`: autonomy-first, minimal context
-- `balanced`: verification + explicit review
-- `strict`: tests + approval gates + verification + review
+Runtime behavior should read `settings.toggles.*` as the primary source for gates.
 
 ## Delegation Flow
 
@@ -37,8 +35,8 @@ Settings profiles control strictness, context depth, and defaults.
 ### Category-based routing
 
 - Router accepts explicit task category or infers one from intent hints.
-- If `delegationProfiles[category].preferredSubagent` exists and is registered, routing source is `profile`.
-- If profile is missing/invalid, routing falls back to deterministic heuristic mapping (`source: heuristic`).
+- If `delegationRules[category].preferredSubagent` exists and is registered, routing source is `configured`.
+- If the mapping is missing/invalid, routing falls back to deterministic heuristic mapping (`source: heuristic`).
 - Orchestrator surfaces `routingSource` and `matchedCategory` in its result contract.
 
 ## Diagnostics and Lifecycle

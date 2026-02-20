@@ -21,10 +21,10 @@ Use this compact structure in `hf-verify` and `hf-finish`.
 | check | required | status | evidence | notes |
 | --- | --- | --- | --- | --- |
 | scope-fit | yes | pass | reviewer: pass-1 | - |
-| reviewer-quality | mode>=balanced | pass | reviewer: pass-2 | - |
-| tests | mode=strict or user-requested | pass | `npm test` exit 0 | 124 tests |
-| build | mode=strict or user-requested | pass | `npm run build` exit 0 | - |
-| typecheck | mode=strict or user-requested | pass | `npm run typecheck` exit 0 | - |
+| reviewer-quality | requireCodeReview=true | pass | reviewer: pass-2 | - |
+| tests | user-requested | pass | `npm test` exit 0 | 124 tests |
+| build | user-requested | pass | `npm run build` exit 0 | - |
+| typecheck | user-requested | pass | `npm run typecheck` exit 0 | - |
 
 ## Decision rule
 

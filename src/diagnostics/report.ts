@@ -6,18 +6,15 @@ import { listSkills } from "../skills/skill-engine.js";
 import { loadRuntimeSettings, resolveRuntimeSettings } from "../settings/runtime-settings.js";
 
 function buildSettingsItem(repoRoot: string): DiagnosticsItem {
-  const profiles = ["light", "balanced", "strict"] as const;
   const details: string[] = [];
   let failed = false;
 
-  for (const profile of profiles) {
-    try {
-      resolveRuntimeSettings({ profile });
-      details.push(`Preset loaded: ${profile}`);
-    } catch (error) {
-      failed = true;
-      details.push(`Invalid preset (${profile}): ${(error as Error).message}`);
-    }
+  try {
+    resolveRuntimeSettings();
+    details.push("Default runtime settings loaded.");
+  } catch (error) {
+    failed = true;
+    details.push(`Invalid default runtime settings: ${(error as Error).message}`);
   }
 
   const projectSettingsPath = path.join(repoRoot, "settings", "framework-settings.json");
@@ -30,7 +27,7 @@ function buildSettingsItem(repoRoot: string): DiagnosticsItem {
       details.push(`Invalid project settings: ${(error as Error).message}`);
     }
   } else {
-    details.push("Project settings file not found; using light preset defaults.");
+    details.push("Project settings file not found; using built-in defaults.");
   }
 
   return {

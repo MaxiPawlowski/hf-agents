@@ -24,16 +24,15 @@ This project borrows proven workflow ideas from:
 
 - No implicit git operations.
 - No worktree usage unless explicitly requested by the user.
-- No mandatory test execution unless mode/user requires it.
-- No approval-gate blocking by default in `fast` mode.
+- No mandatory test execution unless toggles/user require it.
+- No approval-gate blocking by default.
 
-## Mode behavior mapping
+## Runtime behavior mapping
 
-- `fast`: speed-first, lightweight verification, risk callouts.
-- `balanced`: explicit verification evidence plus reviewer signoff.
-- `strict`: balanced gates plus required build/type/test evidence.
+- Keep execution speed-first and scope-focused by default.
+- Increase verification and review requirements only when toggles enable those gates.
 
-## Workflow profile
+## Workflow pattern
 
 1. Discovery (`ContextScout` and optional `ExternalDocsScout`)
 2. Planning (`TaskPlanner`, optional `TaskManager`)
@@ -44,5 +43,5 @@ This project borrows proven workflow ideas from:
 ## Do not import directly
 
 - Any always-on git/worktree/commit behavior
-- Any always-on TDD requirement in default mode
+- Any always-on TDD requirement in default settings
 - Any always-on approval gates for simple tasks

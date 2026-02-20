@@ -1,6 +1,6 @@
 ---
 name: hf-add-context
-description: Add or register project context from local or remote sources.
+description: HF: Add or register project context from local or remote sources.
 argument-hint: <source> [--category=<core|team|custom|external>] [--priority=<critical|high|medium>] [--dry-run]
 ---
 

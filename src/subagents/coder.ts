@@ -1,4 +1,5 @@
-import { codePatchSchema, runtimeSettingsSchema, executionPlanSchema, type CodePatch } from "../contracts/index.js";
+import { codePatchSchema, executionPlanSchema, type CodePatch } from "../contracts/index.js";
+import { resolveRuntimeSettings } from "../settings/runtime-settings.js";
 
 function inferFilesFromPlan(plan: { contextFiles: string[]; objective: string }): string[] {
   if (plan.contextFiles.length > 0) {
@@ -6,7 +7,7 @@ function inferFilesFromPlan(plan: { contextFiles: string[]; objective: string })
   }
 
   const normalized = plan.objective.toLowerCase();
-  if (normalized.includes("settings") || normalized.includes("profile")) {
+  if (normalized.includes("settings") || normalized.includes("toggles")) {
     return ["settings/framework-settings.json", "src/settings/runtime-settings.ts"];
   }
   if (normalized.includes("docs") || normalized.includes("documentation")) {
@@ -17,13 +18,14 @@ function inferFilesFromPlan(plan: { contextFiles: string[]; objective: string })
 
 export function runCoder(planInput: unknown, settingsInput: unknown): CodePatch {
   const plan = executionPlanSchema.parse(planInput);
-  const settings = runtimeSettingsSchema.parse(settingsInput);
+  const settings = resolveRuntimeSettings(settingsInput);
+  const toggles = settings.toggles;
   const filesTouched = inferFilesFromPlan({ contextFiles: plan.contextFiles, objective: plan.objective });
   const validationNotes = [
-    settings.requireVerification
+    toggles.requireVerification
       ? "Verification evidence required before completion."
-      : "Verification is optional in current settings profile.",
-    settings.requireTests
+      : "Verification is optional in current settings.",
+    toggles.requireTests
       ? "Tests are required by settings but are not auto-executed by Coder stage."
       : "Tests are optional unless explicitly requested."
   ];
@@ -34,8 +36,8 @@ export function runCoder(planInput: unknown, settingsInput: unknown): CodePatch 
     filesTouched,
     validationNotes,
     safeguards: {
-      usedWorktrees: settings.useWorktreesByDefault,
-      managedGit: settings.manageGitByDefault,
+      usedWorktrees: toggles.useWorktreesByDefault,
+      managedGit: toggles.manageGitByDefault,
       autoTestsRun: false
     }
   };

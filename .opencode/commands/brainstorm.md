@@ -1,13 +1,13 @@
 ---
 name: hf-brainstorm
-description: Clarify design scope and choose an implementation approach before coding.
+description: HF: Clarify design scope and choose an implementation approach before coding.
 argument-hint: <problem or feature idea>
-disable-model-invocation: true
 ---
 
 ## Purpose
 
 Run lightweight design clarification before planning or implementation.
+This command is orchestrator-led and user-facing.
 
 ## Preconditions
 
@@ -16,7 +16,8 @@ Run lightweight design clarification before planning or implementation.
 
 ## Execution Contract
 
-Invoke `hf-brainstorming` skill and follow it exactly.
+Use `hf-brainstorming` directly in the orchestrator conversation and follow it exactly.
+Do not route this command through subagents unless the user explicitly asks for delegated brainstorming.
 
 ## Required Output
 

@@ -8,9 +8,8 @@ Use this file to quickly route context loading.
 - Test work: `@.opencode/context/core/standards/test-coverage.md`
 - Documentation work: `@.opencode/context/core/standards/documentation.md`
 - Project patterns: `@.opencode/context/project-intelligence/technical-domain.md`
-- External inspiration profile: `@.opencode/context/project-intelligence/external-inspirations.md`
+- External inspiration patterns: `@.opencode/context/project-intelligence/external-inspirations.md`
 - Runtime behavior defaults: `@.opencode/context/project/runtime-preferences.md`
-- Canonical runtime policy: `@.opencode/context/project/policy-contract.md`
 - Verification schema: `@.opencode/context/project/verification-evidence-schema.md`
 - Subagent handoff bundle: `@.opencode/context/project/subagent-handoff-template.md`
 

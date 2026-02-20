@@ -2,6 +2,9 @@
 name: hf-external-docs-scout
 description: "Fetches current external library docs and API usage patterns"
 mode: subagent
+permission:
+  skill:
+    "hf-git-*": deny
 temperature: 0.1
 ---
 
@@ -27,3 +30,4 @@ Return:
 - No code edits
 - No git operations
 - Keep recommendations aligned with runtime defaults (no implicit git/worktrees/tests).
+- Do not initiate brainstorming; return unclear trade-offs to orchestrator.

@@ -1,18 +1,12 @@
-# Prompt Variants
+# Prompt Assets
 
-Prompt variants let the framework tune instructions by mode or model without duplicating the full agent stack.
+Core behavior is defined in agent markdown plus runtime toggles.
+
+Runtime behavior is toggle-first: use resolved `settings.toggles.*` for execution gates.
 
 ## Layout
 
-- `core/core-agent/default.md`
-- `core/core-agent/strict.md`
-- `core/core-agent/variants.json`
-
-## Selection Rules
-
-1. If `--prompt-variant=<id>` is provided, use that variant when present.
-2. If settings profile is `strict`, prefer `strict` variant.
-3. Fallback to `default` if variant is missing.
+- Prompt assets are optional and can be added per project.
 
 ## Validation
 

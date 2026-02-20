@@ -2,3 +2,4 @@ node_modules/
 dist/
 .opencode.backup.*/
 .opencode.local/
+.tmp/

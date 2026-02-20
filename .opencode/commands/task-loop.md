@@ -1,6 +1,6 @@
 ---
 name: hf-task-loop
-description: Manage optional v2 lifecycle checkpoints for complex feature execution.
+description: HF: Manage optional v2 lifecycle checkpoints for complex feature execution.
 argument-hint: <init|status|checkpoint|close> --feature=<key> [--phase=<name>] [--note=<text>]
 ---
 

@@ -13,7 +13,7 @@ Use this bundle when delegating Planner/Coder/Reviewer work.
 - `objective`: exact user goal.
 - `scope-in`: requested behavior only.
 - `scope-out`: explicitly excluded behavior.
-- `constraints`: safety and mode constraints.
+- `constraints`: safety and runtime-setting constraints.
 - `files`: known paths to touch or inspect.
 - `acceptance`: binary completion checks.
 - `evidence-required`: checks that must include proof.
@@ -31,7 +31,7 @@ Scope Out:
 - <item>
 
 Constraints:
-- mode: <fast|balanced|strict>
+- toggles: <runtime toggle summary>
 - no implicit git
 - no implicit worktrees
 
