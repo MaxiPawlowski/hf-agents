@@ -9,20 +9,43 @@ description: Use when a request needs design clarification before implementation
 
 Convert rough intent into a validated design with clear scope, constraints, and success criteria.
 
+Iron law: Do not start implementation while material design choices remain unresolved.
+
 Orchestrator ownership: this skill is led by the primary orchestrator in direct conversation with the user.
 Subagents should use this flow only when brainstorming is explicitly delegated or explicitly requested.
+
+## When to Use
+
+- Request ambiguity materially changes architecture, data flow, or risk profile.
+- User asks for options/trade-offs before coding.
+
+## When Not to Use
+
+- Scope is already explicit and implementable safely.
+- User asks for direct implementation with no unresolved design branch.
 
 ## Why this exists
 
 Skipping design causes the same failures repeatedly: wrong scope, wrong assumptions, and expensive rework.
 This skill keeps planning lightweight while still forcing the core decisions to be explicit.
 
-## Flow
+## Workflow
 
-1. Run a conversational clarification loop when request ambiguity is non-trivial.
-2. Propose 2-3 approaches with practical trade-offs.
-3. Recommend one approach and explain why.
-4. Confirm design sections before implementation.
+1. Clarification gate
+   - Ask one focused question at a time (max 5 total).
+   - Exit gate: scope, constraints, and success criteria are explicit.
+2. Options gate
+   - Present 2-3 viable approaches with trade-offs.
+   - Exit gate: one recommended option is justified.
+3. Confirmation gate
+   - Confirm in-scope/out-of-scope boundaries.
+   - Exit gate: implementation-ready design brief is produced.
+
+Then:
+
+4. Handoff gate
+   - Produce a design brief that a planner/coder can execute without guessing.
+   - Exit gate: objective + scope + constraints + acceptance criteria are explicit.
 
 ## Conversational clarification loop
 
@@ -49,7 +72,7 @@ Before proposing approaches, emit a short decision log:
 - Error handling and fallback behavior
 - Validation strategy (manual by default; tests only when requested)
 
-## Output format
+## Required Output
 
 Return:
 - Recommended approach
@@ -58,16 +81,42 @@ Return:
 - Risks and assumptions
 - Decision log from conversational loop
 
+## Verification
+
+- Run: `git status --short`
+- Expect: no coding side effects occurred during brainstorming-only sessions.
+- Run: `npm run build`
+- Expect: only when design confirmation includes immediate implementation handoff and code changed.
+
+## Failure Behavior
+
+- Stop questioning at 5 questions or when scope is explicit.
+- Report unresolved unknowns and the minimum decision needed from user.
+- Escalate to implementation only after confirmation gate is complete.
+
 ## Project Defaults
 
 - Keep planning lightweight and fast.
 - Do not force approval gates for each action.
 - Do not introduce worktrees unless user asks.
 
-## Red flags
+## Red Flags
 
 - Jumping into implementation without explicit scope
 - Presenting one option only
 - Treating constraints as optional
 - Asking a long list of questions in one message
 - Continuing clarification after scope is already explicit
+
+Corrective action: emit decision log, recommend approach, and transition out of brainstorming.
+
+## Examples
+
+- Good: three targeted questions, two alternatives, one recommendation, explicit scope boundaries.
+- Anti-pattern: ten broad questions and no concrete recommendation.
+
+## Integration
+
+- Used by: `hf-core-agent` only (orchestrator-led).
+- Required before: `hf-core-delegation` when ambiguity materially changes implementation.
+- Required after: `hf-task-planner` once the design brief is finalized.

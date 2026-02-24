@@ -1,5 +1,18 @@
 import type { RuntimeToggles, Skill } from "../contracts/index.js";
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function matchesHint(input: string, hint: string): boolean {
+  const normalizedHint = hint.toLowerCase();
+  if (normalizedHint.includes(" ")) {
+    return input.includes(normalizedHint);
+  }
+  const re = new RegExp(`\\b${escapeRegExp(normalizedHint)}\\b`, "i");
+  return re.test(input);
+}
+
 const CORE_SKILLS: Skill[] = [
   {
     id: "hf-brainstorming",
@@ -7,27 +20,27 @@ const CORE_SKILLS: Skill[] = [
   },
   {
     id: "hf-subagent-driven-development",
-    triggerHints: ["delegate", "subagent", "workflow"]
+    triggerHints: ["delegate", "subagent", "handoff", "planner", "reviewer"]
   },
   {
     id: "hf-test-driven-development",
-    triggerHints: ["feature", "bug", "refactor"]
+    triggerHints: ["tdd", "test-driven", "test first", "test-first"]
   },
   {
     id: "hf-systematic-debugging",
-    triggerHints: ["bug", "failure", "unexpected"]
+    triggerHints: ["debug", "failing", "regression", "exception", "stacktrace"]
   },
   {
     id: "hf-verification-before-completion",
-    triggerHints: ["done", "complete", "fixed"]
+    triggerHints: ["complete", "finish", "ship", "release"]
   },
   {
     id: "hf-bounded-parallel-scouting",
-    triggerHints: ["discover", "context", "scout"]
+    triggerHints: ["discover", "scout", "inventory"]
   },
   {
     id: "hf-task-management",
-    triggerHints: ["task", "dependency", "subtask"]
+    triggerHints: ["dependency", "subtask", "lifecycle", "artifact"]
   },
   {
     id: "hf-dispatching-parallel-agents",
@@ -62,10 +75,11 @@ export function listSkills(): Skill[] {
 export function suggestSkills(input: string): string[] {
   const normalized = input.toLowerCase();
   const matched = CORE_SKILLS.filter((skill) =>
-    skill.triggerHints.some((hint) => normalized.includes(hint))
+    skill.triggerHints.some((hint) => matchesHint(normalized, hint))
   ).map((skill) => skill.id);
 
-  return Array.from(new Set(matched));
+  const unique = Array.from(new Set(matched));
+  return unique.slice(0, 4);
 }
 
 export function skillsForEnabledToggles(toggles: RuntimeToggles): string[] {

@@ -51,3 +51,12 @@ Runtime behavior should read `settings.toggles.*` as the primary source for gate
 - Output truncation guard clips oversized output to configured character limits and annotates notes.
 - Resume continuation hook adds dependency-order reminder unless lifecycle is already completed.
 - Hook behavior is controlled by `settings.hookRuntime` (global enable + per-hook settings).
+
+## OpenCode Integration
+
+Framework assets are authored under `.opencode/` and installed into an OpenCode config target (usually `<home>/.config/opencode`):
+
+- `plugins/framework-bootstrap.js`: provides toggle tools, `/toggle-*` behavior, and markdown placeholder interpolation.
+- `agents/hf-*.md`: orchestrator + subagent contracts.
+- `commands/*.md`: command contracts.
+- `context/**`: indexed context used by agents via `@.opencode/context/...` references.

@@ -5,16 +5,18 @@ This project includes safe install/update and asset validation utilities.
 ## Validation Commands
 
 ```bash
-node scripts/validation/validate-registry.mjs
-node scripts/validation/check-dependencies.mjs
-node scripts/validation/validate-context-refs.mjs
-node scripts/validation/lint-command-contracts.mjs
+npm run validate:registry
+npm run validate:deps
+npm run validate:context-refs
+npm run validate:command-contracts
+npm run validate:agent-contracts
+npm run validate:skill-contracts
 ```
 
 Or run the combined asset validation pipeline:
 
 ```bash
-npm run validate:assets
+npm run validate
 ```
 
 ## Safe Installer
@@ -22,61 +24,64 @@ npm run validate:assets
 Install `.opencode` assets to a target path with collision handling:
 
 ```bash
-node scripts/install/install-opencode-assets.mjs --target .opencode.local --collision backup
+npm run install:opencode -- --target .opencode.local --collision backup
 ```
 
 Default install mode is `symlink`.
 
-The installer also seeds a `.env` file in the target directory if missing.
-
-Open that `.env` file automatically with your default editor:
-
-```bash
-node scripts/install/install-opencode-assets.mjs --target .opencode.local --collision backup --open-env
-```
+Windows note: symlink installs may require Administrator privileges or Developer Mode. If symlinks fail, retry with `--mode copy`.
 
 Install modes:
 
 - `symlink` (default): creates symlinks from target files back to this repository's `.opencode` assets.
 - `copy`: copies files into the target path.
 
-Recommended global setup (Superpowers-style):
+Recommended global setup:
 
 ```bash
-git clone <your-repo-url> ~/.config/opencode/hybrid-framework
-cd ~/.config/opencode/hybrid-framework
-node scripts/install/install-opencode-assets.mjs --target ~/.config/opencode --mode symlink --collision backup --open-env
+npm run install:opencode:global -- --collision backup
 ```
-
-This lets agents run the installer safely while keeping global assets linked to your local framework checkout.
 
 Collision modes:
 
 - `skip`: keep existing files, install only missing files
 - `overwrite`: replace existing files
-- `backup`: copy old files to `.opencode.backup.<timestamp>` then overwrite
+- `backup`: move old files to `.opencode.backup.<timestamp>` then overwrite
 - `cancel`: abort install when collision is detected
 
 Use `--dry-run` to preview actions without writing files.
+
+Discover supported flags:
+
+```bash
+npm run install:opencode -- --help
+npm run uninstall:opencode -- --help
+```
 
 ## Uninstall
 
 Remove previously installed framework assets from a target path:
 
 ```bash
-node scripts/install/uninstall-opencode-assets.mjs --target .opencode.local --dry-run
-node scripts/install/uninstall-opencode-assets.mjs --target .opencode.local
+npm run uninstall:opencode:dry -- --target .opencode.local
+npm run uninstall:opencode -- --target .opencode.local
 ```
 
 Uninstall options:
 
 - `--force`: remove matching target paths even when file/symlink content does not match source
-- `--remove-env`: also remove `<target>/.env`
 - `--dry-run`: preview removals without writing
 
 ## Context Reference Transform
 
 Markdown files using `@.opencode/context/...` are transformed during install for custom targets.
+
+## OpenCode Plugin Notes
+
+The installed plugin (`plugins/framework-bootstrap.js`) provides:
+
+- Runtime toggle tools (`toggle_get`, `toggle_set`) and `/toggle-*` command behavior.
+- Runtime interpolation for markdown placeholders like `{{toggle.use_worktree}}`.
 
 ## Hook Wrapper
 

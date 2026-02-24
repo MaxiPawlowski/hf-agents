@@ -4,55 +4,61 @@
     {
       "id": "agent-core",
       "type": "agent",
-      "path": ".opencode/agents/core-agent-base.md",
-      "dependsOn": ["agent-context-scout", "agent-external-docs-scout", "agent-task-planner", "agent-coder", "agent-reviewer", "skill-brainstorming", "skill-core-delegation", "skill-subagent-driven-development", "skill-task-management", "context-runtime-preferences"]
+      "path": ".opencode/agents/hf-core-agent.md",
+      "dependsOn": ["agent-intent-scout", "agent-context-scout", "agent-external-docs-scout", "agent-task-planner", "agent-coder", "agent-reviewer", "skill-brainstorming", "skill-core-delegation", "skill-subagent-driven-development", "skill-task-management", "context-runtime-preferences"]
+    },
+    {
+      "id": "agent-intent-scout",
+      "type": "agent",
+      "path": ".opencode/agents/hf-intent-scout.md",
+      "dependsOn": ["context-runtime-preferences"]
     },
     {
       "id": "agent-task-manager",
       "type": "agent",
-      "path": ".opencode/agents/task-manager.md",
+      "path": ".opencode/agents/hf-task-manager.md",
       "dependsOn": ["skill-task-management", "context-navigation"]
     },
     {
       "id": "agent-task-planner",
       "type": "agent",
-      "path": ".opencode/agents/task-planner.md",
+      "path": ".opencode/agents/hf-task-planner.md",
       "dependsOn": ["context-navigation"]
     },
     {
       "id": "agent-coder",
       "type": "agent",
-      "path": ".opencode/agents/coder.md",
+      "path": ".opencode/agents/hf-coder.md",
       "dependsOn": ["context-code-quality"]
     },
     {
       "id": "agent-reviewer",
       "type": "agent",
-      "path": ".opencode/agents/reviewer.md",
+      "path": ".opencode/agents/hf-reviewer.md",
       "dependsOn": ["skill-verification-before-completion"]
     },
     {
       "id": "agent-context-scout",
       "type": "agent",
-      "path": ".opencode/agents/context-scout.md",
+      "path": ".opencode/agents/hf-context-scout.md",
       "dependsOn": ["context-navigation"]
     },
     {
       "id": "agent-external-docs-scout",
       "type": "agent",
-      "path": ".opencode/agents/external-docs-scout.md",
+      "path": ".opencode/agents/hf-external-docs-scout.md",
       "dependsOn": []
     },
     {
       "id": "agent-tester",
       "type": "agent",
-      "path": ".opencode/agents/tester.md",
+      "path": ".opencode/agents/hf-tester.md",
       "dependsOn": ["context-test-coverage"]
     },
     {
       "id": "agent-build-validator",
       "type": "agent",
-      "path": ".opencode/agents/build-validator.md",
+      "path": ".opencode/agents/hf-build-validator.md",
       "dependsOn": []
     },
     {

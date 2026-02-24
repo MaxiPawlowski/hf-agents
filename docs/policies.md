@@ -16,6 +16,28 @@ Default local settings file:
 - `requireCodeReview`
 - `enableTaskArtifacts`
 
+These live under `toggles` in `settings/framework-settings.json`:
+
+```json
+{
+  "toggles": {
+    "requireTests": false,
+    "requireVerification": false
+  }
+}
+```
+
+## OpenCode toggle commands
+
+When using OpenCode with this framework installed, the plugin exposes short toggle commands that write to `settings/framework-settings.json` in the current working directory:
+
+- `/toggle-worktree on|off` -> sets `useWorktreesByDefault` and `manageGitByDefault`
+- `/toggle-tests on|off` -> sets `requireTests`
+- `/toggle-verification on|off` -> sets `requireApprovalGates`, `requireVerification`, and `requireCodeReview`
+- `/toggle-artifacts on|off` -> sets `enableTaskArtifacts`
+
+The command names use `snake_case` internally (`use_worktree`, `require_tests`, `require_verification`, `task_artifacts`) and are mapped to the nested runtime settings toggle keys shown above.
+
 Resolution precedence:
 
 1. built-in defaults

@@ -1,6 +1,6 @@
 ---
 name: toggle-tests
-description: "HF: [OFF] Toggle required tests gate on or off."
+description: "HF: Toggle required tests gate on or off."
 argument-hint: <on|off>
 ---
 

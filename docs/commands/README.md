@@ -19,6 +19,8 @@ Source command contracts live in `.opencode/commands/`.
 - Operations: `hf-setup`, `hf-status`, `hf-add-context`, `hf-cleanup`, `hf-help`
 - Runtime toggles: `toggle-worktree`, `toggle-tests`, `toggle-verification`, `toggle-artifacts`, `toggle-status`
 
+Toggle commands persist to `settings/framework-settings.json` in the current working directory (project-local), and `toggle-status` prints the current in-memory toggle state for the active session.
+
 ## Examples
 
 ```bash

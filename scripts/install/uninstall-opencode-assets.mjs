@@ -5,12 +5,25 @@ import path from "node:path";
 const repoRoot = process.cwd();
 const sourceRoot = path.join(repoRoot, ".opencode");
 
+function printHelp() {
+  console.log("Uninstall OpenCode assets previously installed from this repo's .opencode directory.");
+  console.log("");
+  console.log("Usage:");
+  console.log("  node scripts/install/uninstall-opencode-assets.mjs [--target <path>] [--dry-run] [--force]");
+  console.log("");
+  console.log("Options:");
+  console.log("  --target <path>  Uninstall destination (default: .opencode.local)");
+  console.log("  --dry-run        Print removals without writing");
+  console.log("  --force          Remove matching paths even if they don't match source content");
+  console.log("  --help           Show this help");
+}
+
 function parseArgs(argv) {
   const args = {
     target: ".opencode.local",
     dryRun: false,
     force: false,
-    removeEnv: false
+    help: false
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -22,8 +35,8 @@ function parseArgs(argv) {
       args.dryRun = true;
     } else if (current === "--force") {
       args.force = true;
-    } else if (current === "--remove-env") {
-      args.removeEnv = true;
+    } else if (current === "--help" || current === "-h") {
+      args.help = true;
     }
   }
   return args;
@@ -134,59 +147,56 @@ function pruneEmptyDirs(targetRoot, relativeDirs, dryRun) {
   return removed;
 }
 
-const { target, dryRun, force, removeEnv } = parseArgs(process.argv.slice(2));
+try {
+  const { target, dryRun, force, help } = parseArgs(process.argv.slice(2));
 
-if (!fs.existsSync(sourceRoot)) {
-  console.error(`ERROR: source .opencode directory missing at ${sourceRoot}`);
-  process.exit(2);
-}
-
-const targetRoot = path.resolve(repoRoot, target);
-const files = listFilesRecursive(sourceRoot);
-const relativeDirs = uniqueParentDirs(files);
-
-const summary = {
-  removed: 0,
-  kept: 0,
-  skipped: 0,
-  missing: 0,
-  dirsRemoved: 0,
-  envRemoved: 0
-};
-
-for (const relativeFile of files) {
-  const src = path.join(sourceRoot, relativeFile);
-  const dst = path.join(targetRoot, relativeFile);
-  const action = removeIfEligible(src, dst, force, dryRun);
-
-  if (action === "removed") summary.removed += 1;
-  if (action === "kept") summary.kept += 1;
-  if (action === "skipped") summary.skipped += 1;
-  if (action === "missing") summary.missing += 1;
-}
-
-if (removeEnv) {
-  const envPath = path.join(targetRoot, ".env");
-  if (fs.existsSync(envPath) && fs.lstatSync(envPath).isFile()) {
-    if (!dryRun) {
-      fs.unlinkSync(envPath);
-    }
-    summary.envRemoved = 1;
+  if (help) {
+    printHelp();
+    process.exit(0);
   }
-}
 
-summary.dirsRemoved = pruneEmptyDirs(targetRoot, relativeDirs, dryRun);
+  if (!fs.existsSync(sourceRoot)) {
+    console.error(`ERROR: source .opencode directory missing at ${sourceRoot}`);
+    process.exit(2);
+  }
 
-console.log(`Uninstall target: ${toPosix(targetRoot)}`);
-console.log(`Force: ${force ? "yes" : "no"}${dryRun ? " (dry-run)" : ""}`);
-console.log(`Removed files: ${summary.removed}`);
-console.log(`Kept files: ${summary.kept}`);
-console.log(`Skipped paths: ${summary.skipped}`);
-console.log(`Missing paths: ${summary.missing}`);
-console.log(`Removed empty directories: ${summary.dirsRemoved}`);
-if (removeEnv) {
-  console.log(`Removed env file: ${summary.envRemoved}`);
-}
-if (summary.kept > 0 && !force) {
-  console.log("Note: kept files are non-matching files/symlinks. Use --force to remove them.");
+  const targetRoot = path.resolve(repoRoot, target);
+  const files = listFilesRecursive(sourceRoot);
+  const relativeDirs = uniqueParentDirs(files);
+
+  const summary = {
+    removed: 0,
+    kept: 0,
+    skipped: 0,
+    missing: 0,
+    dirsRemoved: 0
+  };
+
+  for (const relativeFile of files) {
+    const src = path.join(sourceRoot, relativeFile);
+    const dst = path.join(targetRoot, relativeFile);
+    const action = removeIfEligible(src, dst, force, dryRun);
+
+    if (action === "removed") summary.removed += 1;
+    if (action === "kept") summary.kept += 1;
+    if (action === "skipped") summary.skipped += 1;
+    if (action === "missing") summary.missing += 1;
+  }
+
+  summary.dirsRemoved = pruneEmptyDirs(targetRoot, relativeDirs, dryRun);
+
+  console.log(`Uninstall target: ${toPosix(targetRoot)}`);
+  console.log(`Force: ${force ? "yes" : "no"}${dryRun ? " (dry-run)" : ""}`);
+  console.log(`Removed files: ${summary.removed}`);
+  console.log(`Kept files: ${summary.kept}`);
+  console.log(`Skipped paths: ${summary.skipped}`);
+  console.log(`Missing paths: ${summary.missing}`);
+  console.log(`Removed empty directories: ${summary.dirsRemoved}`);
+  if (summary.kept > 0 && !force) {
+    console.log("Note: kept files are non-matching files/symlinks. Use --force to remove them.");
+  }
+} catch (error) {
+  console.error("ERROR: uninstall failed");
+  console.error((error && error.message) || String(error));
+  process.exit(2);
 }

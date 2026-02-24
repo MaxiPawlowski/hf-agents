@@ -1,6 +1,6 @@
 ---
 name: toggle-artifacts
-description: "HF: [ON] Toggle task artifacts gate on or off."
+description: "HF: Toggle task artifacts gate on or off."
 argument-hint: <on|off>
 ---
 

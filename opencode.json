@@ -9,7 +9,11 @@
       "rm -rf *": "ask",
       "git push --force*": "deny"
     },
-    "webfetch": "allow"
+    "webfetch": "allow",
+    "skill": {
+      "*": "deny",
+      "hf-*": "allow"
+    }
   },
   "watcher": {
     "ignore": ["dist/**", "node_modules/**", ".git/**"]

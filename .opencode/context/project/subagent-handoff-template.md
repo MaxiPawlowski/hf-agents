@@ -17,6 +17,8 @@ Use this bundle when delegating Planner/Coder/Reviewer work.
 - `files`: known paths to touch or inspect.
 - `acceptance`: binary completion checks.
 - `evidence-required`: checks that must include proof.
+- `output-contract`: the fixed fields you expect back.
+- `failure-payload`: blocked/why/unblock.
 
 ## Prompt block
 
@@ -43,4 +45,12 @@ Acceptance Criteria:
 
 Evidence Required:
 - <command or file proof>
+
+Output Contract:
+- <field>
+
+Failure Payload:
+- blocked: <what>
+- why: <why>
+- unblock: <smallest next step>
 ```

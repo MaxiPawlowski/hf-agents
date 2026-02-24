@@ -6,54 +6,44 @@
 - Git installed
 - Node.js installed
 
-## Recommended Global Install (Symlink Mode)
+Recommended: run commands from this repository root.
 
-1) Clone the framework repository into your global OpenCode config directory:
+## Recommended Global Install
 
-```bash
-git clone <your-repo-url> ~/.config/opencode/hybrid-framework
-```
-
-2) Run the installer (symlink mode is the default):
+Install the framework assets into your OpenCode config directory (cross-platform):
 
 ```bash
-cd ~/.config/opencode/hybrid-framework
-node scripts/install/install-opencode-assets.mjs --target ~/.config/opencode --collision backup --open-env
+npm run install:opencode:global -- --collision backup
 ```
 
-This creates global OpenCode assets (agents, commands, skills, plugin, context, prompts) as symlinks to this repository so updates stay in sync.
+This installs OpenCode assets (agents, commands, skills, plugin, context, prompts). Default mode is `symlink`, so updates stay in sync with this repository.
 
-## Agent-Friendly Install Command
+Windows note: symlink installs may require Administrator privileges or Developer Mode. If symlinks fail, retry with `--mode copy`.
 
-You can ask OpenCode to run:
+## Local Install (Project Sandbox)
 
-```text
-Run: node scripts/install/install-opencode-assets.mjs --target ~/.config/opencode --collision backup --open-env
+Install assets into a repo-local directory for testing:
+
+```bash
+npm run install:opencode -- --target .opencode.local --collision backup
 ```
 
 ## Install Options
 
 - `--mode copy|symlink` (default `symlink`)
 - `--collision skip|overwrite|backup|cancel` (default `backup`)
-- `--open-env` opens `<target>/.env` in your default editor
 - `--dry-run` previews actions without writing anything
+- `--help` prints installer usage
 
 ## Uninstall
 
 Remove framework-managed assets from a target:
 
 ```bash
-node scripts/install/uninstall-opencode-assets.mjs --target ~/.config/opencode --dry-run
-node scripts/install/uninstall-opencode-assets.mjs --target ~/.config/opencode
+npm run uninstall:opencode:global:dry
+npm run uninstall:opencode:global
 ```
 
 Uninstall options:
 
 - `--force` removes matching target paths even if they no longer match source content
-- `--remove-env` also removes `<target>/.env`
-
-## Environment
-
-Installer seeds `<target>/.env` when missing.
-
-Use this file for any local runtime overrides your project needs.

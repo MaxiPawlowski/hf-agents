@@ -1,6 +1,6 @@
 ---
 name: toggle-verification
-description: "HF: [OFF] Toggle verification gate on or off."
+description: "HF: Toggle verification gate on or off."
 argument-hint: <on|off>
 ---
 

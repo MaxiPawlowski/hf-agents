@@ -31,5 +31,5 @@
 
 - `src/orchestrator/core-agent.ts`
 - `src/tasks/task-bundle.ts`
-- `.opencode/agents/core-agent-base.md`
+- `.opencode/agents/hf-core-agent.md`
 - `.opencode/context/project/runtime-preferences.md`

@@ -48,7 +48,7 @@ export const runtimeTogglesSchema = z.object({
   requireApprovalGates: z.boolean().default(false),
   requireVerification: z.boolean().default(false),
   requireCodeReview: z.boolean().default(false),
-  enableTaskArtifacts: z.boolean().default(true)
+  enableTaskArtifacts: z.boolean().default(false)
 });
 
 export const runtimeTogglesOverridesSchema = runtimeTogglesSchema.partial();

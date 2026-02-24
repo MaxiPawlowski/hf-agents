@@ -23,6 +23,8 @@ Primary toggles:
 - `requireCodeReview`
 - `enableTaskArtifacts`
 
+If installed into OpenCode, the plugin also exposes `/toggle-*` commands (internally: `use_worktree`, `require_tests`, `require_verification`, `task_artifacts`) that persist these settings into `settings/framework-settings.json` for the current project directory.
+
 Toggle mappings:
 
 - Git/worktree toggles -> `hf-git-workflows`
@@ -51,13 +53,16 @@ npm run test
 
 ```bash
 # Validate assets and contracts
-npm run validate:assets
+npm run validate
 
-# Linked install into another target directory
-node scripts/install/install-opencode-assets.mjs --target .opencode.local --collision backup --dry-run
+# Linked install into another target directory (dry run)
+npm run install:opencode:dry -- --target .opencode.local --collision backup
+
+# Global install into your OpenCode config dir
+npm run install:opencode:global -- --collision backup
 
 # Uninstall from target
-node scripts/install/uninstall-opencode-assets.mjs --target .opencode.local --dry-run
+npm run uninstall:opencode:dry -- --target .opencode.local
 ```
 
 ## Repository Layout

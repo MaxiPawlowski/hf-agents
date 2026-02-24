@@ -1,6 +1,6 @@
 ---
 name: toggle-status
-description: "HF: [W=OFF, T=OFF, V=OFF, A=ON] Show current runtime toggle states."
+description: "HF: Show current runtime toggle states."
 ---
 
 ## Purpose

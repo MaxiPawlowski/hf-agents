@@ -1,6 +1,6 @@
 ---
 name: toggle-worktree
-description: "HF: [OFF] Toggle worktree gate on or off."
+description: "HF: Toggle worktree gate on or off."
 argument-hint: <on|off>
 ---
 

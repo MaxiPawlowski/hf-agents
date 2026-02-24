@@ -33,7 +33,8 @@ Toggle behavior:
 
 Optional task loop (v2):
 - `--task-loop=on` enables lifecycle checkpoint updates in `.tmp/task-lifecycle.json` after each major stage.
-- `--task-loop=off` keeps orchestration stateless (default for speed).
+- `--task-loop=off` keeps orchestration stateless.
+- Default behavior: when `task_artifacts=ON`, treat task loop as `on` unless explicitly disabled.
 
 Defaults:
 - No worktrees unless explicitly requested.

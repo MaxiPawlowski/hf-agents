@@ -7,20 +7,31 @@ description: Use when settings or user request call for test-first implementatio
 
 ## Overview
 
-Provide test-first implementation when explicitly requested by the user or settings.
+Provide test-first implementation when explicitly requested by the user or required by runtime settings.
 
-## Project Note
+Iron law: Do not write or modify production code for a behavior until there is a failing test that captures that behavior.
 
-In this repository, tests are not mandatory by default. Use this skill only when:
+## When to Use
+
 - User asks for it, or
 - Runtime toggle gates/settings explicitly require it.
 
-## Flow
+## When Not to Use
 
-1. Write failing test.
-2. Implement minimum fix.
-3. Re-run checks.
-4. Refactor if needed.
+- User requests manual validation only and no gate requires tests.
+- Trivial documentation-only edits with no runtime behavior change.
+
+## Workflow
+
+1. Red phase
+   - Add or update a focused test that fails for the requested behavior.
+   - Exit gate: failing test output is captured.
+2. Green phase
+   - Implement the smallest production change to make the test pass.
+   - Exit gate: target test passes.
+3. Refactor phase
+   - Improve code clarity/safety without changing behavior.
+   - Exit gate: tests still pass after refactor.
 
 ## Guardrails
 
@@ -28,9 +39,42 @@ In this repository, tests are not mandatory by default. Use this skill only when
 - Keep tests focused on requested behavior.
 - Avoid introducing test-only production behavior.
 
-## Completion output
+## Verification
+
+- Run: `npm test`
+- Expect: previously failing target test is now passing.
+- Run: `npm run build`
+- Expect: build succeeds with final implementation.
+
+## Failure Behavior
+
+- Stop if a failing test cannot be produced for the requested behavior.
+- Report ambiguity or missing acceptance condition and ask for one concrete expectation.
+- If green phase fails repeatedly, report failing signal and smallest remaining hypothesis.
+
+## Integration
+
+- Required before: `hf-testing-gate` when test evidence is required.
+- Required after: `hf-verification-before-completion` for final scope-fit confirmation.
+- Input artifacts: behavior request, existing test patterns, runtime gate state.
+- Output artifacts: failing-to-passing test evidence and minimal implementation summary.
+
+## Examples
+
+- Good: add failing test for edge case, implement minimal fix, rerun suite, then refactor names only.
+- Anti-pattern: implement feature first, then add tests to match current behavior.
+
+## Red Flags
+
+- "I'll add tests later once it works."
+- "This change is too small to justify a failing test first."
+- Corrective action: return to Red phase and capture the behavior in a focused failing test.
+
+## Required Output
 
 Return:
-- Test added/updated
-- Minimal implementation summary
-- Verification result
+
+- tests: what test(s) were added/updated
+- red_evidence: failing output signal before the fix
+- green_evidence: passing output signal after the fix
+- implementation: minimal production change summary

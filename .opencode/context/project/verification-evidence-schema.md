@@ -11,7 +11,7 @@ Use this compact structure in `hf-verify` and `hf-finish`.
 ## Required fields
 
 - `check`: short check name.
-- `required`: `yes|no`.
+- `required`: `yes|no|if:<condition>`.
 - `status`: `pass|fail|unknown`.
 - `evidence`: command output snippet or file path.
 - `notes`: optional risk or follow-up.
@@ -21,10 +21,10 @@ Use this compact structure in `hf-verify` and `hf-finish`.
 | check | required | status | evidence | notes |
 | --- | --- | --- | --- | --- |
 | scope-fit | yes | pass | reviewer: pass-1 | - |
-| reviewer-quality | requireCodeReview=true | pass | reviewer: pass-2 | - |
-| tests | user-requested | pass | `npm test` exit 0 | 124 tests |
-| build | user-requested | pass | `npm run build` exit 0 | - |
-| typecheck | user-requested | pass | `npm run typecheck` exit 0 | - |
+| reviewer-quality | if: requireCodeReview=true | pass | reviewer: pass-2 | - |
+| tests | if: requireTests=true | pass | `npm test` exit 0 | 124 tests |
+| build | if: user-requested | pass | `npm run build` exit 0 | - |
+| typecheck | if: user-requested | pass | `npm run typecheck` exit 0 | - |
 
 ## Decision rule
 
