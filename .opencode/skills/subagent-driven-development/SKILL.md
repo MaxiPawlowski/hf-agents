@@ -1,67 +1,29 @@
 ---
 name: hf-subagent-driven-development
-description: Use when executing a plan through TaskPlanner -> Coder -> Reviewer in one session.
+description: >
+  Use when executing an already-approved plan through planner, coder, reviewer chain in one session.
+  Do NOT use when discovery is still open-ended or requirements are materially ambiguous.
+autonomy: supervised
+context_budget: 12000 / 3000
+max_iterations: 6
 ---
 
 # Subagent-Driven Development
 
-## Overview
+## Iron Law
 
-Execute implementation with focused subagent handoffs in one session and minimal orchestration overhead.
+Every delegation must preserve scope boundaries; any ambiguity returns to orchestrator before coding.
 
-Use this only after scope and plan are explicit.
+## Scope
 
-Iron law: Every delegation must preserve scope boundaries; any ambiguity returns to orchestrator before coding.
-
-## When to Use
-
-- Plan is approved and execution is the primary remaining work.
-- Work can run through deterministic TaskPlanner -> Coder -> Reviewer chain.
-
-## When Not to Use
-
-- Discovery is still open-ended.
-- Requirements are ambiguous in ways that change implementation materially.
+One implementation session executing one approved plan through handoff, planning refinement, coding, and review. Constraints: no worktrees unless explicitly requested; no automatic git actions unless explicitly requested; tests optional unless toggle gates require them; subagents do not run unsolicited brainstorming. Use `@.opencode/context/project/subagent-handoff-template.md` for every delegation (typed artifacts). If multiple tasks are independent, batch and use parallel delegation.
 
 ## Workflow
 
-1. Handoff gate
-   - Build a minimal handoff using `@.opencode/context/project/subagent-handoff-template.md`.
-   - Exit gate: objective + scope-in/scope-out + constraints + acceptance + evidence-required are explicit.
-2. Planning refinement gate
-   - `hf-task-planner` refines steps only (no scope expansion).
-   - Exit gate: steps are deterministic and each has a verify command.
-3. Implementation gate
-   - `hf-coder` applies only scoped changes.
-   - Exit gate: files touched + commands run + results are reported.
-4. Review gate
-   - `hf-reviewer` runs pass 1 (spec-fit) and pass 2 (quality/risk) for non-trivial changes.
-   - Exit gate: approved yes/no with findings and next action.
-
-Rules:
-
-- Use the handoff template for every delegation.
-- Keep one active implementation stream unless tasks are independent.
-- Re-run both review passes after non-trivial fixes.
-- Stop when scope is satisfied; avoid extra "nice to have" additions.
-
-If multiple tasks are independent, batch them and use parallel delegation.
-
-## Reviewer focus
-
-- Confirm requested behavior is present.
-- Confirm no unrequested behavior was added.
-- Confirm project runtime preferences were respected.
-- Return clear pass/fail with concise findings.
-
-Pass 1 should fail fast on scope drift. Pass 2 should prioritize risk and quality issues by severity.
-
-## Guardrails
-
-- No worktrees unless explicitly requested.
-- No automatic git actions unless explicitly requested.
-- Tests are optional unless user or runtime toggle gates require them.
-- Subagents do not run unsolicited brainstorming loops.
+1. **Handoff gate** — Entry: approved plan exists. Build a minimal handoff using the subagent-handoff-template. Validate: objective + scope-in/scope-out + constraints + acceptance + evidence-required are all explicit. Exit: handoff bundle passes schema validation.
+2. **Planning refinement gate** — Entry: valid handoff bundle. `hf-task-planner` refines steps only (no scope expansion). Exit: steps are deterministic and each has a verify command.
+3. **Implementation gate** — Entry: refined plan with verify steps. `hf-coder` applies only scoped changes. Exit: files touched + commands run + results are reported.
+4. **Review gate** — Entry: implementation complete. `hf-reviewer` runs pass 1 (spec-fit: confirm requested behavior present, no unrequested behavior added, runtime preferences respected — fail fast on scope drift) and pass 2 (quality/risk: prioritize by severity). Re-run both passes after non-trivial fixes. Exit: approved yes/no with findings and next action.
 
 ## Verification
 
@@ -70,38 +32,40 @@ Pass 1 should fail fast on scope drift. Pass 2 should prioritize risk and qualit
 - Run: `git status --short`
 - Expect: changed files match coder and reviewer summaries.
 
-## Escalation path
+## Error Handling
 
-- Requirement ambiguity -> return question to orchestrator before coding.
-- Brainstorming need -> return to orchestrator unless explicit delegation is provided.
-- Scope conflict -> prioritize explicit user instruction.
-- Missing context -> call ContextScout before proceeding.
+- On requirement ambiguity: return `{ blocked: "ambiguous requirement", why: "<specific ambiguity>", unblock: "orchestrator must clarify <requirement> before coding" }`.
+- On brainstorming needed: return `{ blocked: "design decision needed", why: "<unresolved design choice>", unblock: "return to orchestrator for hf-brainstorming unless explicit delegation provided" }`.
+- On scope conflict: return `{ blocked: "scope conflict", why: "<conflicting instructions>", unblock: "prioritize explicit user instruction" }`.
+- On missing context: return `{ blocked: "insufficient context", why: "<what is missing>", unblock: "run ContextScout for <specific question>" }`.
+- On pass 1 scope failure: stop delegation chain, report blocking finding, route back to Coder or orchestrator.
+- On unresolvable requirement conflict: escalate to user.
 
-## Failure Behavior
+## Circuit Breaker
 
-- Stop delegation chain on pass 1 scope failure.
-- Report blocking finding and route back to Coder or orchestrator.
-- Escalate to user when requirement conflict cannot be resolved from repository context.
-
-## When to use this vs core delegation
-
-- Use `hf-subagent-driven-development` when planning is complete and the remaining work is execution.
-- Use `hf-core-delegation` when discovery, routing, and planning still need orchestration.
+- Warning at 4 iterations (expect handoff + plan + code + review).
+- Hard stop at 6 — report current state and escalate.
+- On coder-reviewer ping-pong (same finding returned 3 times): stop and escalate to orchestrator.
 
 ## Examples
 
-- Good: approved plan, one coder pass, two reviewer passes, then concise pass/fail summary.
-- Anti-pattern: skipping reviewer pass 2 after meaningful code changes.
+### Correct
+Approved plan, one coder pass, two reviewer passes, then concise pass/fail summary with evidence. This works because the linear chain preserves scope at each gate, and two review passes catch both spec drift and quality issues.
+
+### Anti-pattern
+Skipping reviewer pass 2 after meaningful code changes. This fails because quality/risk issues go undetected, and pass 1 (spec-fit) alone doesn't assess implementation safety.
 
 ## Red Flags
 
 - "Plan is clear enough" without explicit handoff fields.
 - "One review pass is probably enough."
-- Corrective action: restore full sequence and rerun required review pass(es).
 
-## Integration
+## Handoffs
 
-- Used by: `hf-core-agent` when plan is already explicit.
-- Required before: `hf-verification-before-completion` when making a completion claim.
-- Inputs: handoff bundle fields from `@.opencode/context/project/subagent-handoff-template.md`.
-- Outputs: coder patch summary + reviewer approval report.
+- **Before:** approved plan + handoff bundle (schema: `subagent-handoff-template.md`) from `hf-core-delegation` or `hf-core-agent`.
+- **After:** `{ coder_summary: { files_touched[], commands_run[], results[] }, reviewer_report: { approved: bool, findings[], evidence_gaps[], next_action } }`.
+
+## Rollback
+
+1. Revert coder file changes via `git checkout -- <files>`.
+2. Report partial completion state and findings to orchestrator.

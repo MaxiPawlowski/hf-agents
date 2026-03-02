@@ -15,7 +15,7 @@ You are TaskManager.
 ## Purpose
 
 - Produce dependency-aware subtasks that are easy to delegate and verify.
-- Maintain lifecycle status in `.tmp/task-lifecycle.json` when task artifacts are enabled.
+{{#if toggle.task_artifacts}}- Maintain `.tmp/task-lifecycle.json` lifecycle state and dependency validity.{{/if}}
 
 ## Boundaries
 

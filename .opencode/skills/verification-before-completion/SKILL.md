@@ -1,60 +1,28 @@
 ---
 name: hf-verification-before-completion
-description: Use before declaring work done to ensure output matches request.
+description: >
+  Use before declaring work done to verify scope coverage, constraint compliance, and output quality.
+  Do NOT use for pure brainstorming or exploration with no completion claim.
+autonomy: autonomous
+context_budget: 8000 / 2000
+max_iterations: 3
 ---
 
 # Verification Before Completion
 
-## Overview
+## Iron Law
 
-Prevent false "done" claims by checking scope, constraints, and output quality.
+Never claim completion without fresh verification evidence tied to the exact requested scope.
 
-Iron law: Never claim completion without fresh verification evidence tied to the exact requested scope.
+## Scope
 
-## When to Use
-
-- Any response that claims implementation or fix completion.
-- Any change where constraints/toggles may affect readiness.
-
-## When Not to Use
-
-- Pure brainstorming or exploratory discussion with no completion claim.
-
-## Checklist
-
-- Verify requested scope is fully covered.
-- Confirm no unrequested expansion was introduced.
-- Confirm constraints from runtime-preferences are respected.
-- Provide a concise summary of results and known limitations.
-
-## Required Output
-
-Return:
-
-- scope_map: user request -> delivered behavior (bullets)
-- evidence: commands run + pass/fail signals
-- gates: resolved toggle gates and whether each is satisfied
-- gaps: missing verification/evidence and why
-- residual_risks: prioritized bullets
+One verification pass for one completion claim. Read-only evidence gathering — no code changes. Constraints: verify against original request, not assumptions; respect runtime toggle states.
 
 ## Workflow
 
-1. Scope-fit gate
-   - Map user request to delivered behavior.
-   - Exit gate: all requested items are accounted for.
-2. Constraint gate
-   - Validate runtime preferences and safety defaults were respected.
-   - Exit gate: no policy drift remains.
-3. Evidence gate
-   - Attach fresh command outputs relevant to the change.
-   - Exit gate: completion claim is evidence-backed.
-
-## Scope-fit checks
-
-- Does behavior match user intent exactly?
-- Were defaults respected (no worktrees, no auto-git, no forced tests)?
-- Are changed files clearly documented?
-- Are known trade-offs disclosed?
+1. **Scope-fit gate** — Entry: implementation claims completion. Map user request to delivered behavior. Verify: does behavior match user intent exactly? Were defaults respected (no worktrees, no auto-git, no forced tests)? Are changed files clearly documented? Are known trade-offs disclosed? Exit: all requested items are accounted for.
+2. **Constraint gate** — Entry: scope-fit confirmed. Validate runtime preferences and safety defaults were respected. Exit: no policy drift remains.
+3. **Evidence gate** — Entry: constraints validated. Attach fresh command outputs relevant to the change. Exit: completion claim is evidence-backed.
 
 ## Verification
 
@@ -63,32 +31,38 @@ Return:
 - Run: `npm run build`
 - Expect: successful build for code-changing tasks.
 
-## Integration
+## Error Handling
 
-- Used by: `hf-core-agent`, `hf-reviewer`.
-- Required after: `hf-approval-gates` when approval/verification gates are active.
-- Consumes evidence from: `hf-tester`, `hf-build-validator`, `hf-git-workflows`.
+- On unresolved scope item: return `{ blocked: "scope gap", why: "<requested item> not delivered or not verified", unblock: "<implement or verify specific item>" }`.
+- On constraint violation: return `{ blocked: "policy drift", why: "<constraint> was violated by <action>", unblock: "<revert or correct specific violation>" }`.
+- On ambiguous trade-off: escalate to user for waiver or prioritization decision.
 
-## Failure Behavior
+## Circuit Breaker
 
-- Stop completion claim if any scope item or constraint is unresolved.
-- Report unresolved item, impact, and exact next action.
-- Escalate to user when trade-off or waiver is required.
-
-## Completion message format
-
-- What changed
-- Why it satisfies the request
-- What was intentionally not done
-- Optional next step suggestions
+- Warning at 2 re-checks on the same gap.
+- Hard stop at 3 — stop and escalate unresolved items.
+- On same gap identified twice with no new evidence: stop and escalate.
 
 ## Examples
 
-- Good: includes what changed, why it satisfies request, and fresh build/status evidence.
-- Anti-pattern: "Done" with no verification or explicit scope mapping.
+### Correct
+Includes what changed, why it satisfies request, explicit scope mapping, and fresh build/status evidence. This works because the completion claim is falsifiable — anyone can verify it by re-running the commands.
+
+### Anti-pattern
+"Done" with no verification or explicit scope mapping. This fails because undetected scope gaps or constraint violations propagate downstream and become expensive to fix.
 
 ## Red Flags
 
 - "This is small enough to skip verification."
 - "I already know this part works from earlier runs."
-- Corrective action: rerun checks and provide current-session evidence.
+
+## Handoffs
+
+- **Before:** implementation summary + evidence from upstream skills (`hf-core-delegation`, `hf-subagent-driven-development`, `hf-tester`, `hf-build-validator`, `hf-git-workflows`).
+- **After:** `{ scope_map, evidence: { commands_run[], pass_fail[] }, gates: { toggle_gate, status }[], gaps[], residual_risks[] }`. Completion message: what changed, why it satisfies request, what was intentionally not done, optional next steps.
+
+## Rollback
+
+1. No side effects to revert.
+2. Retract completion claim.
+3. Report unresolved items with their last evidence state.

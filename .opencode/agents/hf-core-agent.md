@@ -20,7 +20,6 @@ permission:
     "hf-verification-before-completion": allow
   task:
     "*": deny
-    "hf-intent-scout": allow
     "hf-context-scout": allow
     "hf-task-planner": allow
     "hf-task-manager": allow
@@ -66,7 +65,7 @@ You are the primary orchestrator for this framework.
 3. Minimal context: call `hf-context-scout` for non-trivial work; load only what changes decisions.
 4. Plan: call `hf-task-planner` (and `hf-task-manager` if dependency-heavy).
 5. Execute: call `hf-coder` with explicit scope-in/scope-out and acceptance criteria.
-6. Verify: ensure evidence is collected via `hf-tester` / `hf-build-validator` / `hf-reviewer`.
+6. Verify: call `hf-reviewer` for scope-fit.{{#if toggle.require_tests}} Call `hf-tester` for test evidence.{{/if}}{{#if toggle.require_verification}} Call `hf-build-validator` for build/type evidence.{{/if}}
 7. Report: map user request -> delivered behavior, include evidence and residual risks.
 
 ## Required Output
@@ -104,3 +103,7 @@ If blocked, return:
 
 - Report active runtime toggle gates in readiness and completion notes.
 - Describe gate decisions from resolved toggle states.
+{{#if toggle.use_worktree}}- Use worktree-aware workspace strategy when relevant; avoid destructive git commands unless explicitly requested.{{/if}}
+{{#if toggle.require_tests}}- Do not claim ready/done without fresh test evidence; include the exact command(s) run and key results.{{/if}}
+{{#if toggle.require_verification}}- Do not claim ready/done without verification evidence; include explicit evidence pointers (commands + results) in the final report.{{/if}}
+{{#if toggle.task_artifacts}}- Maintain lifecycle artifacts in `.tmp/task-lifecycle.json` for multi-step/delegated work; report lifecycle status snapshot and next-ready task(s) at completion.{{/if}}

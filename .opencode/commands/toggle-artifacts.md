@@ -1,9 +1,8 @@
 ---
 name: toggle-artifacts
-description: "HF: Toggle task artifacts gate on or off."
+description: "HF: ON - Toggle task artifacts gate on or off."
 argument-hint: <on|off>
 ---
-
 ## Purpose
 
 Set `task_artifacts` runtime toggle.

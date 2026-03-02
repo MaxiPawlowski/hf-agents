@@ -40,7 +40,7 @@ Return:
 - status: pass|fail
 - diagnostics: key errors/warnings (minimal but actionable)
 - remediation_order: ordered bullets
-- evidence: what a reviewer can cite as proof
+- evidence: what a reviewer can cite as proof{{#if toggle.require_verification}} (gate active: evidence must be fresh and directly tied to this change){{/if}}
 
 ## Failure Contract
 

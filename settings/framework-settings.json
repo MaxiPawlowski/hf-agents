@@ -1,12 +1,12 @@
 {
   "contextStrategy": "minimal",
   "toggles": {
-    "useWorktreesByDefault": false,
-    "manageGitByDefault": false,
+    "useWorktreesByDefault": true,
+    "manageGitByDefault": true,
     "requireTests": false,
-    "requireApprovalGates": false,
-    "requireVerification": false,
-    "requireCodeReview": false,
+    "requireApprovalGates": true,
+    "requireVerification": true,
+    "requireCodeReview": true,
     "enableTaskArtifacts": true
   }
 }

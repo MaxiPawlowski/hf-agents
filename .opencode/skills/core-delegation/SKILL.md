@@ -1,95 +1,31 @@
 ---
 name: hf-core-delegation
-description: Use when implementing coding tasks that should run through TaskPlanner -> Coder -> Reviewer with runtime toggle gates.
+description: >
+  Use when implementing tasks that need end-to-end orchestration through discovery, planning, coding, and review with toggle-aware gates.
+  Do NOT use when plan is already finalized and only execution remains (use hf-subagent-driven-development), or for single-file edits with no delegation benefit.
+autonomy: supervised
+context_budget: 15000 / 3000
+max_iterations: 8
 ---
 
 # Core Delegation
 
-## Overview
+## Iron Law
 
-Use this skill for the default implementation workflow in this repository.
+No implementation starts until scope, constraints, and delegation chain are explicit.
 
-Iron law: No implementation starts until scope, constraints, and delegation chain are explicit.
+## Scope
 
-## When to Use
-
-- Request needs end-to-end orchestration from discovery through review.
-- Work requires routing across planner/coder/reviewer roles.
-
-## When Not to Use
-
-- Plan is already finalized and only execution remains (use subagent-driven flow).
-- Small single-file edits that do not benefit from delegation overhead.
+One end-to-end delegation cycle: from intent classification through review signoff for one user request. Routing: use `hf-core-delegation` for end-to-end orchestration; use `hf-subagent-driven-development` when plan is already approved; use `hf-bounded-parallel-scouting` for lightweight discovery bursts. Constraints: no implicit git operations; no implicit worktree creation; no mandatory tests unless toggle gates or user request require them. Brainstorming is orchestrator-led via `hf-brainstorming` unless explicitly delegated. Use `@.opencode/context/project/subagent-handoff-template.md` for all delegation handoffs (typed artifacts). Emit per-gate: step name, inputs, outputs, decision rationale (observable state).
 
 ## Workflow
 
-1. Intent gate (optional but recommended)
-   - Use `hf-intent-scout` to classify intent/risk and select the safest workflow.
-   - Exit gate: risk level and evidence expectations are explicit.
-2. Context gate
-   - `hf-context-scout` identifies minimum relevant local context.
-   - Exit gate: constraints/toggles + candidate files are explicit.
-3. Planning gate
-    - `hf-task-planner` produces a small, verifiable plan.
-    - Use `hf-task-manager` when dependency-heavy.
-    - Exit gate: scope-in/scope-out + acceptance criteria + verify steps are explicit.
-4. Execution gate
-   - `hf-coder` implements scoped changes only.
-   - Exit gate: files touched and rationale are captured.
-5. Verification gate (conditional)
-    - Use `hf-testing-gate` + `hf-tester` when tests are required.
-    - Use `hf-approval-gates` + `hf-build-validator` / `hf-reviewer` when verification is required.
-    - Exit gate: evidence is fresh and tied to requested scope.
-6. Review gate
-   - `hf-reviewer` validates scope-fit and gate compliance.
-   - Exit gate: approved yes/no + next action.
-
-Use `hf-external-docs-scout` when external library behavior is uncertain.
-Brainstorming ownership: orchestrator-led via `hf-brainstorming` unless explicitly delegated.
-
-## Handoff Contract
-
-- TaskPlanner -> objective + scope + steps (with verify) + risks
-- TaskManager -> featureId + subtasks + dependencies + artifact update
-- Coder -> implemented + files_touched + commands_run + results + gaps
-- Tester/BuildValidator -> commands_run + results + evidence
-- Reviewer -> approved + findings + evidence_gaps + required_next_action
-
-Reviewer performs two passes:
-- pass 1: scope/spec fit
-- pass 2: quality/risk/runtime fit
-
-## When to use support subagents
-
-- `ContextScout` when constraints, standards, or context are unclear
-- `ExternalDocsScout` when external libraries or APIs are involved
-- `BuildValidator` and `Tester` when user request or runtime toggle gates require verification
-
-Skill selection matrix:
-
-- Use `hf-core-delegation` when request needs end-to-end orchestration.
-- Use `hf-subagent-driven-development` when plan is already approved and execution is the primary task.
-- Use `hf-bounded-parallel-scouting` for lightweight discovery bursts.
-
-## Runtime toggle gates
-
-- If review is required by runtime policy, require explicit review signoff.
-
-Use `@.opencode/context/project/subagent-handoff-template.md` for delegation handoffs.
-
-Default safety:
-- no implicit git operations
-- no implicit worktree creation
-- no mandatory tests unless runtime toggle gates or user request require them
-
-## Integration
-
-- Used by: `hf-core-agent`.
-- Pairs with: `hf-git-workflows` when workspace strategy matters.
-- Require `hf-task-artifact-gate` and keep `.tmp/task-lifecycle.json` current when task artifacts are required.
-- Executable interface:
-  - `.opencode/commands/run-core-delegation.md`
-  - `.opencode/context/project/subagent-handoff-template.md`
+1. **Intent gate** (optional but recommended) — Entry: new user request. Use `hf-intent-scout` to classify intent/risk and select safest workflow. Exit: risk level and evidence expectations are explicit.
+2. **Context gate** — Entry: intent classified or skipped. `hf-context-scout` identifies minimum relevant local context. Use `hf-external-docs-scout` when external library behavior is uncertain. Exit: constraints/toggles + candidate files are explicit.
+3. **Planning gate** — Entry: context gathered. `hf-task-planner` produces a small, verifiable plan. Use `hf-task-manager` when dependency-heavy. If review required by runtime policy (`require_verification`, `require_code_review`), include review signoff in plan. Exit: scope-in/scope-out + acceptance criteria + verify steps are explicit.
+4. **Execution gate** — Entry: plan approved. `hf-coder` implements scoped changes only. Exit: files touched and rationale are captured.
+5. **Verification gate** (conditional) — Entry: code changes complete.{{#if toggle.require_tests}} Use `hf-testing-gate` + `hf-tester` for test evidence.{{/if}}{{#if toggle.require_verification}} Use `hf-approval-gates` + `hf-build-validator` / `hf-reviewer` for verification signoff.{{/if}}{{#if toggle.task_artifacts}} Use `hf-task-artifact-gate` for lifecycle tracking.{{/if}} Exit: evidence is fresh and tied to requested scope.
+6. **Review gate** — Entry: verification evidence collected. `hf-reviewer` validates scope-fit (pass 1: fail fast on scope drift) and gate compliance (pass 2: quality/risk/runtime fit). Exit: approved yes/no + next action.
 
 ## Verification
 
@@ -98,28 +34,40 @@ Default safety:
 - Run: `git status --short`
 - Expect: scope of file changes matches delegation summary.
 
-## Red Flags
+## Error Handling
 
-- Starting implementation before scope is explicit
-- Adding unrequested functionality
-- Running git actions without explicit instruction
+- On unresolved ambiguity at any gate: return `{ blocked: "ambiguity at <gate>", why: "<specific ambiguity>", unblock: "<specific clarification needed>" }`.
+- On failed review pass: return `{ blocked: "review failed", why: "<pass 1 or 2 findings>", unblock: "<re-scope or re-implement specific items>" }`.
+- On scope trade-off needed: escalate to user for prioritization.
+- On policy override needed: escalate to user for explicit approval.
 
-Corrective action: return to context/planning gate and re-establish explicit scope.
+## Circuit Breaker
 
-## Completion Format
-
-Return:
-- Plan summary
-- Implementation summary with changed files
-- Review findings
-
-## Failure Behavior
-
-- Stop on unresolved ambiguity or failed review pass.
-- Report blocking condition, impacted scope item, and required next decider.
-- Escalate to user for scope trade-offs or policy overrides.
+- Warning at 6 iterations.
+- Hard stop at 8 — report current state across all gates and escalate.
+- On coder-reviewer loop cycling same finding 3 times: stop and escalate to user.
 
 ## Examples
 
-- Good: context scout -> planner -> coder -> two-pass review with gate-aware completion note.
-- Anti-pattern: direct coding before routing decision and without review artifacts.
+### Correct
+Context scout → planner → coder → two-pass review with gate-aware completion note and fresh evidence. This works because each gate narrows scope and builds evidence, so the final review validates a well-defined, well-evidenced change.
+
+### Anti-pattern
+Direct coding before routing decision and without review artifacts. This fails because skipping discovery and planning gates means scope is assumed, not verified, leading to unrequested changes and missing evidence.
+
+## Red Flags
+
+- Starting implementation before scope is explicit.
+- Adding unrequested functionality.
+- Running git actions without explicit instruction.
+
+## Handoffs
+
+- **Before:** user request (raw or via `hf-brainstorming` design brief).
+- **After:** `{ plan_summary, implementation_summary: { files_changed[], rationale }, review_findings: { approved: bool, findings[], evidence_gaps[], next_action } }`. Per-role contracts: TaskPlanner → objective + scope + steps + risks; TaskManager → featureId + subtasks + dependencies; Coder → changes + files + commands + results + gaps; Tester/BuildValidator → commands + results + evidence; Reviewer → approved + findings + evidence_gaps + next_action. Pairs with `hf-git-workflows` when workspace strategy matters.{{#if toggle.task_artifacts}} Keep `.tmp/task-lifecycle.json` current.{{/if}}
+
+## Rollback
+
+1. Revert coder changes via `git checkout -- <files>`.
+{{#if toggle.task_artifacts}}2. Remove task artifact entries for this delegation.
+{{/if}}{{#if toggle.task_artifacts}}3.{{else}}2.{{/if}} Report incomplete state to orchestrator with gate-by-gate progress.

@@ -40,7 +40,7 @@ Return:
 - commands_run: exact commands
 - results: pass/fail summary + key diagnostics
 - coverage_gaps: what changed is not covered (and why)
-- evidence: what a reviewer can cite as proof
+- evidence: what a reviewer can cite as proof{{#if toggle.require_tests}} (gate active: evidence must be fresh and scoped to this specific change){{/if}}
 - risk_notes: residual risk bullets
 
 ## Failure Contract

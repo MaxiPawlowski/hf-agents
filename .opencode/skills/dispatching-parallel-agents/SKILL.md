@@ -1,55 +1,28 @@
 ---
 name: hf-dispatching-parallel-agents
-description: Use when tasks are independent and can be executed concurrently.
+description: >
+  Use when multiple independent work units can execute concurrently with no shared mutable state.
+  Do NOT use when tasks share files, state-coupled logic, or sequential data dependencies.
+autonomy: supervised
+context_budget: 10000 / 3000
+max_iterations: 5
 ---
 
 # Dispatching Parallel Agents
 
-## Overview
+## Iron Law
 
-Speed up delivery by parallelizing only truly independent workstreams.
+Never parallelize tasks that can conflict on shared mutable state, shared files, or sequential data dependencies.
 
-Iron law: Never parallelize tasks that can conflict on shared mutable state, shared files, or sequential data dependencies.
+## Scope
 
-## When to Use
-
-- Multiple independent work units with no overlap.
-- Separate streams where each unit can be validated independently.
-
-## When Not to Use
-
-- Shared file edits or state-coupled logic.
-- Any flow where output A is required to define output B.
-
-## Rules
-
-- Parallelize only tasks with no shared mutable state.
-- Merge outputs through a single coordinator summary.
-- If conflicts appear, switch back to sequential execution.
+One parallel execution cycle: partition independent units, execute concurrently, merge into one coherent result. Concurrency model: fan-out by isolated scope boundaries, each unit has explicit output contract, single coordinator merges all results. Constraints: no worktrees by default; no git management unless requested; if conflicts appear, switch to sequential fallback. Each unit receives only its partition scope (minimal context handoff). Emit per-unit: step name, inputs, outputs, decision rationale (observable state).
 
 ## Workflow
 
-1. Partition gate
-   - Define unit boundaries and conflict risk per unit.
-   - Exit gate: each unit has isolated scope and owner.
-2. Parallel execution gate
-   - Launch units concurrently with explicit output contract.
-   - Exit gate: each unit returns complete result payload.
-3. Merge gate
-   - Consolidate outputs and resolve conflicts centrally.
-   - Exit gate: one coherent final summary with risk notes.
-
-## Good candidates
-
-- Separate documentation and implementation tracks
-- Independent module updates
-- Isolated refactors with no overlapping files
-
-## Bad candidates
-
-- Shared file edits
-- State-coupled logic changes
-- Sequenced changes where output A is input B
+1. **Partition gate** — Entry: multiple independent tasks identified. Define unit boundaries and conflict risk per unit. Prove independence: no shared files, no shared mutable state, no data dependency between units. Exit: each unit has isolated scope, owner, and explicit output contract.
+2. **Parallel execution gate** — Entry: partition validated. Launch units concurrently. Each unit returns complete result payload per its output contract. Exit: all units returned with complete payloads.
+3. **Merge gate** — Entry: all unit results received. Consolidate outputs and resolve any unexpected conflicts centrally. Exit: one coherent final summary with risk notes and per-unit results.
 
 ## Verification
 
@@ -58,40 +31,39 @@ Iron law: Never parallelize tasks that can conflict on shared mutable state, sha
 - Run: `npm run build`
 - Expect: merged result remains build-clean.
 
-## Failure Behavior
+## Error Handling
 
-- Stop fan-out when overlap or merge conflict risk is detected.
-- Report conflicting units, overlap area, and sequential fallback order.
-- Escalate to orchestrator for re-partition when ambiguity remains.
+- On overlap detected during partition: return `{ blocked: "shared state overlap", why: "<units A and B both touch <resource>>", unblock: "re-partition to isolate <resource> or execute sequentially" }`.
+- On merge conflict: return `{ blocked: "merge conflict", why: "<conflicting outputs from units>", unblock: "cancel overlapping units, re-run sequentially in order: <fallback order>" }`.
+- On unit failure: return `{ blocked: "unit failed", why: "<unit> returned <error>", unblock: "re-run <unit> individually or escalate" }`.
+- On ambiguous partition: escalate to orchestrator for re-partition decision.
 
-## Required Output
+## Circuit Breaker
 
-Return:
-
-- partition: unit -> scope-in/scope-out and owner
-- conflict_risk: per-unit risk notes and why it's independent
-- results: per-unit output payloads
-- merge_summary: one coherent summary + any conflicts resolved
-
-## Project Defaults
-
-- Do not create worktrees by default.
-- Do not perform git management operations unless requested.
+- Warning at 3 iterations (expect most work done by then).
+- Hard stop at 5 — report completed and incomplete units.
+- On merge conflict detected: immediately switch to sequential fallback.
 
 ## Examples
 
-- Good: docs update and isolated module refactor run in parallel, then merged by coordinator.
-- Anti-pattern: two agents editing same router file concurrently.
+### Correct
+Docs update and isolated module refactor run in parallel, then merged by coordinator with one coherent summary. This works because the units have zero file overlap, so merge is trivial and both complete faster than sequential execution.
+
+### Anti-pattern
+Two agents editing the same router file concurrently. This fails because concurrent edits to the same file produce merge conflicts that are harder to resolve than sequential execution would have been.
 
 ## Red Flags
 
 - "Parallel is always faster."
 - "I can merge overlap later if needed."
-- Corrective action: cancel overlap streams and re-run sequentially.
 
-## Integration
+## Handoffs
 
-- Used by: `hf-core-agent` for parallel scouting or independent verification streams.
-- Required before: `hf-core-delegation` planning/execution when parallel discovery is needed.
-- Required after: `hf-verification-before-completion` if parallel execution modified code.
-- Prefer pairing with: `hf-bounded-parallel-scouting` for discovery-only fan-out.
+- **Before:** partitioned task list with independence proof per unit from `hf-core-delegation` or `hf-core-agent`.
+- **After:** `{ partition: [{ unit, scope_in, scope_out, owner }], conflict_risk: [per-unit notes], results: [per-unit payloads], merge_summary }`.
+
+## Rollback
+
+1. Revert all parallel unit file changes via `git checkout -- <files>`.
+2. Discard merge summary.
+3. Report which units completed vs. which need re-execution.

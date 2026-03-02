@@ -1,7 +1,7 @@
 <!--
 id: runtime-preferences
 owner: team
-updated: 2026-02-19
+updated: 2026-03-01
 -->
 
 # Runtime Preferences
@@ -32,8 +32,9 @@ This project is OpenCode-configured and markdown-first.
   - `&#123;&#123;#if toggle.&lt;key&gt;&#125;&#125; ... &#123;&#123;/if&#125;&#125;` for conditional sections
   - `&#123;&#123;#unless toggle.&lt;key&gt;&#125;&#125; ... &#123;&#123;/unless&#125;&#125;` for inverse conditional sections
   - `&#123;&#123;else&#125;&#125;` is supported inside `if`/`unless` blocks
+  - `&#123;&#123;skill.&lt;name&gt;&#125;&#125;` includes the body of `skills/<name>/SKILL.md` (frontmatter stripped, tokens resolved)
 - Current keys:
-  - `use_worktree`, `require_tests`, `require_verification`, `task_artifacts`
+  - `useWorktreesByDefault`, `manageGitByDefault`, `requireTests`, `requireApprovalGates`, `requireVerification`, `requireCodeReview`, `enableTaskArtifacts`
 
 ## Skill loading policy (context efficient)
 
@@ -45,12 +46,12 @@ This project is OpenCode-configured and markdown-first.
   - parallel discovery bursts: `hf-bounded-parallel-scouting` / `hf-dispatching-parallel-agents`
   - completion claims: `hf-verification-before-completion`
 
-Toggle-gated skills (load only when the toggle is ON and the stage needs it):
+Active toggle-gated skills:
 
-- `use_worktree=ON`: `hf-git-workflows` when making workspace/git strategy decisions.
-- `require_tests=ON`: `hf-testing-gate` / `hf-tester` when shipping code changes.
-- `require_verification=ON`: `hf-approval-gates` and evidence checks when making readiness/completion decisions.
-- `task_artifacts=ON`: `hf-task-artifact-gate` / `hf-task-management` when work spans multiple steps or delegated units.
+{{#if toggle.use_worktree}}- Load `hf-git-workflows` when making workspace/git strategy decisions.{{/if}}
+{{#if toggle.require_tests}}- Load `hf-testing-gate` / `hf-tester` when shipping code changes.{{/if}}
+{{#if toggle.require_verification}}- Load `hf-approval-gates` + `hf-verification-before-completion` when making readiness/completion decisions.{{/if}}
+{{#if toggle.task_artifacts}}- Load `hf-task-artifact-gate` / `hf-task-management` when work spans multiple steps or delegated units.{{/if}}
 
 ## Optional task loop (v2)
 

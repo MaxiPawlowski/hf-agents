@@ -1,37 +1,28 @@
 ---
 name: hf-git-workflows
-description: Git and workspace safety workflows.
+description: >
+  Use when branch, worktree setup, or git safety decisions are needed before or during implementation.
+  Do NOT use for read-only analysis with no git interaction.
+autonomy: gated
+context_budget: 8000 / 2000
+max_iterations: 3
 ---
 
 # Git Workflows
 
-## Overview
+## Iron Law
 
-Iron law: Never run destructive or irreversible git commands unless the user explicitly requests them in this session.
+Never run destructive or irreversible git commands unless the user explicitly requests them in this session.
 
-## When to Use
+## Scope
 
-- You need branch/worktree setup before implementation.
-- You need to report git risk and workspace safety decisions.
-
-## When Not to Use
-
-- Pure read-only analysis with no branch/worktree implications.
-- Tasks with no git interaction at all.
+One git workflow decision and execution cycle for one implementation session. Constraints: non-destructive commands only by default; no implicit worktree creation; no implicit branch management.
 
 ## Workflow
 
-1. Preflight gate
-   - Record current branch and working tree status.
-   - Decide direct edit vs worktree using runtime toggle and user request.
-   - Exit gate: safety plan is explicit before edits.
-2. Execution gate
-   - Use non-destructive commands only.
-   - Keep scope limited to requested files and operations.
-   - Exit gate: operations are complete with no unresolved git conflicts.
-3. Verification gate
-   - Re-check repository status and summarize risk.
-   - Exit gate: output includes what changed and why it is safe.
+1. **Preflight** — Entry: implementation task requires git awareness. Record current branch and working tree status. {{#if toggle.use_worktree}}Worktree strategy is active — create an isolated worktree unless the user requests otherwise.{{else}}Direct edit is the default — do not create a worktree unless explicitly requested.{{/if}} Exit: safety plan is explicit before any edits.
+2. **Execution** — Entry: safety plan approved (gated). Use non-destructive commands only. Keep scope limited to requested files and operations. Exit: operations complete with no unresolved git conflicts.
+3. **Verification** — Entry: execution complete. Re-check repository status and summarize risk. Exit: output includes what changed and why it is safe.
 
 ## Verification
 
@@ -40,26 +31,39 @@ Iron law: Never run destructive or irreversible git commands unless the user exp
 - Run: `git log -1 --oneline`
 - Expect: latest commit context when relevant to workflow decisions.
 
-## Failure Behavior
+## Error Handling
 
-- Stop immediately if the task requires a destructive command that was not explicitly requested.
-- Report blocked action, reason, and one safe alternative.
-- Escalate decision to user for any irreversible action.
+- On destructive command required but not explicitly requested: return `{ blocked: "destructive git command needed", why: "<command> would <irreversible effect>", unblock: "user must explicitly approve <command>" }`.
+- On merge conflict: return `{ blocked: "merge conflict", why: "<conflicting files>", unblock: "resolve conflicts in <files> or abort merge" }`.
+- On ambiguous workspace strategy: escalate to user for explicit decision.
 
-## Integration
+## Circuit Breaker
 
-- Required before: `hf-core-delegation` when implementation will modify files.
-- Required after: `hf-verification-before-completion` for completion claims.
-- Input artifacts: user request, toggle states, current git status.
-- Output artifacts: safety decision log, commands executed, final git state summary.
+- Warning at 2 failed git operations.
+- Hard stop at 3 — report failures and escalate.
+- On destructive command attempted without explicit user request: immediate stop regardless of iteration count.
 
 ## Examples
 
-- Good: user asks for branch prep, you run `git status --short --branch`, choose safe workflow, and report risk.
-- Anti-pattern: creating worktrees or resetting state implicitly because it feels faster.
+### Correct
+User asks for branch prep. Run `git status --short --branch`, choose safe workflow based on toggles and user request, execute non-destructive operations, and report risk summary. This works because every git action is traceable and reversible.
+
+### Anti-pattern
+Creating worktrees or resetting state implicitly because it seems faster. This fails because implicit destructive operations can lose uncommitted work and violate the user's workspace expectations.
 
 ## Red Flags
 
 - "I will just hard reset and continue."
 - "I assumed worktree usage without checking toggles."
-- Corrective action: stop, restore conservative path, and request explicit user decision.
+
+## Handoffs
+
+- **Before:** user request + {{#if toggle.use_worktree}}worktree strategy active{{else}}direct edit strategy (no worktree){{/if}} + current git status from caller or `hf-core-delegation`.
+- **After:** safety decision log + commands executed + final git state summary. Schema: `{ branch, safety_plan, commands_run[], final_status, risk_notes }`.
+
+## Rollback
+
+1. `git stash` uncommitted changes (if any).
+2. `git checkout <original-branch>` to restore starting branch.
+3. `git stash pop` to restore working state.
+4. Report what was reverted and confirm repository is back to pre-execution state.
