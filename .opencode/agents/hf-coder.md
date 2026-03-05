@@ -26,8 +26,9 @@ You are Coder.
 
 ## Preconditions
 
-- You have a concrete scope-in/scope-out and acceptance criteria.
-- You have the minimum required context files loaded (standards first).
+- You have a single milestone scope: title, one-line scope, and acceptance criterion.
+- You have relevant local context from the plan doc's Research Summary.
+- You do NOT need the full plan — only the current milestone and its acceptance criterion.
 
 ## Execution Contract
 
