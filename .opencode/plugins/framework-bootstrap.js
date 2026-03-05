@@ -9,6 +9,7 @@
  */
 
 import { tool } from "@opencode-ai/plugin";
+
 import { TOGGLE_KEYS, COMMAND_TOGGLE_MAP } from "./lib/config.js";
 import { getState, setToggle } from "./lib/state.js";
 import {
@@ -32,8 +33,6 @@ import {
 
 const z = tool.schema;
 const toggleEnum = z.enum(TOGGLE_KEYS);
-
-console.log("[FrameworkBootstrapPlugin] Loaded plugin module");
 
 export const FrameworkBootstrapPlugin = async (input) => {
   const log = (level, message, extra = {}) =>
@@ -141,19 +140,51 @@ export const FrameworkBootstrapPlugin = async (input) => {
       await disposeCurrentInstance();
     },
 
-    "tool.execute.after": async (_ctx, output) => {
+    "tool.execute.after": async (ctx, output) => {
+      const toolName = String(ctx?.tool ?? "").toLowerCase();
+      if (toolName === "read") {
+        return;
+      }
+
       if (typeof output.output !== "string") return;
       if (!hasInterpolationTokens(output.output)) return;
       output.output = interpolateText(output.output, getState(input.directory));
     },
 
     "experimental.chat.messages.transform": async (_ctx, output) => {
+      const toggles = getState(input.directory);
+
       try {
         const sessionID = sessionIDFromMessages(output.messages);
         const agentName = agentNameFromMessages(output.messages);
         if (sessionID && agentName) recordActiveAgent(sessionID, agentName);
       } catch {
         // Ignore message transform failures.
+      }
+
+      // Interpolate user/assistant messages, but avoid synthetic parts (tool echoes
+      // and read outputs) to prevent corrupting file contents during edit flows.
+      try {
+        let totalText = 0;
+        let skippedSynthetic = 0;
+        let interpolated = 0;
+        for (const msg of output.messages ?? []) {
+          for (const part of msg.parts ?? []) {
+            if (!part || part.type !== "text") continue;
+            totalText++;
+            if (part.synthetic) {
+              skippedSynthetic++;
+              continue;
+            }
+            if (part.ignored) continue;
+            if (typeof part.text !== "string") continue;
+            if (!hasInterpolationTokens(part.text)) continue;
+            part.text = interpolateText(part.text, toggles);
+            interpolated++;
+          }
+        }
+      } catch {
+        // Ignore interpolation failures.
       }
     },
 
