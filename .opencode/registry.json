@@ -2,28 +2,59 @@
   "version": "1.0.0",
   "assets": [
     {
-      "id": "agent-core",
+      "id": "agent-plan-orchestrator",
       "type": "agent",
-      "path": ".opencode/agents/hf-core-agent.md",
-      "dependsOn": ["agent-intent-scout", "agent-context-scout", "agent-external-docs-scout", "agent-task-planner", "agent-coder", "agent-reviewer", "skill-brainstorming", "skill-core-delegation", "skill-subagent-driven-development", "skill-task-management", "context-runtime-preferences"]
+      "path": ".opencode/agents/hf-plan-orchestrator.md",
+      "dependsOn": [
+        "skill-brainstormer",
+        "skill-plan-synthesis",
+        "skill-git-workflows",
+        "agent-local-context-scout",
+        "agent-web-research-scout",
+        "agent-code-search-scout"
+      ]
+    },
+    {
+      "id": "agent-build-orchestrator",
+      "type": "agent",
+      "path": ".opencode/agents/hf-build-orchestrator.md",
+      "dependsOn": [
+        "skill-milestone-tracking",
+        "skill-git-workflows",
+        "skill-approval-gates",
+        "skill-verification-before-completion",
+        "agent-coder",
+        "agent-reviewer",
+        "agent-tester",
+        "agent-build-validator"
+      ]
+    },
+    {
+      "id": "agent-local-context-scout",
+      "type": "agent",
+      "path": ".opencode/agents/hf-local-context-scout.md",
+      "dependsOn": [
+        "skill-local-context",
+        "context-navigation"
+      ]
+    },
+    {
+      "id": "agent-web-research-scout",
+      "type": "agent",
+      "path": ".opencode/agents/hf-web-research-scout.md",
+      "dependsOn": []
+    },
+    {
+      "id": "agent-code-search-scout",
+      "type": "agent",
+      "path": ".opencode/agents/hf-code-search-scout.md",
+      "dependsOn": []
     },
     {
       "id": "agent-intent-scout",
       "type": "agent",
       "path": ".opencode/agents/hf-intent-scout.md",
       "dependsOn": ["context-runtime-preferences"]
-    },
-    {
-      "id": "agent-task-manager",
-      "type": "agent",
-      "path": ".opencode/agents/hf-task-manager.md",
-      "dependsOn": ["skill-task-management", "context-navigation"]
-    },
-    {
-      "id": "agent-task-planner",
-      "type": "agent",
-      "path": ".opencode/agents/hf-task-planner.md",
-      "dependsOn": ["context-navigation"]
     },
     {
       "id": "agent-coder",
@@ -36,12 +67,6 @@
       "type": "agent",
       "path": ".opencode/agents/hf-reviewer.md",
       "dependsOn": ["skill-verification-before-completion"]
-    },
-    {
-      "id": "agent-context-scout",
-      "type": "agent",
-      "path": ".opencode/agents/hf-context-scout.md",
-      "dependsOn": ["context-navigation"]
     },
     {
       "id": "agent-external-docs-scout",
@@ -65,13 +90,13 @@
       "id": "command-brainstorm",
       "type": "command",
       "path": ".opencode/commands/brainstorm.md",
-      "dependsOn": ["agent-core", "skill-brainstorming"]
+      "dependsOn": ["agent-plan-orchestrator", "skill-brainstorming"]
     },
     {
       "id": "command-run-core-delegation",
       "type": "command",
       "path": ".opencode/commands/run-core-delegation.md",
-      "dependsOn": ["skill-core-delegation", "agent-task-planner", "agent-coder", "agent-reviewer"]
+      "dependsOn": ["skill-core-delegation", "agent-coder", "agent-reviewer"]
     },
     {
       "id": "command-verify",
@@ -107,7 +132,7 @@
       "id": "command-plan-feature",
       "type": "command",
       "path": ".opencode/commands/plan-feature.md",
-      "dependsOn": ["agent-task-planner", "agent-task-manager", "context-runtime-preferences"]
+      "dependsOn": ["agent-plan-orchestrator", "context-runtime-preferences"]
     },
     {
       "id": "command-help",
@@ -125,7 +150,7 @@
       "id": "command-task-loop",
       "type": "command",
       "path": ".opencode/commands/task-loop.md",
-      "dependsOn": ["agent-task-manager", "skill-task-management"]
+      "dependsOn": ["skill-task-management"]
     },
     {
       "id": "command-toggle-worktree",
@@ -158,6 +183,30 @@
       "dependsOn": []
     },
     {
+      "id": "skill-brainstormer",
+      "type": "skill",
+      "path": ".opencode/skills/brainstormer/SKILL.md",
+      "dependsOn": []
+    },
+    {
+      "id": "skill-plan-synthesis",
+      "type": "skill",
+      "path": ".opencode/skills/plan-synthesis/SKILL.md",
+      "dependsOn": []
+    },
+    {
+      "id": "skill-local-context",
+      "type": "skill",
+      "path": ".opencode/skills/local-context/SKILL.md",
+      "dependsOn": ["context-navigation"]
+    },
+    {
+      "id": "skill-milestone-tracking",
+      "type": "skill",
+      "path": ".opencode/skills/milestone-tracking/SKILL.md",
+      "dependsOn": []
+    },
+    {
       "id": "skill-brainstorming",
       "type": "skill",
       "path": ".opencode/skills/brainstorming/SKILL.md",
@@ -167,7 +216,7 @@
       "id": "skill-core-delegation",
       "type": "skill",
       "path": ".opencode/skills/core-delegation/SKILL.md",
-      "dependsOn": ["agent-task-planner", "agent-coder", "agent-reviewer"]
+      "dependsOn": ["agent-coder", "agent-reviewer"]
     },
     {
       "id": "skill-verification-before-completion",
@@ -179,7 +228,7 @@
       "id": "skill-subagent-driven-development",
       "type": "skill",
       "path": ".opencode/skills/subagent-driven-development/SKILL.md",
-      "dependsOn": ["agent-task-planner", "agent-coder", "agent-reviewer"]
+      "dependsOn": ["agent-coder", "agent-reviewer"]
     },
     {
       "id": "skill-systematic-debugging",
@@ -197,7 +246,7 @@
       "id": "skill-bounded-parallel-scouting",
       "type": "skill",
       "path": ".opencode/skills/bounded-parallel-scouting/SKILL.md",
-      "dependsOn": ["agent-context-scout", "agent-external-docs-scout"]
+      "dependsOn": ["agent-local-context-scout", "agent-external-docs-scout"]
     },
     {
       "id": "skill-test-driven-development",
