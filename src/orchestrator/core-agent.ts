@@ -6,10 +6,10 @@ import { executeCoreDelegationPath } from "../delegation/execute-core-path.js";
 import type { CoreDelegationResult } from "../contracts/index.js";
 import type { TaskBundle } from "../contracts/index.js";
 import { createTaskBundle } from "../tasks/task-bundle.js";
-import { runTaskManager, summarizeTaskManagerBundle } from "../subagents/task-manager.js";
+// runTaskManager, runContextScout, runTaskPlanner removed:
+// plan phase is now orchestrated by hf-plan-orchestrator markdown agent,
+// not TS code. TS runtime is a test/validation layer only.
 import { loadDelegationRules, resolveRuntimeSettings } from "../settings/runtime-settings.js";
-import { runContextScout } from "../subagents/context-scout.js";
-import { runTaskPlanner } from "../subagents/task-planner.js";
 import { runCoder } from "../subagents/coder.js";
 import { runReviewer } from "../subagents/reviewer.js";
 import { coreDelegationResultSchema } from "../contracts/index.js";
@@ -30,13 +30,6 @@ export type OrchestrationResult = {
     result: CoreDelegationResult;
   };
 };
-
-function appendTaskArtifactNote(notes: string[], taskBundle: TaskBundle): void {
-  const bundleSummary = summarizeTaskManagerBundle(taskBundle);
-  notes.push(
-    `Task artifacts prepared (${bundleSummary.subtaskCount} subtasks, ${bundleSummary.parallelizable} parallelizable).`
-  );
-}
 
 type TaskInput = z.input<typeof taskSchema>;
 type SettingsInput = unknown;
@@ -78,28 +71,39 @@ export async function runTask(taskInput: TaskInput, settingsInput: SettingsInput
   let executionPath: OrchestrationResult["executionPath"];
   let taskBundle: OrchestrationResult["taskBundle"];
 
-  if (assignedSubagent === "Coder") {
+  if (assignedSubagent === "PlanOrchestrator") {
+    // Plan phase is handled by hf-plan-orchestrator markdown agent.
+    // Stages reflect the agent's internal flow for test/validation purposes.
+    const result = executeCoreDelegationPath(task, settings);
+    executionPath = {
+      stages: ["Brainstormer", "LocalContextScout", "WebResearchScout", "CodeSearchScout", "PlanSynthesis"],
+      result
+    };
+  } else if (assignedSubagent === "BuildOrchestrator") {
+    // Build phase is handled by hf-build-orchestrator markdown agent.
+    // Coder/Reviewer are dispatched by the markdown agent per milestone.
+    const patch = runCoder(task as Parameters<typeof runCoder>[0], settings);
+    const review = runReviewer(task as Parameters<typeof runReviewer>[0], patch, settings);
+    const result: CoreDelegationResult = coreDelegationResultSchema.parse({
+      context: {},
+      plan: {},
+      patch,
+      review
+    });
+    if (toggles.enableTaskArtifacts) {
+      taskBundle = createTaskBundle(task);
+    }
+    executionPath = {
+      stages: ["MilestoneTracking", "Coder", "Reviewer"],
+      result
+    };
+  } else if (assignedSubagent === "Coder") {
     const result = executeCoreDelegationPath(task, settings);
     if (toggles.enableTaskArtifacts) {
       taskBundle = createTaskBundle(task, result.plan);
-      appendTaskArtifactNote(notes, taskBundle);
     }
     executionPath = {
-      stages: ["ContextScout", "TaskPlanner", "Coder", "Reviewer"],
-      result
-    };
-  } else if (assignedSubagent === "TaskManager") {
-    const context = runContextScout(task, settings);
-    const plan = runTaskPlanner(task, context);
-    if (toggles.enableTaskArtifacts) {
-      taskBundle = runTaskManager(task, plan);
-      appendTaskArtifactNote(notes, taskBundle);
-    }
-    const patch = runCoder(plan, settings);
-    const review = runReviewer(plan, patch, settings);
-    const result: CoreDelegationResult = coreDelegationResultSchema.parse({ context, plan, patch, review });
-    executionPath = {
-      stages: ["ContextScout", "TaskPlanner", "TaskManager", "Coder", "Reviewer"],
+      stages: ["Coder", "Reviewer"],
       result
     };
   } else if (toggles.enableTaskArtifacts) {
