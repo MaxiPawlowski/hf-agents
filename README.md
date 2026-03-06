@@ -10,20 +10,6 @@ In short: every task follows a defined path, every gate is explicit, and every o
 
 ## How It Works
 
-### Delegation Chain
-
-When you give the framework a task, the core orchestrator agent (`hf-core-agent`) determines a routing category (e.g. feature, bugfix, planning) and dispatches work through a chain of specialized subagents:
-
-```
-ContextScout → TaskPlanner → [TaskManager?] → Coder → Reviewer
-```
-
-- **ContextScout** gathers relevant files and constraints before any code is written.
-- **TaskPlanner** produces a scoped execution plan with explicit steps and risks.
-- **TaskManager** (for complex features) generates a dependency-aware subtask bundle tracked in `.tmp/task-lifecycle.json`.
-- **Coder** implements changes within the plan's constraints.
-- **Reviewer** validates scope fit and quality before the task is considered complete.
-
 ### Execution Modes
 
 Four primary agents cover the two main workflows:
@@ -39,7 +25,7 @@ Mode is selected by choosing an agent — no toggles, no runtime state.
 
 ### Skills and Commands
 
-Beyond the delegation chain, the framework ships 13 **skills** (reusable workflow procedures — debugging, TDD, parallel scouting, git workflows, etc.) and 16 **commands** (one-shot invocations like `/verify`, `/plan-feature`, `/finish`). All are declared in `.opencode/registry.json` with explicit dependency edges, validated by the scripts in `scripts/validation/`.
+The framework ships 13 **skills** (reusable workflow procedures — debugging, TDD, parallel scouting, git workflows, etc.) and 11 **commands** (one-shot invocations like `/verify`, `/plan-feature`, `/finish`). All are declared in `.opencode/registry.json` with explicit dependency edges, validated by the scripts in `scripts/validation/`.
 
 ### Contract Model
 
@@ -49,8 +35,7 @@ Every agent, command, and skill is a markdown file with a YAML frontmatter contr
 
 ```bash
 npm install
-npm run build
-npm run test
+npm run validate
 ```
 
 ### Install into OpenCode
@@ -74,12 +59,9 @@ This lints all registry references, command/agent/skill contracts, and context m
 ## Repository Layout
 
 ```
-src/                  TypeScript runtime (orchestrator, router, settings, hooks, diagnostics)
 .opencode/            Framework assets (agents, commands, skills, context)
 scripts/              Validation and install utilities
-tests/                Test suite
 docs/                 Architecture and policy documentation
-evals/                Delegation scenario tests
 ```
 
 ## Documentation
