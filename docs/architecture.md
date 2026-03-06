@@ -56,7 +56,7 @@ Runtime behavior should read `settings.toggles.*` as the primary source for gate
 
 Framework assets are authored under `.opencode/` and installed into an OpenCode config target (usually `<home>/.config/opencode`):
 
-- `plugins/framework-bootstrap.js`: provides toggle tools, `/toggle-*` behavior, and markdown placeholder interpolation.
+- No plugin layer — all behavior is encoded in markdown agent/skill/command files.
 - `agents/hf-*.md`: orchestrator + subagent contracts.
 - `commands/*.md`: command contracts.
 - `context/**`: indexed context used by agents via `@.opencode/context/...` references.
