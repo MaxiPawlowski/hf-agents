@@ -1,9 +1,8 @@
 ---
 name: toggle-tests
-description: "HF: Toggle required tests gate on or off."
+description: "HF: OFF - Toggle required tests gate on or off."
 argument-hint: <on|off>
 ---
-
 ## Purpose
 
 Set `require_tests` runtime toggle.

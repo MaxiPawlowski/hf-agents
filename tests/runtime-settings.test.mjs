@@ -35,7 +35,7 @@ test("runtime settings only accepts nested toggles", () => {
   assert.equal(settings.toggles.requireVerification, true);
   const rules = loadDelegationRules(settings);
   assert.equal(rules.implementation.preferredSubagent, "TaskManager");
-  assert.equal(rules.feature.preferredSubagent, "TaskManager");
+  assert.equal(rules.feature.preferredSubagent, "BuildOrchestrator");
 
   const hooks = loadHookRuntimeConfig(settings);
   assert.equal(hooks.enabled, true);

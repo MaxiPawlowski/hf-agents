@@ -26,11 +26,11 @@ function heuristicSubagent(intent: string): string {
     normalized.includes("epic") ||
     normalized.includes("feature")
   ) {
-    return "TaskManager";
+    return "BuildOrchestrator";
   }
 
   if (normalized.includes("plan") || normalized.includes("break down")) {
-    return "TaskPlanner";
+    return "PlanOrchestrator";
   }
 
   if (normalized.includes("context") || normalized.includes("find")) {

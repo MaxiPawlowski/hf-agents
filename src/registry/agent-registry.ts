@@ -2,6 +2,18 @@ import type { Subagent } from "../contracts/index.js";
 
 const CORE_SUBAGENTS: Subagent[] = [
   {
+    id: "PlanOrchestrator",
+    specialization: "Orchestrates brainstorm → parallel research → plan doc",
+    inputContract: "Task",
+    outputContract: "PlanDocument"
+  },
+  {
+    id: "BuildOrchestrator",
+    specialization: "Orchestrates milestone-by-milestone coder/reviewer loop with evidence",
+    inputContract: "PlanDocument",
+    outputContract: "CompletedPlan"
+  },
+  {
     id: "TaskManager",
     specialization: "Creates dependency-aware task artifacts for complex features",
     inputContract: "Task",

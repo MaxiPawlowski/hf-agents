@@ -1,9 +1,8 @@
 ---
 name: toggle-verification
-description: "HF: Toggle verification gate on or off."
+description: "HF: ON - Toggle verification gate on or off."
 argument-hint: <on|off>
 ---
-
 ## Purpose
 
 Set `require_verification` runtime toggle.

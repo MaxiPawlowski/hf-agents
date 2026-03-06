@@ -1,43 +1,28 @@
 ---
 name: hf-test-driven-development
-description: Use when settings or user request call for test-first implementation.
+description: >
+  Use when user requests or runtime settings require test-first implementation.
+  Do NOT use when user requests manual validation only and no gate requires tests, or for documentation-only edits with no runtime behavior change.
+autonomy: supervised
+context_budget: 10000 / 3000
+max_iterations: 5
 ---
 
 # Test-Driven Development
 
-## Overview
+## Iron Law
 
-Provide test-first implementation when explicitly requested by the user or required by runtime settings.
+Do not write or modify production code for a behavior until there is a failing test that captures that behavior.
 
-Iron law: Do not write or modify production code for a behavior until there is a failing test that captures that behavior.
+## Scope
 
-## When to Use
-
-- User asks for it, or
-- Runtime toggle gates/settings explicitly require it.
-
-## When Not to Use
-
-- User requests manual validation only and no gate requires tests.
-- Trivial documentation-only edits with no runtime behavior change.
+One red-green-refactor cycle for one requested behavior. Constraints: do not force this flow for users who requested manual validation; keep tests focused on requested behavior; avoid introducing test-only production behavior.
 
 ## Workflow
 
-1. Red phase
-   - Add or update a focused test that fails for the requested behavior.
-   - Exit gate: failing test output is captured.
-2. Green phase
-   - Implement the smallest production change to make the test pass.
-   - Exit gate: target test passes.
-3. Refactor phase
-   - Improve code clarity/safety without changing behavior.
-   - Exit gate: tests still pass after refactor.
-
-## Guardrails
-
-- Do not force this flow for users who requested manual validation.
-- Keep tests focused on requested behavior.
-- Avoid introducing test-only production behavior.
+1. **Red phase** — Entry: behavior request with no covering test. Add or update a focused test that fails for the requested behavior. Exit: failing test output is captured.
+2. **Green phase** — Entry: failing test exists. Implement the smallest production change to make the test pass. Exit: target test passes.
+3. **Refactor phase** — Entry: target test passing. Improve code clarity/safety without changing behavior. Exit: all tests still pass after refactor.
 
 ## Verification
 
@@ -46,35 +31,38 @@ Iron law: Do not write or modify production code for a behavior until there is a
 - Run: `npm run build`
 - Expect: build succeeds with final implementation.
 
-## Failure Behavior
+## Error Handling
 
-- Stop if a failing test cannot be produced for the requested behavior.
-- Report ambiguity or missing acceptance condition and ask for one concrete expectation.
-- If green phase fails repeatedly, report failing signal and smallest remaining hypothesis.
+- On cannot produce failing test: return `{ blocked: "no failing test possible", why: "<behavior is ambiguous or already covered>", unblock: "provide one concrete expectation for the behavior" }`.
+- On green phase fails repeatedly: return `{ blocked: "green phase stuck", why: "<failing signal after N attempts>", unblock: "<smallest remaining hypothesis to test>" }`.
+- On ambiguous acceptance condition: escalate to user for one concrete expectation.
 
-## Integration
+## Circuit Breaker
 
-- Required before: `hf-testing-gate` when test evidence is required.
-- Required after: `hf-verification-before-completion` for final scope-fit confirmation.
-- Input artifacts: behavior request, existing test patterns, runtime gate state.
-- Output artifacts: failing-to-passing test evidence and minimal implementation summary.
+- Warning at 3 green-phase attempts for the same test.
+- Hard stop at 5 — report failing signal and escalate.
+- On same test failure with same fix approach twice: stop and report.
 
 ## Examples
 
-- Good: add failing test for edge case, implement minimal fix, rerun suite, then refactor names only.
-- Anti-pattern: implement feature first, then add tests to match current behavior.
+### Correct
+Add failing test for edge case, implement minimal fix, rerun suite, then refactor names only. This works because the test proves the behavior exists before and after refactoring, preventing regressions.
+
+### Anti-pattern
+Implement feature first, then add tests to match current behavior. This fails because tests written after implementation confirm what was built, not what was requested — they can't catch spec drift.
 
 ## Red Flags
 
 - "I'll add tests later once it works."
 - "This change is too small to justify a failing test first."
-- Corrective action: return to Red phase and capture the behavior in a focused failing test.
 
-## Required Output
+## Handoffs
 
-Return:
+- **Before:** behavior request + existing test patterns + runtime gate state from `hf-core-delegation` or `hf-testing-gate`.
+- **After:** `{ tests: [added/updated], red_evidence: "<failing output>", green_evidence: "<passing output>", implementation: "<minimal change summary>" }`.
 
-- tests: what test(s) were added/updated
-- red_evidence: failing output signal before the fix
-- green_evidence: passing output signal after the fix
-- implementation: minimal production change summary
+## Rollback
+
+1. Remove added test file(s) or revert test changes.
+2. Revert production code changes.
+3. Confirm test suite returns to pre-TDD state.

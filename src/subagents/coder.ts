@@ -22,12 +22,9 @@ export function runCoder(planInput: unknown, settingsInput: unknown): CodePatch 
   const toggles = settings.toggles;
   const filesTouched = inferFilesFromPlan({ contextFiles: plan.contextFiles, objective: plan.objective });
   const validationNotes = [
-    toggles.requireVerification
+    toggles.enableReview
       ? "Verification evidence required before completion."
-      : "Verification is optional in current settings.",
-    toggles.requireTests
-      ? "Tests are required by settings but are not auto-executed by Coder stage."
-      : "Tests are optional unless explicitly requested."
+      : "Verification is optional in current settings."
   ];
 
   const patch: CodePatch = {
@@ -36,8 +33,8 @@ export function runCoder(planInput: unknown, settingsInput: unknown): CodePatch 
     filesTouched,
     validationNotes,
     safeguards: {
-      usedWorktrees: toggles.useWorktreesByDefault,
-      managedGit: toggles.manageGitByDefault,
+      usedWorktrees: false,
+      managedGit: false,
       autoTestsRun: false
     }
   };

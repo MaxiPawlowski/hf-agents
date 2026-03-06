@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { runTask } from "../dist/src/orchestrator/core-agent.js";
 
-test("runTask routes complex feature intents to TaskManager with task artifacts", async () => {
+test("runTask routes complex feature intents to BuildOrchestrator with task artifacts", async () => {
   const result = await runTask(
     {
       id: "task-100",
@@ -25,11 +25,11 @@ test("runTask routes complex feature intents to TaskManager with task artifacts"
     }
   );
 
-  assert.equal(result.assignedSubagent, "TaskManager");
+  assert.equal(result.assignedSubagent, "BuildOrchestrator");
   assert.equal(result.routingSource, "configured");
   assert.equal(result.matchedCategory, "feature");
   assert.ok(result.taskBundle);
-  assert.deepEqual(result.executionPath?.stages, ["ContextScout", "TaskPlanner", "TaskManager", "Coder", "Reviewer"]);
+  assert.deepEqual(result.executionPath?.stages, ["MilestoneTracking", "Coder", "Reviewer"]);
   assert.ok(result.notes.some((note) => note.includes("hf-verification-before-completion")));
 });
 

@@ -42,13 +42,8 @@ export const hookRuntimeConfigSchema = z.object({
 });
 
 export const runtimeTogglesSchema = z.object({
-  useWorktreesByDefault: z.boolean().default(false),
-  manageGitByDefault: z.boolean().default(false),
-  requireTests: z.boolean().default(false),
-  requireApprovalGates: z.boolean().default(false),
-  requireVerification: z.boolean().default(false),
-  requireCodeReview: z.boolean().default(false),
-  enableTaskArtifacts: z.boolean().default(false)
+  deepPlan: z.boolean().default(false),
+  enableReview: z.boolean().default(false)
 });
 
 export const runtimeTogglesOverridesSchema = runtimeTogglesSchema.partial();

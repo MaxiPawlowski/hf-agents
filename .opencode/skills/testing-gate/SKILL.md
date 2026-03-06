@@ -1,34 +1,28 @@
 ---
 name: hf-testing-gate
-description: Enforce required test evidence gate.
+description: >
+  Use when user or runtime toggle mandates test evidence before completion.
+  Do NOT use for read-only analysis with no code change, or when user explicitly requests manual validation only with no runtime gate requiring tests.
+autonomy: autonomous
+context_budget: 6000 / 1500
+max_iterations: 3
 ---
 
 # Testing Gate
 
-## Overview
+## Iron Law
 
-Iron law: If test gate is required, completion is blocked until required checks run and pass or a user-approved exception is recorded.
+If test gate is required, completion is blocked until all required checks run and pass, or a user-approved exception is recorded.
 
-## When to Use
+## Scope
 
-- User requests mandatory test evidence.
-
-## When Not to Use
-
-- Read-only analysis with no code change.
-- User explicitly asks for manual validation only and no runtime gate requires tests.
+One test evidence collection pass for one set of required checks. No creative decisions — run existing test commands and report results.
 
 ## Workflow
 
-1. Requirement capture
-   - Define exact required checks for this change.
-   - Exit gate: required command list is explicit.
-2. Execution
-   - Run checks in deterministic order and capture outputs.
-   - Exit gate: every required command has pass/fail result.
-3. Readiness decision
-   - Block completion on any fail/missing result.
-   - Exit gate: output includes command-level evidence.
+1. **Requirement capture** — Entry: code change with active test gate. Define exact required checks for this change. Exit: required command list is explicit.
+2. **Execution** — Entry: required command list defined. Run checks in deterministic order and capture outputs. Exit: every required command has a pass/fail result.
+3. **Readiness decision** — Entry: all commands executed. Block completion on any fail or missing result. Exit: output includes command-level evidence with pass/fail.
 
 ## Verification
 
@@ -37,26 +31,38 @@ Iron law: If test gate is required, completion is blocked until required checks 
 - Run: `npm run build`
 - Expect: build passes after test-aligned changes.
 
-## Failure Behavior
+## Error Handling
 
-- Stop completion on first required failure.
-- Report failing command, key error signal, and next remediation step.
-- Escalate to user for exception/waiver decisions.
+- On test command failure: return `{ blocked: "required test failed", why: "<failing command + key error signal>", unblock: "<next remediation step>" }`.
+- On missing test infrastructure: return `{ blocked: "no test runner configured", why: "<missing command or config>", unblock: "configure test runner or request user exception" }`.
+- On ambiguous required checks: escalate to user for exception/waiver decision.
 
-## Integration
+## Circuit Breaker
 
-- Required before: `hf-approval-gates` when verification gates are active.
-- Required after: `hf-verification-before-completion` final scope check.
-- Input artifacts: requested behavior, changed files, required check list.
-- Output artifacts: command log with pass/fail evidence and readiness decision.
+- Warning at 2 test command failures on the same check.
+- Hard stop at 3 — report failing evidence and escalate.
+- On same test failing with identical output: stop and report root cause hypothesis.
 
 ## Examples
 
-- Good: gate requires tests, you run `npm test` and include fresh result evidence.
-- Anti-pattern: reporting "should pass" without running checks.
+### Correct
+Gate requires tests. Run `npm test`, capture fresh output, include pass/fail evidence in completion report. This works because the readiness decision is backed by current-session evidence, not assumptions.
+
+### Anti-pattern
+Reporting "should pass" without running checks. This fails because stale assumptions miss regressions introduced by the current change.
 
 ## Red Flags
 
 - "Tests are probably fine for this tiny change."
 - "I ran unrelated checks instead of required ones."
-- Corrective action: run exact required commands and attach output evidence.
+
+## Handoffs
+
+- **Before:** requested behavior + changed files + required check list from `hf-core-delegation` or `hf-subagent-driven-development`.
+- **After:** command log with pass/fail evidence + readiness decision. Schema: `{ commands_run[], results[], readiness: pass|fail, gaps[] }`.
+
+## Rollback
+
+1. No code side effects to revert.
+2. Retract readiness claim.
+3. Report failing evidence with command outputs.

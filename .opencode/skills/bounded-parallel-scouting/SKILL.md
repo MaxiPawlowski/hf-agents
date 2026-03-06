@@ -1,95 +1,65 @@
 ---
 name: hf-bounded-parallel-scouting
-description: Use to run short parallel discovery bursts before planning.
+description: >
+  Use when scope is unclear and a lightweight parallel discovery burst is needed before planning.
+  Do NOT use when the task is already narrowly scoped to one file or one known fix, or when no discovery uncertainty exists.
+autonomy: autonomous
+context_budget: 8000 / 2000
+max_iterations: 4
 ---
 
 # Bounded Parallel Scouting
 
-## Overview
+## Iron Law
 
-Run a lightweight parallel context discovery burst, then converge into one scoped plan.
+Scout only for decision-critical signals; stop once enough evidence exists to route safely.
 
-This skill is optimized for speed and low overhead.
+## Scope
 
-Iron law: Scout only for decision-critical signals; stop once enough evidence exists to route safely.
-
-## When to Use
-
-- Scope-unclear implementation requests.
-- Cross-cutting tasks where context is unclear.
-- External dependency questions that need both local and docs signals.
-
-Do not use when the task is already narrowly scoped to one file or one known fix.
-
-## When Not to Use
-
-- Tasks where solution path is already explicit.
-- Work requiring immediate coding with no discovery uncertainty.
-
-## Burst limits
-
-- Launch at most 3 scouting units in parallel.
-- Keep each unit focused on one question.
-- Stop scouting after first strong signal match per unit.
-- Prefer ContextScout and ExternalDocsScout; avoid broad sweeps.
-
-## Recommended burst pattern
-
-1. Local standards/pattern scout (ContextScout)
-2. Relevant code location scout (ContextScout)
-3. External API behavior scout (ExternalDocsScout) only if needed
-
-Then synthesize one short decision block:
-
-- assumptions
-- likely file targets
-- routing decision (TaskManager vs direct path)
+One discovery burst answering up to 3 focused questions, converging into one routing decision. Read-only — no code modifications, no git operations, no worktree creation. Concurrency model: max 3 units in fan-out, stop-on-first-strong-signal per unit, merge at convergence. Each unit gets one question only (minimal context handoff).
 
 ## Workflow
 
-1. Question gate
-   - Define up to 3 scouting questions, one per unit.
-   - Exit gate: each question maps to one scout owner.
-2. Burst gate
-   - Run units in parallel with strict scope and stop-on-signal behavior.
-   - Exit gate: each unit returns one actionable finding.
-3. Convergence gate
-   - Merge findings into one route decision and target file set.
-   - Exit gate: next workflow is explicit.
-
-## Guardrails
-
-- No git operations.
-- No worktree creation.
-- No coding during scouting.
-- Keep total scouting output compact and actionable.
+1. **Question gate** — Entry: scope-unclear request or cross-cutting context need. Define up to 3 scouting questions, one per unit. Recommended pattern: (a) local standards/pattern scout via ContextScout, (b) relevant code location scout via ContextScout, (c) external API behavior scout via ExternalDocsScout (only if needed). Exit: each question maps to one scout owner.
+2. **Burst gate** — Entry: questions defined with owners. Run units in parallel with strict scope and stop-on-signal behavior. Prefer ContextScout and ExternalDocsScout; avoid broad sweeps. Exit: each unit returns one actionable finding.
+3. **Convergence gate** — Entry: all units returned. Merge findings into one route decision and target file set. Synthesize: assumptions, likely file targets, routing decision (TaskManager vs direct path). Exit: next workflow is explicit.
 
 ## Verification
 
 - Run: `git status --short`
 - Expect: scouting produces no repository modifications.
-- Run: `npm run build`
-- Expect: not required unless scouting transitioned into implementation and code changed.
 
-## Failure Behavior
+## Error Handling
 
-- Stop burst when units exceed scope or return conflicting signals.
-- Report conflict points and the single follow-up scout needed.
-- Escalate to orchestrator for tie-break routing decision.
+- On units exceed scope: return `{ blocked: "scout scope exceeded", why: "<unit> expanded beyond its question", unblock: "narrow unit scope to original question and re-run" }`.
+- On conflicting signals between units: return `{ blocked: "conflicting scout signals", why: "<unit A says X, unit B says Y>", unblock: "<single follow-up scout to resolve conflict>" }`.
+- On no actionable signal from any unit: escalate to orchestrator for alternative routing or user clarification.
+
+## Circuit Breaker
+
+- Warning at 3 scout units dispatched.
+- Hard stop at 4 — no re-scouting. Emit findings and route.
+- On conflicting signals from units: stop burst and escalate to orchestrator for tie-break.
 
 ## Examples
 
-- Good: 3 scouts, each answers one question, then one concise route decision.
-- Anti-pattern: 8 concurrent scouts with overlapping questions and transcript dumps.
+### Correct
+3 scouts, each answers one question, then one concise route decision with assumptions and file targets. This works because bounded scouting converges fast — each unit contributes exactly one signal, and the merge is deterministic.
+
+### Anti-pattern
+8 concurrent scouts with overlapping questions and transcript dumps. This fails because overlapping scouts waste tokens, produce conflicting signals, and delay convergence instead of accelerating it.
 
 ## Red Flags
 
 - "Let's keep scouting just in case."
 - "I launched parallel units with overlapping file edits."
-- Corrective action: collapse to bounded units and reconverge before any coding.
 
-## Integration
+## Handoffs
 
-- Used by: `hf-core-agent`.
-- Typically fans out: `hf-context-scout` and `hf-external-docs-scout`.
-- Required after: convergence, hand off to `hf-task-planner`.
+- **Before:** unresolved questions from orchestrator (max 3) via `hf-core-delegation` or `hf-core-agent`.
+- **After:** `{ assumptions, file_targets[], routing_decision, per_unit_findings[] }`. Consumed by `hf-task-planner` or `hf-core-delegation` planning gate.
+
+## Rollback
+
+1. No side effects. Discard scout findings.
+2. Return to pre-scout state — orchestrator re-routes or asks user.

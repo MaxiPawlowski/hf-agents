@@ -24,17 +24,12 @@ function resolveTogglesWithPrecedence(preset: RuntimeSettings, overrides: Runtim
 const BASE_RUNTIME_SETTINGS: RuntimeSettings = runtimeSettingsSchema.parse({
   contextStrategy: "minimal",
   toggles: {
-    useWorktreesByDefault: false,
-    manageGitByDefault: false,
-    requireTests: false,
-    requireApprovalGates: false,
-    requireVerification: false,
-    requireCodeReview: false,
-    enableTaskArtifacts: false
+    deepPlan: false,
+    enableReview: false
   },
   delegationRules: {
-    feature: { preferredSubagent: "TaskManager" },
-    planning: { preferredSubagent: "TaskPlanner" },
+    feature: { preferredSubagent: "BuildOrchestrator" },
+    planning: { preferredSubagent: "PlanOrchestrator" },
     context: { preferredSubagent: "ContextScout" },
     validation: { preferredSubagent: "Tester" },
     review: { preferredSubagent: "Reviewer" },
@@ -69,7 +64,9 @@ export function resolveRuntimeSettings(input?: unknown): RuntimeSettings {
     "requireApprovalGates",
     "requireVerification",
     "requireCodeReview",
-    "enableTaskArtifacts"
+    "enableTaskArtifacts",
+    "deepPlan",
+    "enableReview"
   ];
   const unsupportedLegacyKeys = legacyToggleKeys.filter((key) =>
     Object.prototype.hasOwnProperty.call(rawOverrides, key)

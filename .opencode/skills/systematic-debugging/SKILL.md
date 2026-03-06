@@ -1,46 +1,29 @@
 ---
 name: hf-systematic-debugging
-description: Use when behavior is failing or unexpected and root cause is unclear.
+description: >
+  Use when behavior is failing or unexpected and root cause is unclear.
+  Do NOT use for known one-line fixes with verified path, or pure feature implementation with no failure signal.
+autonomy: supervised
+context_budget: 15000 / 4000
+max_iterations: 6
 ---
 
 # Systematic Debugging
 
-## Overview
+## Iron Law
 
-Find root cause before applying fixes. Avoid guess-fix cycles.
+Do not ship a fix until root cause is evidenced and the failing symptom is re-verified as resolved.
 
-Iron law: Do not ship a fix until root cause is evidenced and the failing symptom is re-verified as resolved.
+## Scope
 
-## When to Use
-
-- Reproducible failures with unknown origin.
-- Intermittent behavior where assumptions are conflicting.
-
-## When Not to Use
-
-- Known one-line typo with direct, verified fix path.
-- Pure feature implementation with no failure signal.
+One debugging session: from symptom reproduction through root cause identification and minimum safe fix for one failure. Constraints: no automatic git operations; no mandatory test requirement unless requested.
 
 ## Workflow
 
-1. Reproduction gate
-   - Capture exact symptom and reproduction steps.
-   - Exit gate: failure is reproducible or bounded.
-2. Diagnosis gate
-   - Test hypotheses with observable signals only.
-   - Exit gate: root cause statement is evidence-backed.
-3. Fix gate
-   - Apply minimum safe change.
-   - Exit gate: fix maps directly to root cause.
-4. Verification gate
-   - Re-run failing path and required checks.
-   - Exit gate: symptom resolved with evidence.
-
-## Evidence standard
-
-- Capture the failing symptom before changing code.
-- Tie each hypothesis to an observable signal.
-- Keep a short log: symptom -> hypothesis -> check -> result.
+1. **Reproduction gate** — Entry: failure report received. Capture exact symptom and reproduction steps. Exit: failure is reproducible or bounded.
+2. **Diagnosis gate** — Entry: failure reproduced. Test hypotheses with observable signals only. Keep a short log: symptom → hypothesis → check → result. Tie each hypothesis to an observable signal. Common patterns to check: hidden precondition mismatch, incorrect state transition ordering, integration contract drift, external dependency version mismatch. Exit: root cause statement is evidence-backed.
+3. **Fix gate** — Entry: root cause identified. Apply minimum safe change. Exit: fix maps directly to root cause.
+4. **Verification gate** — Entry: fix applied. Re-run failing path and required checks. Exit: symptom resolved with evidence.
 
 ## Verification
 
@@ -49,46 +32,39 @@ Iron law: Do not ship a fix until root cause is evidenced and the failing sympto
 - Run: `npm run build`
 - Expect: build remains successful after fix.
 
-## Common failure patterns
+## Error Handling
 
-- Hidden precondition mismatch
-- Incorrect state transition ordering
-- Integration contract drift
-- External dependency version mismatch
+- On cannot reproduce: return `{ blocked: "cannot reproduce", why: "<attempted reproduction steps and environment>", unblock: "provide additional reproduction context or environment details" }`.
+- On multiple plausible root causes: return `{ blocked: "ambiguous root cause", why: "<hypothesis A and B both plausible>", unblock: "<specific discriminating test to run>" }`.
+- On fix creates new failure: return `{ blocked: "fix regression", why: "<new symptom after fix>", unblock: "revert fix and investigate <new symptom>" }`.
+- On external blocker: escalate to user for environment or priority decisions.
 
-## Failure Behavior
+## Circuit Breaker
 
-- Stop if reproduction cannot be established after reasonable attempts.
-- Report known observations, attempted checks, and smallest unknown blocking progress.
-- Escalate to user for environment or priority decisions when blocked externally.
-
-## Required Output
-
-Return:
-- Root cause statement
-- Fix summary
-- Residual risk
-- Verification performed
-
-## Project Defaults
-
-- No automatic git operations.
-- No mandatory test requirement unless requested.
+- Warning at 4 hypothesis tests without convergence.
+- Hard stop at 6 — report all evidence gathered and escalate.
+- On same hypothesis tested twice with same result: stop and report — the hypothesis is disproven.
 
 ## Examples
 
-- Good: capture stack trace, test two hypotheses, isolate contract drift, apply targeted fix, verify symptom gone.
-- Anti-pattern: apply three speculative fixes at once and hope one works.
+### Correct
+Capture stack trace, test two hypotheses with targeted checks, isolate contract drift as root cause, apply targeted fix, verify symptom is gone. This works because each step narrows the search space with evidence, and the fix is directly tied to the proven root cause.
+
+### Anti-pattern
+Apply three speculative fixes at once and hope one works. This fails because even if the symptom disappears, the actual root cause is unknown, and the unrelated fixes may introduce latent issues.
 
 ## Red Flags
 
 - "I changed many things to be safe."
 - "The error disappeared once, so root cause is done."
-- Corrective action: revert to smallest change set and rebuild evidence chain.
 
-## Integration
+## Handoffs
 
-- Used by: `hf-core-agent` when a bug/failure report is the primary request.
-- Often pairs with: `hf-bounded-parallel-scouting` for quick context discovery.
-- Required after: apply fix via `hf-coder`, then validate via `hf-tester` / `hf-build-validator` as needed.
-- Required before: `hf-verification-before-completion` for completion claims.
+- **Before:** failure report with reproduction steps from `hf-core-delegation` or user. Optionally: context from `hf-bounded-parallel-scouting`.
+- **After:** `{ root_cause, fix_summary, residual_risk, verification_evidence: { commands_run[], results[] } }`.
+
+## Rollback
+
+1. Revert fix changes via `git checkout -- <files>`.
+2. Confirm symptom returns (proves fix isolation).
+3. Report rollback state to orchestrator.

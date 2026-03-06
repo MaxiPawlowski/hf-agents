@@ -27,10 +27,7 @@ export function runReviewer(planInput: unknown, patchInput: unknown, settingsInp
   if (patch.safeguards.managedGit) {
     findings.push("Policy enabled git management for this run.");
   }
-  if (toggles.requireTests && !patch.safeguards.autoTestsRun) {
-    blockingFindings.push("Settings require tests but no automated test run evidence was produced.");
-  }
-  if (toggles.requireVerification) {
+  if (toggles.enableReview) {
     findings.push("Verification is required and must be completed before closeout.");
   }
 

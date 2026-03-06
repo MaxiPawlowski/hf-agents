@@ -5,13 +5,10 @@ import { suggestSkills } from "../skills/skill-engine.js";
 import { executeCoreDelegationPath } from "../delegation/execute-core-path.js";
 import type { CoreDelegationResult } from "../contracts/index.js";
 import type { TaskBundle } from "../contracts/index.js";
-import { createTaskBundle } from "../tasks/task-bundle.js";
-import { runTaskManager, summarizeTaskManagerBundle } from "../subagents/task-manager.js";
+// runTaskManager, runContextScout, runTaskPlanner, runCoder, runReviewer removed:
+// plan/build phases are now orchestrated by hf-plan-orchestrator and
+// hf-build-orchestrator markdown agents. TS runtime is a validation layer only.
 import { loadDelegationRules, resolveRuntimeSettings } from "../settings/runtime-settings.js";
-import { runContextScout } from "../subagents/context-scout.js";
-import { runTaskPlanner } from "../subagents/task-planner.js";
-import { runCoder } from "../subagents/coder.js";
-import { runReviewer } from "../subagents/reviewer.js";
 import { coreDelegationResultSchema } from "../contracts/index.js";
 import { skillsForEnabledToggles } from "../skills/skill-engine.js";
 
@@ -30,13 +27,6 @@ export type OrchestrationResult = {
     result: CoreDelegationResult;
   };
 };
-
-function appendTaskArtifactNote(notes: string[], taskBundle: TaskBundle): void {
-  const bundleSummary = summarizeTaskManagerBundle(taskBundle);
-  notes.push(
-    `Task artifacts prepared (${bundleSummary.subtaskCount} subtasks, ${bundleSummary.parallelizable} parallelizable).`
-  );
-}
 
 type TaskInput = z.input<typeof taskSchema>;
 type SettingsInput = unknown;
@@ -66,44 +56,36 @@ export async function runTask(taskInput: TaskInput, settingsInput: SettingsInput
   );
 
   const notes: string[] = [];
-  notes.push(`Worktree automation: ${toggles.useWorktreesByDefault ? "on" : "off"}.`);
-  notes.push(`Git management automation: ${toggles.manageGitByDefault ? "on" : "off"}.`);
-  notes.push(`Test gate: ${toggles.requireTests ? "required" : "optional"}.`);
-  if (toggles.requireVerification) {
-    notes.push("Settings require hf-verification-before-completion checks.");
-  }
-  if (toggles.requireCodeReview) {
-    notes.push("Settings require explicit review before closing tasks.");
+  notes.push(`Deep plan: ${toggles.deepPlan ? "on" : "off"}.`);
+  notes.push(`Enable review: ${toggles.enableReview ? "on" : "off"}.`);
+  if (toggles.enableReview) {
+    notes.push("Settings require hf-verification-before-completion checks and reviewer sign-off.");
   }
   let executionPath: OrchestrationResult["executionPath"];
   let taskBundle: OrchestrationResult["taskBundle"];
 
-  if (assignedSubagent === "Coder") {
+  if (assignedSubagent === "PlanOrchestrator") {
+    // Plan phase is handled by hf-plan-orchestrator markdown agent.
+    // Stages reflect the agent's internal flow for test/validation purposes.
     const result = executeCoreDelegationPath(task, settings);
-    if (toggles.enableTaskArtifacts) {
-      taskBundle = createTaskBundle(task, result.plan);
-      appendTaskArtifactNote(notes, taskBundle);
-    }
     executionPath = {
-      stages: ["ContextScout", "TaskPlanner", "Coder", "Reviewer"],
+      stages: ["Brainstormer", "LocalContextScout", "WebResearchScout", "CodeSearchScout", "PlanSynthesis"],
       result
     };
-  } else if (assignedSubagent === "TaskManager") {
-    const context = runContextScout(task, settings);
-    const plan = runTaskPlanner(task, context);
-    if (toggles.enableTaskArtifacts) {
-      taskBundle = runTaskManager(task, plan);
-      appendTaskArtifactNote(notes, taskBundle);
-    }
-    const patch = runCoder(plan, settings);
-    const review = runReviewer(plan, patch, settings);
-    const result: CoreDelegationResult = coreDelegationResultSchema.parse({ context, plan, patch, review });
+  } else if (assignedSubagent === "BuildOrchestrator") {
+    // Build phase is handled by hf-build-orchestrator markdown agent.
+    // TS runtime is a validation layer — use executeCoreDelegationPath for evidence.
+    const result = executeCoreDelegationPath(task, settings);
     executionPath = {
-      stages: ["ContextScout", "TaskPlanner", "TaskManager", "Coder", "Reviewer"],
+      stages: ["MilestoneTracking", "Coder", "Reviewer"],
       result
     };
-  } else if (toggles.enableTaskArtifacts) {
-    taskBundle = createTaskBundle(task);
+  } else if (assignedSubagent === "Coder") {
+    const result = executeCoreDelegationPath(task, settings);
+    executionPath = {
+      stages: ["Coder", "Reviewer"],
+      result
+    };
   }
 
   return {
@@ -113,7 +95,7 @@ export async function runTask(taskInput: TaskInput, settingsInput: SettingsInput
     matchedCategory: routeDecision.matchedCategory,
     suggestedSkills,
     enforcedSkills,
-    requiresApproval: toggles.requireApprovalGates,
+    requiresApproval: toggles.enableReview,
     notes,
     taskBundle,
     executionPath

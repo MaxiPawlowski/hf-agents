@@ -1,9 +1,8 @@
 ---
 name: toggle-worktree
-description: "HF: Toggle worktree gate on or off."
+description: "HF: ON - Toggle worktree gate on or off."
 argument-hint: <on|off>
 ---
-
 ## Purpose
 
 Set `use_worktree` runtime toggle.
