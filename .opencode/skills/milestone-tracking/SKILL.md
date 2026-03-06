@@ -10,14 +10,23 @@ max_iterations: 1
 
 # Milestone Tracking
 
-## Iron Law
+Iron law: The plan doc is the single source of truth. Never track milestone state anywhere else.
 
-The plan doc is the single source of truth. Never track milestone state anywhere else.
-
-## Scope
+## Overview
 
 Reads the plan doc to determine build progress, and updates milestone checkboxes
 in place as milestones are completed with evidence. Used by `hf-build-orchestrator`.
+
+## When to Use
+
+- At the start of a build session to determine the current unchecked milestone.
+- After a milestone's reviewer approves, to mark it complete and attach evidence.
+- When checking whether all milestones are done (plan complete).
+
+## When Not to Use
+
+- During planning — milestones are written by `hf-plan-synthesis`, not this skill.
+- For tracking state outside the plan doc — the plan doc is the only state store.
 
 ## Plan Doc Operations
 
@@ -37,6 +46,13 @@ When all milestones are checked, update the frontmatter:
 - Before: `status: in-progress`
 - After:  `status: complete`
 
+## Workflow
+
+1. Read the plan doc at the path provided by `hf-build-orchestrator`.
+2. Parse `## Milestones` section to determine current state.
+3. On milestone completion: update checkbox and append evidence under the milestone line.
+4. When all milestones checked: update frontmatter `status: complete`.
+
 ## Evidence Attachment
 
 After checking off a milestone, append evidence under it:
@@ -46,6 +62,41 @@ After checking off a milestone, append evidence under it:
   - test: `tests/validation.test.ts` passed
   - screenshot: `docs/plans/evidence/milestone-2-screenshot.png` (if UI work)
 ```
+
+## Verification
+
+- Run: `grep -c "\- \[ \]" <plan-doc-path>` to count remaining unchecked milestones.
+- Run: `grep "status:" <plan-doc-path>` to confirm frontmatter status is updated correctly.
+
+## Failure Behavior
+
+If blocked, return:
+
+- blocked: what cannot be updated
+- why: plan doc not found, malformed milestones section, or no unchecked milestone
+- unblock: smallest specific step (path to plan doc, or format fix needed)
+
+## Integration
+
+- **Loaded by:** `hf-build-orchestrator` at the start of every build session.
+- **Plan doc written by:** `hf-plan-orchestrator` via `hf-plan-synthesis`.
+- **Milestone completion triggered by:** `hf-reviewer` approval output.
+
+## Examples
+
+### Correct
+
+Build session starts. Load plan doc. Find first unchecked milestone: `- [ ] 3. Add export button`. After coder+reviewer approve with evidence, update to `- [x] 3. Add export button` with file refs and test result. This works because progress is visible in the plan doc without any external state.
+
+### Anti-pattern
+
+Tracking milestone state in a separate file or in memory. This fails because state is lost between sessions and diverges from the plan doc.
+
+## Red Flags
+
+- "I'll remember which milestone we're on without updating the doc."
+- "I'll mark it done before the reviewer approves."
+- "Evidence attachment is optional."
 
 ## Required Output
 

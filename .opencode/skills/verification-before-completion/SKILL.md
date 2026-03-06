@@ -10,9 +10,22 @@ max_iterations: 3
 
 # Verification Before Completion
 
-## Iron Law
+Iron law: Never claim completion without fresh verification evidence tied to the exact requested scope.
 
-Never claim completion without fresh verification evidence tied to the exact requested scope.
+## Overview
+
+One verification pass for one completion claim. Read-only evidence gathering — no code changes. Verifies scope coverage, constraint compliance, and output quality before declaring work done.
+
+## When to Use
+
+- Before declaring any implementation task done.
+- Before committing or creating a PR when the plan requires verification evidence.
+- When a reviewer or gate requires fresh evidence of completion.
+
+## When Not to Use
+
+- For pure brainstorming or exploration with no completion claim.
+- When verification has already been run in this session with no subsequent changes.
 
 ## Scope
 
@@ -31,7 +44,7 @@ One verification pass for one completion claim. Read-only evidence gathering —
 - Run: `npm run build`
 - Expect: successful build for code-changing tasks.
 
-## Error Handling
+## Failure Behavior
 
 - On unresolved scope item: return `{ blocked: "scope gap", why: "<requested item> not delivered or not verified", unblock: "<implement or verify specific item>" }`.
 - On constraint violation: return `{ blocked: "policy drift", why: "<constraint> was violated by <action>", unblock: "<revert or correct specific violation>" }`.
@@ -56,7 +69,7 @@ Includes what changed, why it satisfies request, explicit scope mapping, and fre
 - "This is small enough to skip verification."
 - "I already know this part works from earlier runs."
 
-## Handoffs
+## Integration
 
 - **Before:** implementation summary + evidence from upstream skills (`hf-core-delegation`, `hf-subagent-driven-development`, `hf-tester`, `hf-build-validator`, `hf-git-workflows`).
 - **After:** `{ scope_map, evidence: { commands_run[], pass_fail[] }, gates: { toggle_gate, status }[], gaps[], residual_risks[] }`. Completion message: what changed, why it satisfies request, what was intentionally not done, optional next steps.

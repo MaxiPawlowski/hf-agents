@@ -11,15 +11,23 @@ max_iterations: 2
 
 # Plan Synthesis
 
-## Iron Law
+Iron law: Do not write milestones until all research inputs are present. Missing research means missing constraints.
 
-Do not write milestones until all research inputs are present. Missing research means missing constraints.
-
-## Scope
+## Overview
 
 One synthesis pass per planning session. Takes brainstorm brief + local context + web
 research + code examples and produces a single plan doc at
 `docs/plans/YYYY-MM-DD-<slug>-plan.md`.
+
+## When to Use
+
+- After all three research scouts have returned results.
+- When merging multi-source research findings into a structured, actionable milestone plan.
+
+## When Not to Use
+
+- Before research scouts have returned — incomplete research produces incomplete milestones.
+- When feature intent is still ambiguous — run `hf-brainstormer` first.
 
 ## Workflow
 
@@ -36,6 +44,42 @@ research + code examples and produces a single plan doc at
 - No milestone depends on another being "partially done" — each is a complete unit
 - Scope fits comfortably in a single focused coding session
 - Acceptance criterion is checkable without ambiguity
+
+## Verification
+
+- Run: `ls docs/plans/` and confirm the new plan doc is present with correct YYYY-MM-DD prefix.
+- Confirm plan doc contains `## Milestones` section with at least one `- [ ]` checkbox.
+- Confirm frontmatter has `status: in-progress`.
+
+## Failure Behavior
+
+If blocked, return:
+
+- blocked: what cannot be synthesized
+- why: missing research input or unresolvable constraint conflict
+- unblock: one targeted question or the specific missing scout result
+
+## Integration
+
+- **Loaded by:** `hf-plan-orchestrator` in Phase 3 (synthesis).
+- **Input from:** `hf-brainstormer` output + all 3 scout results.
+- **Output consumed by:** `hf-build-orchestrator` reads the produced plan doc.
+
+## Examples
+
+### Correct
+
+Three scouts return results. Synthesis merges local conventions, API docs, and idiomatic patterns. Writes plan doc with 4 milestones, each with a clear acceptance criterion. This works because every milestone is grounded in evidence from research.
+
+### Anti-pattern
+
+Writing milestones from memory before scouts return. This fails because local project conventions and library-specific patterns are missed, producing milestones that conflict with the codebase.
+
+## Red Flags
+
+- "I can guess the milestones without waiting for scouts."
+- "The research brief is close enough — I'll fill in gaps during coding."
+- "Acceptance criterion is implicit — it's obvious when done."
 
 ## Plan Document Format
 

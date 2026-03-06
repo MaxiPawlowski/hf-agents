@@ -10,9 +10,21 @@ max_iterations: 3
 
 # Git Workflows
 
-## Iron Law
+Iron law: Never run destructive or irreversible git commands unless the user explicitly requests them in this session.
 
-Never run destructive or irreversible git commands unless the user explicitly requests them in this session.
+## Overview
+
+One git workflow decision and execution cycle per implementation session. Handles branch prep, worktree strategy, and git safety decisions before and during implementation.
+
+## When to Use
+
+- When branch setup, worktree creation, or git safety decisions are needed before or during implementation.
+- When committing, pushing, or preparing a branch for review.
+
+## When Not to Use
+
+- For read-only analysis with no git interaction.
+- When the user has not requested any git operations in this session.
 
 ## Scope
 
@@ -31,7 +43,7 @@ One git workflow decision and execution cycle for one implementation session. Co
 - Run: `git log -1 --oneline`
 - Expect: latest commit context when relevant to workflow decisions.
 
-## Error Handling
+## Failure Behavior
 
 - On destructive command required but not explicitly requested: return `{ blocked: "destructive git command needed", why: "<command> would <irreversible effect>", unblock: "user must explicitly approve <command>" }`.
 - On merge conflict: return `{ blocked: "merge conflict", why: "<conflicting files>", unblock: "resolve conflicts in <files> or abort merge" }`.
@@ -56,7 +68,7 @@ Creating worktrees or resetting state implicitly because it seems faster. This f
 - "I will just hard reset and continue."
 - "I assumed worktree usage without checking toggles."
 
-## Handoffs
+## Integration
 
 - **Before:** user request + {{#if toggle.use_worktree}}worktree strategy active{{else}}direct edit strategy (no worktree){{/if}} + current git status from caller or `hf-core-delegation`.
 - **After:** safety decision log + commands executed + final git state summary. Schema: `{ branch, safety_plan, commands_run[], final_status, risk_notes }`.

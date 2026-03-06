@@ -51,12 +51,6 @@
       "dependsOn": []
     },
     {
-      "id": "agent-intent-scout",
-      "type": "agent",
-      "path": ".opencode/agents/hf-intent-scout.md",
-      "dependsOn": ["context-runtime-preferences"]
-    },
-    {
       "id": "agent-coder",
       "type": "agent",
       "path": ".opencode/agents/hf-coder.md",

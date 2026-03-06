@@ -10,9 +10,21 @@ max_iterations: 3
 
 # Approval Gates
 
-## Iron Law
+Iron law: Never mark work ready when a required gate is unresolved. Every gate requires fresh evidence.
 
-Never mark work ready when a required gate is unresolved. Every gate requires fresh evidence.
+## Overview
+
+One gate resolution pass per completion claim. Discovers active gates, collects evidence, and produces a readiness decision. No code changes — evidence aggregation only.
+
+## When to Use
+
+- When a task claims completion or readiness and mandatory review/verification criteria must be checked.
+- When resolving runtime toggle gates before marking a milestone done.
+
+## When Not to Use
+
+- For purely informational requests with no completion claim.
+- When no gates are active (no toggles enabled, no reviewer criteria set).
 
 ## Scope
 
@@ -31,7 +43,7 @@ One gate resolution pass: discover active gates, collect evidence, produce readi
 - Run: `git status --short`
 - Expect: changed files list matches reported scope.
 
-## Error Handling
+## Failure Behavior
 
 - On missing evidence for a required gate: return `{ blocked: "gate evidence missing", why: "<gate name> has no fresh evidence", unblock: "<exact verification command or reviewer action needed>" }`.
 - On conflicting gate results: return `{ blocked: "gate conflict", why: "<gate A passes but gate B contradicts>", unblock: "resolve conflict with <specific action>" }`.
@@ -56,7 +68,7 @@ Verification gate ON. Run required commands, include fresh output evidence, repo
 - "I skipped checks because change looked small."
 - "I assumed review is optional without checking toggles."
 
-## Handoffs
+## Integration
 
 - **Before:** active toggle states + reviewer results + verification logs from `hf-testing-gate`, `hf-verification-before-completion`, or upstream reviewers.
 - **After:** gate matrix with pass/fail and evidence pointers. Schema: `{ gates[]: { name, status: pass|fail, evidence_ref }, readiness: ready|blocked, unresolved[] }`.

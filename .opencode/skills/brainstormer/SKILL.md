@@ -11,15 +11,25 @@ max_iterations: 3
 
 # Brainstormer
 
-## Iron Law
+Iron law: Do not start research or planning until feature intent, constraints, and top unknowns are explicit.
 
-Do not start research or planning until feature intent, constraints, and top unknowns are explicit.
-
-## Scope
+## Overview
 
 One brainstorming pass per planning session. Converts a feature request into a scoped
 research brief that `hf-plan-orchestrator` uses to target the parallel scout agents.
 No implementation side effects. No file edits.
+
+## When to Use
+
+- At the start of a new planning session when the feature intent is not yet explicit.
+- When multiple implementation directions are possible and the best one is unknown.
+- When you need to produce a structured research brief for parallel scout agents.
+
+## When Not to Use
+
+- Mid-plan when intent and approach are already defined.
+- When the user has provided an explicit, detailed specification.
+- As a replacement for implementation — this skill produces research briefs, not code.
 
 ## Workflow
 
@@ -29,6 +39,41 @@ No implementation side effects. No file edits.
    shape, key components, data flow, risks. Name your recommended option.
 3. **Research brief gate** — Produce a structured research brief that tells each scout
    exactly what to look for.
+
+## Verification
+
+- Run: `ls docs/plans/` to confirm no plan doc was created prematurely during brainstorm.
+- Confirm research brief contains all three target lists: `local_search_targets`, `web_search_targets`, `code_search_targets`.
+
+## Failure Behavior
+
+If blocked, return:
+
+- blocked: what cannot be scoped
+- why: missing input
+- unblock: one targeted question
+
+## Integration
+
+- **Loaded by:** `hf-plan-orchestrator` in Phase 1 (inline, sequential).
+- **Output consumed by:** `hf-local-context-scout`, `hf-web-research-scout`, `hf-code-search-scout` via the research brief.
+- **Followed by:** Phase 2 parallel research scouts, then `hf-plan-synthesis`.
+
+## Examples
+
+### Correct
+
+User asks to "add pagination to the results list." Brainstormer states intent as "add cursor-based pagination to search results," identifies unknowns (server-side vs. client-side, existing pagination patterns), proposes 2 options with trade-offs, produces a research brief with specific targets. This works because each scout now has a concrete target list.
+
+### Anti-pattern
+
+Immediately writing milestones without scoping. This fails because missing constraints produce milestones that conflict with existing codebase patterns.
+
+## Red Flags
+
+- "The intent is obvious — skip brainstorm."
+- "I'll generate the plan while brainstorming at the same time."
+- "I'll write milestones now and research later."
 
 ## Required Output
 
@@ -41,11 +86,3 @@ Return:
   - local_search_targets: specific file paths, pattern names, or module names to find
   - web_search_targets: specific library docs, RFCs, or tutorials to fetch
   - code_search_targets: specific patterns or implementations to find on GitHub via gh_grep
-
-## Failure Contract
-
-If blocked, return:
-
-- blocked: what cannot be scoped
-- why: missing input
-- unblock: one targeted question
