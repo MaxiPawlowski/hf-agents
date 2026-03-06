@@ -781,7 +781,210 @@ git commit -m "docs: update README and architecture for mode-based agent design"
 
 ---
 
-### Task 9: Full build + validate
+### Task 9: Delete settings/ directory
+
+**Files:**
+- Delete: `settings/framework-settings.json` (entire file is 7 toggle keys — no toggle commands or plugin reads it)
+- Remove: `settings/` directory (will be empty after deletion)
+
+**Step 1: Delete via git rm**
+
+```bash
+git rm settings/framework-settings.json
+```
+
+**Step 2: Commit**
+
+```bash
+git commit -m "remove: delete settings/ dir (toggle infrastructure gone)"
+```
+
+---
+
+### Task 10: Delete docs/policies.md
+
+**Files:**
+- Delete: `docs/policies.md` (100% documents the toggle system — toggle keys, /toggle-* commands, framework-settings.json)
+
+**Step 1: Delete via git rm**
+
+```bash
+git rm docs/policies.md
+```
+
+**Step 2: Commit**
+
+```bash
+git commit -m "remove: delete docs/policies.md (toggle system docs)"
+```
+
+---
+
+### Task 11: Update docs/commands/README.md
+
+**Files:**
+- Modify: `docs/commands/README.md`
+
+**Step 1: Remove "Runtime toggles" line from Command Groups**
+
+Find and replace:
+
+```
+- Runtime toggles: `toggle-worktree`, `toggle-tests`, `toggle-verification`, `toggle-artifacts`, `toggle-status`
+```
+
+With: *(nothing — delete the line)*
+
+**Step 2: Remove toggle persistence note**
+
+Find and replace:
+
+```
+Toggle commands persist to `settings/framework-settings.json` in the current working directory (project-local), and `toggle-status` prints the current in-memory toggle state for the active session.
+```
+
+With: *(nothing — delete the line)*
+
+**Step 3: Remove stale example commands**
+
+Find and replace:
+
+```
+/toggle-status
+```
+
+With: *(nothing — delete the line)*
+
+**Step 4: Commit**
+
+```bash
+git add docs/commands/README.md
+git commit -m "docs: remove toggle command references from command catalog"
+```
+
+---
+
+### Task 12: Update core-delegation/SKILL.md
+
+**Files:**
+- Modify: `.opencode/skills/core-delegation/SKILL.md`
+
+**Step 1: Update description — remove "toggle-aware gates"**
+
+Find and replace:
+
+```
+  Use when implementing tasks that need end-to-end orchestration through discovery, planning, coding, and review with toggle-aware gates.
+```
+
+With:
+
+```
+  Use when implementing tasks that need end-to-end orchestration through discovery, planning, coding, and review with explicit review gates.
+```
+
+**Step 2: Update Scope — remove dead references**
+
+Find and replace:
+
+```
+One end-to-end delegation cycle: from intent classification through review signoff for one user request. Routing: use `hf-core-delegation` for end-to-end orchestration; use `hf-subagent-driven-development` when plan is already approved; use `hf-bounded-parallel-scouting` for lightweight discovery bursts. Constraints: no implicit git operations; no implicit worktree creation; no mandatory tests unless toggle gates or user request require them. Brainstorming is orchestrator-led via `hf-brainstorming` unless explicitly delegated. Use `@.opencode/context/project/subagent-handoff-template.md` for all delegation handoffs (typed artifacts). Emit per-gate: step name, inputs, outputs, decision rationale (observable state).
+```
+
+With:
+
+```
+One end-to-end delegation cycle: from intent classification through review signoff for one user request. Routing: use `hf-core-delegation` for end-to-end orchestration; use `hf-subagent-driven-development` when plan is already approved. Constraints: no implicit git operations; no implicit worktree creation; no mandatory tests unless explicitly requested. Brainstorming is orchestrator-led via `hf-brainstorming` unless explicitly delegated. Use `@.opencode/context/project/subagent-handoff-template.md` for all delegation handoffs (typed artifacts). Emit per-gate: step name, inputs, outputs, decision rationale (observable state).
+```
+
+**Step 3: Update Workflow step 2 — remove hf-external-docs-scout**
+
+Find and replace:
+
+```
+2. **Context gate** — Entry: intent classified or skipped. `hf-context-scout` identifies minimum relevant local context. Use `hf-external-docs-scout` when external library behavior is uncertain. Exit: constraints/toggles + candidate files are explicit.
+```
+
+With:
+
+```
+2. **Context gate** — Entry: intent classified or skipped. `hf-local-context-scout` identifies minimum relevant local context. Exit: constraints + candidate files are explicit.
+```
+
+**Step 4: Update Workflow step 3 — remove toggle policy refs**
+
+Find and replace:
+
+```
+3. **Planning gate** — Entry: context gathered. `hf-task-planner` produces a small, verifiable plan. Use `hf-task-manager` when dependency-heavy. If review required by runtime policy (`require_verification`, `require_code_review`), include review signoff in plan. Exit: scope-in/scope-out + acceptance criteria + verify steps are explicit.
+```
+
+With:
+
+```
+3. **Planning gate** — Entry: context gathered. Produce a small, verifiable plan. Include review signoff in plan when quality gate is needed. Exit: scope-in/scope-out + acceptance criteria + verify steps are explicit.
+```
+
+**Step 5: Update Workflow step 5 — strip toggle interpolation**
+
+Find and replace:
+
+```
+5. **Verification gate** (conditional) — Entry: code changes complete.{{#if toggle.require_tests}} Use `hf-testing-gate` + `hf-tester` for test evidence.{{/if}}{{#if toggle.require_verification}} Use `hf-approval-gates` + `hf-build-validator` / `hf-reviewer` for verification signoff.{{/if}}{{#if toggle.task_artifacts}} Use `hf-task-artifact-gate` for lifecycle tracking.{{/if}} Exit: evidence is fresh and tied to requested scope.
+```
+
+With:
+
+```
+5. **Verification gate** (conditional) — Entry: code changes complete. Use `hf-build-validator` and/or `hf-reviewer` for verification signoff when quality gate is active. Exit: evidence is fresh and tied to requested scope.
+```
+
+**Step 6: Update Handoffs — strip toggle interpolation**
+
+Find and replace:
+
+```
+- **After:** `{ plan_summary, implementation_summary: { files_changed[], rationale }, review_findings: { approved: bool, findings[], evidence_gaps[], next_action } }`. Per-role contracts: TaskPlanner → objective + scope + steps + risks; TaskManager → featureId + subtasks + dependencies; Coder → changes + files + commands + results + gaps; Tester/BuildValidator → commands + results + evidence; Reviewer → approved + findings + evidence_gaps + next_action. Pairs with `hf-git-workflows` when workspace strategy matters.{{#if toggle.task_artifacts}} Keep `.tmp/task-lifecycle.json` current.{{/if}}
+```
+
+With:
+
+```
+- **After:** `{ plan_summary, implementation_summary: { files_changed[], rationale }, review_findings: { approved: bool, findings[], evidence_gaps[], next_action } }`. Per-role contracts: Coder → changes + files + commands + results + gaps; BuildValidator/Reviewer → commands + results + evidence + approved + findings + next_action. Pairs with `hf-git-workflows` when workspace strategy matters.
+```
+
+**Step 7: Update Rollback — strip toggle interpolation**
+
+Find and replace:
+
+```
+1. Revert coder changes via `git checkout -- <files>`.
+{{#if toggle.task_artifacts}}2. Remove task artifact entries for this delegation.
+{{/if}}{{#if toggle.task_artifacts}}3.{{else}}2.{{/if}} Report incomplete state to orchestrator with gate-by-gate progress.
+```
+
+With:
+
+```
+1. Revert coder changes via `git checkout -- <files>`.
+2. Report incomplete state to orchestrator with gate-by-gate progress.
+```
+
+**Step 8: Run agent contracts validator**
+
+Run: `npm run validate:agent-contracts`
+Expected: Passes.
+
+**Step 9: Commit**
+
+```bash
+git add .opencode/skills/core-delegation/SKILL.md
+git commit -m "refactor: strip toggle interpolation and dead agent refs from core-delegation skill"
+```
+
+---
+
+### Task 13: Full build + validate
 
 **Step 1: Clean build**
 
