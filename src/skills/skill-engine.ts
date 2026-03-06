@@ -67,20 +67,20 @@ const CORE_SKILLS: Skill[] = [
     triggerHints: ["core delegation", "delegation path"]
   },
   {
-    id: "hf-git-workflows",
-    triggerHints: ["git workflow", "worktree", "branching"]
+    id: "hf-local-context-scout",
+    triggerHints: ["local context", "read files", "project scan"]
   },
   {
-    id: "hf-testing-gate",
-    triggerHints: ["test gate", "test required", "coverage gate"]
+    id: "hf-web-research-scout",
+    triggerHints: ["web research", "online search", "external knowledge"]
   },
   {
-    id: "hf-approval-gates",
-    triggerHints: ["approval gate", "verification gate", "review gate"]
+    id: "hf-code-search-scout",
+    triggerHints: ["code search", "github search", "online code"]
   },
   {
-    id: "hf-task-artifact-gate",
-    triggerHints: ["task artifact", "task bundle", "lifecycle artifacts"]
+    id: "hf-reviewer",
+    triggerHints: ["review", "reviewer", "code review", "sign off"]
   }
 ];
 
@@ -100,20 +100,11 @@ export function suggestSkills(input: string): string[] {
 
 export function skillsForEnabledToggles(toggles: RuntimeToggles): string[] {
   const enabled: string[] = [];
-  if (toggles.useWorktreesByDefault || toggles.manageGitByDefault) {
-    enabled.push("hf-git-workflows");
+  if (toggles.deepPlan) {
+    enabled.push("hf-web-research-scout", "hf-brainstormer", "hf-code-search-scout", "hf-plan-synthesis");
   }
-  if (toggles.requireTests) {
-    enabled.push("hf-testing-gate");
-  }
-  if (toggles.requireApprovalGates || toggles.requireVerification || toggles.requireCodeReview) {
-    enabled.push("hf-approval-gates");
-  }
-  if (toggles.enableTaskArtifacts) {
-    enabled.push("hf-task-artifact-gate");
-  }
-  if (toggles.requireVerification) {
-    enabled.push("hf-verification-before-completion");
+  if (toggles.enableReview) {
+    enabled.push("hf-verification-before-completion", "hf-reviewer");
   }
   return enabled;
 }

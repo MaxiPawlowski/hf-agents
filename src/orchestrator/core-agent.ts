@@ -5,7 +5,6 @@ import { suggestSkills } from "../skills/skill-engine.js";
 import { executeCoreDelegationPath } from "../delegation/execute-core-path.js";
 import type { CoreDelegationResult } from "../contracts/index.js";
 import type { TaskBundle } from "../contracts/index.js";
-import { createTaskBundle } from "../tasks/task-bundle.js";
 // runTaskManager, runContextScout, runTaskPlanner, runCoder, runReviewer removed:
 // plan/build phases are now orchestrated by hf-plan-orchestrator and
 // hf-build-orchestrator markdown agents. TS runtime is a validation layer only.
@@ -57,14 +56,10 @@ export async function runTask(taskInput: TaskInput, settingsInput: SettingsInput
   );
 
   const notes: string[] = [];
-  notes.push(`Worktree automation: ${toggles.useWorktreesByDefault ? "on" : "off"}.`);
-  notes.push(`Git management automation: ${toggles.manageGitByDefault ? "on" : "off"}.`);
-  notes.push(`Test gate: ${toggles.requireTests ? "required" : "optional"}.`);
-  if (toggles.requireVerification) {
-    notes.push("Settings require hf-verification-before-completion checks.");
-  }
-  if (toggles.requireCodeReview) {
-    notes.push("Settings require explicit review before closing tasks.");
+  notes.push(`Deep plan: ${toggles.deepPlan ? "on" : "off"}.`);
+  notes.push(`Enable review: ${toggles.enableReview ? "on" : "off"}.`);
+  if (toggles.enableReview) {
+    notes.push("Settings require hf-verification-before-completion checks and reviewer sign-off.");
   }
   let executionPath: OrchestrationResult["executionPath"];
   let taskBundle: OrchestrationResult["taskBundle"];
@@ -81,24 +76,16 @@ export async function runTask(taskInput: TaskInput, settingsInput: SettingsInput
     // Build phase is handled by hf-build-orchestrator markdown agent.
     // TS runtime is a validation layer — use executeCoreDelegationPath for evidence.
     const result = executeCoreDelegationPath(task, settings);
-    if (toggles.enableTaskArtifacts) {
-      taskBundle = createTaskBundle(task, result.plan);
-    }
     executionPath = {
       stages: ["MilestoneTracking", "Coder", "Reviewer"],
       result
     };
   } else if (assignedSubagent === "Coder") {
     const result = executeCoreDelegationPath(task, settings);
-    if (toggles.enableTaskArtifacts) {
-      taskBundle = createTaskBundle(task, result.plan);
-    }
     executionPath = {
       stages: ["Coder", "Reviewer"],
       result
     };
-  } else if (toggles.enableTaskArtifacts) {
-    taskBundle = createTaskBundle(task);
   }
 
   return {
@@ -108,7 +95,7 @@ export async function runTask(taskInput: TaskInput, settingsInput: SettingsInput
     matchedCategory: routeDecision.matchedCategory,
     suggestedSkills,
     enforcedSkills,
-    requiresApproval: toggles.requireApprovalGates,
+    requiresApproval: toggles.enableReview,
     notes,
     taskBundle,
     executionPath
