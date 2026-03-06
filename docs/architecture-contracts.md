@@ -11,7 +11,6 @@ Atomic operations with deterministic output:
 - `scripts/validation/validate-context-refs.mjs`
 - `scripts/validation/lint-command-contracts.mjs`
 - `scripts/install/install-opencode-assets.mjs`
-- `evals/delegation/delegation.eval.ts`
 
 ## Layer 2: Subagents
 
@@ -35,20 +34,7 @@ Each command must include:
 
 ## Layer 4: Main Orchestration
 
-The primary orchestrator is `hf-core-agent`, with behavior controlled by runtime toggles.
-
-## Typed Runtime Contracts
-
-The framework enforces typed contracts in `src/contracts/index.ts` for:
-
-- Diagnostics report output (`DiagnosticsReport`, `DiagnosticsItem`)
-- Markdown command contract lint findings (`MarkdownContractLintResult`)
-- Task lifecycle persistence (`TaskLifecycleStore`, `TaskLifecycleState`)
-- Delegation category rules (`DelegationCategoryRules`)
-- Hook runtime context/result structures (`HookRuntimeContext`, `HookRuntimeResult`)
-- Hook registry/config structures (`HookRuntimeConfig`, `HookSettings`)
-
-These contracts back runtime diagnostics APIs and routing/lifecycle internals.
+The primary orchestrator is `hf-core-agent`.
 
 ## Asset Governance Contracts
 

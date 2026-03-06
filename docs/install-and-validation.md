@@ -76,20 +76,3 @@ Uninstall options:
 
 Markdown files using `@.opencode/context/...` are transformed during install for custom targets.
 
-## OpenCode Plugin Notes
-
-The installed plugin (`plugins/framework-bootstrap.js`) provides:
-
-- Runtime toggle tools (`toggle_get`, `toggle_set`) and `/toggle-*` command behavior.
-- Runtime interpolation for markdown placeholders like `{{toggle.use_worktree}}`.
-
-## Hook Wrapper
-
-Cross-platform wrapper files are available in `scripts/hooks/` and hook declaration is in `hooks/hooks.json`.
-
-## Lifecycle and Diagnostics
-
-Use runtime APIs instead of CLI wrappers:
-
-- `generateDiagnosticsReport()` and `formatDiagnosticsReport()`
-- task lifecycle helpers in `src/tasks/task-lifecycle.ts`
