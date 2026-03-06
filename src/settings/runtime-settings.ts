@@ -33,8 +33,8 @@ const BASE_RUNTIME_SETTINGS: RuntimeSettings = runtimeSettingsSchema.parse({
     enableTaskArtifacts: false
   },
   delegationRules: {
-    feature: { preferredSubagent: "TaskManager" },
-    planning: { preferredSubagent: "TaskPlanner" },
+    feature: { preferredSubagent: "BuildOrchestrator" },
+    planning: { preferredSubagent: "PlanOrchestrator" },
     context: { preferredSubagent: "ContextScout" },
     validation: { preferredSubagent: "Tester" },
     review: { preferredSubagent: "Reviewer" },

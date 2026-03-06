@@ -34,7 +34,7 @@ test("routeTaskDetailed falls back to heuristic when preferred subagent is unava
     }
   });
 
-  assert.equal(result.assignedSubagent, "TaskPlanner");
+  assert.equal(result.assignedSubagent, "PlanOrchestrator");
   assert.equal(result.source, "heuristic");
   assert.equal(result.matchedCategory, "planning");
 });

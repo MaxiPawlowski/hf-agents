@@ -15,6 +15,22 @@ function matchesHint(input: string, hint: string): boolean {
 
 const CORE_SKILLS: Skill[] = [
   {
+    id: "hf-brainstormer",
+    triggerHints: ["brainstorm", "scope", "research brief", "unknowns"]
+  },
+  {
+    id: "hf-plan-synthesis",
+    triggerHints: ["plan doc", "milestones", "synthesize plan", "plan synthesis"]
+  },
+  {
+    id: "hf-local-context",
+    triggerHints: ["local context", "local files", "context scout", "project files"]
+  },
+  {
+    id: "hf-milestone-tracking",
+    triggerHints: ["milestone", "checkbox", "plan progress", "track milestone"]
+  },
+  {
     id: "hf-brainstorming",
     triggerHints: ["design", "approach", "architecture"]
   },

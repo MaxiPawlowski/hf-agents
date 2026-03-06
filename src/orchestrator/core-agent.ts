@@ -6,12 +6,10 @@ import { executeCoreDelegationPath } from "../delegation/execute-core-path.js";
 import type { CoreDelegationResult } from "../contracts/index.js";
 import type { TaskBundle } from "../contracts/index.js";
 import { createTaskBundle } from "../tasks/task-bundle.js";
-// runTaskManager, runContextScout, runTaskPlanner removed:
-// plan phase is now orchestrated by hf-plan-orchestrator markdown agent,
-// not TS code. TS runtime is a test/validation layer only.
+// runTaskManager, runContextScout, runTaskPlanner, runCoder, runReviewer removed:
+// plan/build phases are now orchestrated by hf-plan-orchestrator and
+// hf-build-orchestrator markdown agents. TS runtime is a validation layer only.
 import { loadDelegationRules, resolveRuntimeSettings } from "../settings/runtime-settings.js";
-import { runCoder } from "../subagents/coder.js";
-import { runReviewer } from "../subagents/reviewer.js";
 import { coreDelegationResultSchema } from "../contracts/index.js";
 import { skillsForEnabledToggles } from "../skills/skill-engine.js";
 
@@ -81,17 +79,10 @@ export async function runTask(taskInput: TaskInput, settingsInput: SettingsInput
     };
   } else if (assignedSubagent === "BuildOrchestrator") {
     // Build phase is handled by hf-build-orchestrator markdown agent.
-    // Coder/Reviewer are dispatched by the markdown agent per milestone.
-    const patch = runCoder(task as Parameters<typeof runCoder>[0], settings);
-    const review = runReviewer(task as Parameters<typeof runReviewer>[0], patch, settings);
-    const result: CoreDelegationResult = coreDelegationResultSchema.parse({
-      context: {},
-      plan: {},
-      patch,
-      review
-    });
+    // TS runtime is a validation layer — use executeCoreDelegationPath for evidence.
+    const result = executeCoreDelegationPath(task, settings);
     if (toggles.enableTaskArtifacts) {
-      taskBundle = createTaskBundle(task);
+      taskBundle = createTaskBundle(task, result.plan);
     }
     executionPath = {
       stages: ["MilestoneTracking", "Coder", "Reviewer"],
