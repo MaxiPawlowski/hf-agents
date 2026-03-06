@@ -16,18 +16,16 @@ Never mark a subtask `completed` if any `dependsOn` prerequisite is not already 
 
 ## Scope
 
-One lifecycle management pass: create, advance, or verify task artifacts for one feature. Artifact bookkeeping only — no code changes. Constraints: append-only updates; all subtasks must be accounted for (collection completeness); `.tmp/task-lifecycle.json` is the deterministic output path (stable output paths). Executable interface: `src/tasks/task-lifecycle.ts` (read/write/transition helpers), `.opencode/commands/task-loop.md` (init/status/checkpoint/close).
+One lifecycle management pass: create, advance, or verify task artifacts for one feature. Artifact bookkeeping only — no code changes. Constraints: append-only updates; all subtasks must be accounted for (collection completeness); `.tmp/task-lifecycle.json` is the deterministic output path (stable output paths). Interface: `.opencode/commands/task-loop.md` (init/status/checkpoint/close).
 
 ## Workflow
 
 1. **Plan gate** — Entry: multi-stage feature with dependency ordering. Create a `TaskBundle` and upsert into the lifecycle store. Exit: lifecycle store has a task entry with `featureId` and `subtasks[]` with `dependsOn`.
-2. **Execute gate** — Entry: valid lifecycle artifact exists. Advance one subtask at a time (`pending → in_progress → completed`). Transitions respect `dependsOn` (enforced by `src/tasks/task-lifecycle.ts`). Exit: transitions are valid and artifact reflects current reality.
+2. **Execute gate** — Entry: valid lifecycle artifact exists. Advance one subtask at a time (`pending → in_progress → completed`). Transitions respect `dependsOn` ordering. Exit: transitions are valid and artifact reflects current reality.
 3. **Verify gate** — Entry: all claimed-complete subtasks are dependency-valid. Validate artifact integrity and (if required) verification evidence exists. Exit: all subtasks are dependency-valid and evidence requirements satisfied.
 
 ## Verification
 
-- Run: `npm run build`
-- Expect: build passes after implementation updates.
 - Run: `node -e "JSON.parse(require('fs').readFileSync('.tmp/task-lifecycle.json','utf8')); console.log('task-lifecycle-valid')"`
 - Expect: `task-lifecycle-valid` with no JSON parse error.
 

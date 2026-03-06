@@ -29,8 +29,8 @@ One end-to-end delegation cycle: from intent classification through review signo
 
 ## Verification
 
-- Run: `npm run build`
-- Expect: build passes after code changes.
+- Run: `npm run validate:assets`
+- Expect: all validators pass.
 - Run: `git status --short`
 - Expect: scope of file changes matches delegation summary.
 

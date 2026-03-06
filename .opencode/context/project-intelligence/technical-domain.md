@@ -1,38 +1,33 @@
-<!-- Context: project-intelligence/technical-domain | Priority: critical | Version: 1.1 | Updated: 2026-03-01 -->
+<!-- Context: project-intelligence/technical-domain | Priority: critical | Version: 1.2 | Updated: 2026-03-06 -->
 
 # Technical Domain
 
 ## Stack
 
-- Runtime: Node.js + TypeScript
-- CLI: Commander
-- Validation: Zod
-- Config: YAML + markdown-first `.opencode` definitions
+- Runtime: Node.js (validation and install scripts only)
+- Config: Markdown-first `.opencode` definitions
 
 ## Agentic architecture pattern
 
-- Primary orchestrator routes to specialized subagents.
-- Core coding path uses `ContextScout -> TaskPlanner -> Coder -> Reviewer`.
-- Complex features route via `ContextScout -> TaskPlanner -> TaskManager -> Coder -> Reviewer`.
-- Complex features can generate optional lifecycle task artifacts in `.tmp/task-lifecycle.json` before implementation.
+- Mode-based agent selection: choose planner-light/deep or builder-light/deep.
+- Planner agents produce milestone-based plan docs in `docs/plans/`.
+- Builder agents execute milestones from plan docs, optionally with coder→reviewer loop.
 
 ## Naming and file patterns
 
-- Keep orchestration code in `src/orchestrator/`, `src/router/`, `src/skills/`.
-- Keep contract schemas in `src/contracts/`.
 - Keep context and behavior policies in `.opencode/context/` and `.opencode/skills/`.
+- Keep agent contracts in `.opencode/agents/`.
+- Keep command contracts in `.opencode/commands/`.
 
 ## Security and safety baseline
 
 - No automatic worktrees or git management unless explicitly requested.
 - Avoid destructive shell commands by default.
-- Verification and review gates are controlled by runtime toggles.
+- Review gates are controlled by agent mode selection (light vs. deep).
 
 ## Codebase references
 
-- `src/orchestrator/core-agent.ts`
-- `src/tasks/task-bundle.ts`
-- `src/subagents/context-scout.ts`
-- `src/skills/skill-engine.ts`
-- `.opencode/agents/hf-core-agent.md`
+- `.opencode/agents/`: all agent contracts
+- `.opencode/skills/`: all skill contracts
 - `.opencode/context/project/runtime-preferences.md`
+- `.opencode/registry.json`
