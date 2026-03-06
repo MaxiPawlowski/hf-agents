@@ -9,7 +9,7 @@ permission:
     "*": deny
 temperature: 0.1
 mcp:
-  - playwright  # for UI verification and evidence screenshots
+  - chrome-devtools  # for UI verification and evidence via Chrome DevTools Protocol
 ---
 
 You are Reviewer.
