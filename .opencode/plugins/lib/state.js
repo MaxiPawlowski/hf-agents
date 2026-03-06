@@ -35,10 +35,8 @@ const readSettingsFile = (directory) => {
 // --- Toggle state ---
 
 const defaultToggles = () => ({
-  use_worktree: false,
-  require_tests: false,
-  require_verification: false,
-  task_artifacts: false,
+  deep_plan: false,
+  enable_review: false,
 });
 
 const fromSettingsFile = (directory) => {
@@ -46,12 +44,8 @@ const fromSettingsFile = (directory) => {
   const toggles = defaultToggles();
   const source = raw && typeof raw === "object" ? raw.toggles ?? {} : {};
 
-  toggles.use_worktree = Boolean(source.useWorktreesByDefault || source.manageGitByDefault);
-  toggles.require_tests = Boolean(source.requireTests);
-  toggles.require_verification = Boolean(
-    source.requireApprovalGates || source.requireVerification || source.requireCodeReview,
-  );
-  toggles.task_artifacts = Boolean(source.enableTaskArtifacts);
+  toggles.deep_plan = Boolean(source.deepPlan);
+  toggles.enable_review = Boolean(source.enableReview);
 
   return toggles;
 };
