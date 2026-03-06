@@ -35,7 +35,7 @@ You are PlanOrchestrator.
 
 - A feature request or task description from the user.
 
-## Execution Flow
+## Execution Contract
 
 ### Phase 1 — Brainstorm (inline, sequential)
 

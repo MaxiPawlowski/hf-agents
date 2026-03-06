@@ -38,7 +38,7 @@ You are BuildOrchestrator.
 
 - User provides the plan doc path explicitly (e.g., `docs/plans/2026-03-05-my-feature-plan.md`).
 
-## Execution Flow
+## Execution Contract
 
 1. Load `hf-milestone-tracking` skill.
 2. Read the plan doc. Identify the first unchecked milestone.
@@ -69,7 +69,7 @@ You are BuildOrchestrator.
    - Commit: `git commit -m "build: plan complete — <slug>"`
    - Output final summary to user.
 
-## Required Output per milestone
+## Required Output
 
 - milestone: number and title
 - approved_by: reviewer signoff summary
