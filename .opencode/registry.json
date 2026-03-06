@@ -2,30 +2,44 @@
   "version": "1.0.0",
   "assets": [
     {
-      "id": "agent-plan-orchestrator",
+      "id": "agent-planner-light",
       "type": "agent",
-      "path": ".opencode/agents/hf-plan-orchestrator.md",
+      "path": ".opencode/agents/hf-planner-light.md",
+      "dependsOn": [
+        "skill-plan-synthesis",
+        "agent-local-context-scout"
+      ]
+    },
+    {
+      "id": "agent-planner-deep",
+      "type": "agent",
+      "path": ".opencode/agents/hf-planner-deep.md",
       "dependsOn": [
         "skill-brainstormer",
         "skill-plan-synthesis",
-        "skill-git-workflows",
         "agent-local-context-scout",
         "agent-web-research-scout",
         "agent-code-search-scout"
       ]
     },
     {
-      "id": "agent-build-orchestrator",
+      "id": "agent-builder-light",
       "type": "agent",
-      "path": ".opencode/agents/hf-build-orchestrator.md",
+      "path": ".opencode/agents/hf-builder-light.md",
       "dependsOn": [
         "skill-milestone-tracking",
-        "skill-git-workflows",
-        "skill-approval-gates",
+        "agent-coder"
+      ]
+    },
+    {
+      "id": "agent-builder-deep",
+      "type": "agent",
+      "path": ".opencode/agents/hf-builder-deep.md",
+      "dependsOn": [
+        "skill-milestone-tracking",
         "skill-verification-before-completion",
         "agent-coder",
         "agent-reviewer",
-        "agent-tester",
         "agent-build-validator"
       ]
     },
@@ -63,18 +77,6 @@
       "dependsOn": ["skill-verification-before-completion"]
     },
     {
-      "id": "agent-external-docs-scout",
-      "type": "agent",
-      "path": ".opencode/agents/hf-external-docs-scout.md",
-      "dependsOn": []
-    },
-    {
-      "id": "agent-tester",
-      "type": "agent",
-      "path": ".opencode/agents/hf-tester.md",
-      "dependsOn": ["context-test-coverage"]
-    },
-    {
       "id": "agent-build-validator",
       "type": "agent",
       "path": ".opencode/agents/hf-build-validator.md",
@@ -84,7 +86,7 @@
       "id": "command-brainstorm",
       "type": "command",
       "path": ".opencode/commands/brainstorm.md",
-      "dependsOn": ["agent-plan-orchestrator", "skill-brainstorming"]
+      "dependsOn": ["agent-planner-deep", "skill-brainstorming"]
     },
     {
       "id": "command-run-core-delegation",
@@ -126,7 +128,7 @@
       "id": "command-plan-feature",
       "type": "command",
       "path": ".opencode/commands/plan-feature.md",
-      "dependsOn": ["agent-plan-orchestrator", "context-runtime-preferences"]
+      "dependsOn": ["agent-planner-light", "agent-planner-deep", "context-runtime-preferences"]
     },
     {
       "id": "command-help",
@@ -145,36 +147,6 @@
       "type": "command",
       "path": ".opencode/commands/task-loop.md",
       "dependsOn": ["skill-task-management"]
-    },
-    {
-      "id": "command-toggle-worktree",
-      "type": "command",
-      "path": ".opencode/commands/toggle-worktree.md",
-      "dependsOn": []
-    },
-    {
-      "id": "command-toggle-tests",
-      "type": "command",
-      "path": ".opencode/commands/toggle-tests.md",
-      "dependsOn": []
-    },
-    {
-      "id": "command-toggle-verification",
-      "type": "command",
-      "path": ".opencode/commands/toggle-verification.md",
-      "dependsOn": []
-    },
-    {
-      "id": "command-toggle-artifacts",
-      "type": "command",
-      "path": ".opencode/commands/toggle-artifacts.md",
-      "dependsOn": []
-    },
-    {
-      "id": "command-toggle-status",
-      "type": "command",
-      "path": ".opencode/commands/toggle-status.md",
-      "dependsOn": []
     },
     {
       "id": "skill-brainstormer",
@@ -237,12 +209,6 @@
       "dependsOn": []
     },
     {
-      "id": "skill-bounded-parallel-scouting",
-      "type": "skill",
-      "path": ".opencode/skills/bounded-parallel-scouting/SKILL.md",
-      "dependsOn": ["agent-local-context-scout", "agent-external-docs-scout"]
-    },
-    {
       "id": "skill-test-driven-development",
       "type": "skill",
       "path": ".opencode/skills/test-driven-development/SKILL.md",
@@ -258,24 +224,6 @@
       "id": "skill-git-workflows",
       "type": "skill",
       "path": ".opencode/skills/git-workflows/SKILL.md",
-      "dependsOn": []
-    },
-    {
-      "id": "skill-testing-gate",
-      "type": "skill",
-      "path": ".opencode/skills/testing-gate/SKILL.md",
-      "dependsOn": []
-    },
-    {
-      "id": "skill-approval-gates",
-      "type": "skill",
-      "path": ".opencode/skills/approval-gates/SKILL.md",
-      "dependsOn": []
-    },
-    {
-      "id": "skill-task-artifact-gate",
-      "type": "skill",
-      "path": ".opencode/skills/task-artifact-gate/SKILL.md",
       "dependsOn": []
     },
     {
