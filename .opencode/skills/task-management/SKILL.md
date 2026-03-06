@@ -10,9 +10,20 @@ max_iterations: 5
 
 # Task Management
 
-## Iron Law
+Iron law: Never mark a subtask `completed` if any `dependsOn` prerequisite is not already `completed`.
 
-Never mark a subtask `completed` if any `dependsOn` prerequisite is not already `completed`.
+## Overview
+
+One lifecycle management pass: create, advance, or verify task artifacts for one feature. Artifact bookkeeping only — no code changes.
+
+## When to Use
+
+- When managing dependency-aware task lifecycle artifacts and delegation sequencing.
+- When a feature has multiple subtasks with explicit ordering dependencies.
+
+## When Not to Use
+
+- For single-step tasks with no dependency graph.
 
 ## Scope
 
@@ -29,7 +40,7 @@ One lifecycle management pass: create, advance, or verify task artifacts for one
 - Run: `node -e "JSON.parse(require('fs').readFileSync('.tmp/task-lifecycle.json','utf8')); console.log('task-lifecycle-valid')"`
 - Expect: `task-lifecycle-valid` with no JSON parse error.
 
-## Error Handling
+## Failure Behavior
 
 - On dependency violation (completing task with incomplete prerequisite): return `{ blocked: "dependency violation", why: "subtask <seq> depends on <seq> which is not completed", unblock: "complete prerequisite subtask <seq> first" }`.
 - On invalid artifact schema: return `{ blocked: "artifact schema invalid", why: "<validation error details>", unblock: "<corrective edit>" }`.
@@ -55,7 +66,7 @@ Bulk-marking all tasks complete to simplify reporting. This fails because depend
 - "Dependencies are obvious, no need to encode them."
 - "I can clean up artifact history by rewriting prior states."
 
-## Handoffs
+## Integration
 
 - **Before:** feature scope + task bundle from `hf-core-delegation` or `hf-task-planner`.
 - **After:** `{ feature_id, progress: { pending, in_progress, completed, blocked }, next_ready: [seq], blocked: [{ seq, blockedReason }], validation: errors[], next_action }`. Artifact: `.tmp/task-lifecycle.json`.

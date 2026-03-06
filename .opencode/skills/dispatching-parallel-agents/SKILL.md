@@ -10,9 +10,19 @@ max_iterations: 5
 
 # Dispatching Parallel Agents
 
-## Iron Law
+Iron law: Never parallelize tasks that can conflict on shared mutable state, shared files, or sequential data dependencies.
 
-Never parallelize tasks that can conflict on shared mutable state, shared files, or sequential data dependencies.
+## Overview
+
+One parallel execution cycle: partition independent units, execute concurrently, merge into one coherent result.
+
+## When to Use
+
+- When multiple independent work units can execute concurrently with no shared mutable state.
+
+## When Not to Use
+
+- When tasks share files, state-coupled logic, or sequential data dependencies.
 
 ## Scope
 
@@ -28,10 +38,10 @@ One parallel execution cycle: partition independent units, execute concurrently,
 
 - Run: `git status --short`
 - Expect: resulting changes align with planned unit boundaries.
-- Run: `npm run build`
-- Expect: merged result remains build-clean.
+- Run: `npm run validate:assets`
+- Expect: merged result passes all validators.
 
-## Error Handling
+## Failure Behavior
 
 - On overlap detected during partition: return `{ blocked: "shared state overlap", why: "<units A and B both touch <resource>>", unblock: "re-partition to isolate <resource> or execute sequentially" }`.
 - On merge conflict: return `{ blocked: "merge conflict", why: "<conflicting outputs from units>", unblock: "cancel overlapping units, re-run sequentially in order: <fallback order>" }`.
@@ -57,7 +67,7 @@ Two agents editing the same router file concurrently. This fails because concurr
 - "Parallel is always faster."
 - "I can merge overlap later if needed."
 
-## Handoffs
+## Integration
 
 - **Before:** partitioned task list with independence proof per unit from `hf-core-delegation` or `hf-core-agent`.
 - **After:** `{ partition: [{ unit, scope_in, scope_out, owner }], conflict_risk: [per-unit notes], results: [per-unit payloads], merge_summary }`.

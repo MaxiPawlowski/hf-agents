@@ -10,9 +10,21 @@ max_iterations: 5
 
 # Test-Driven Development
 
-## Iron Law
+Iron law: Do not write or modify production code for a behavior until there is a failing test that captures that behavior.
 
-Do not write or modify production code for a behavior until there is a failing test that captures that behavior.
+## Overview
+
+One red-green-refactor cycle for one requested behavior. Test-first discipline with minimum viable production change.
+
+## When to Use
+
+- When the user requests test-first implementation.
+- When runtime settings or gates require tests.
+
+## When Not to Use
+
+- When user requests manual validation only and no gate requires tests.
+- For documentation-only edits with no runtime behavior change.
 
 ## Scope
 
@@ -28,10 +40,10 @@ One red-green-refactor cycle for one requested behavior. Constraints: do not for
 
 - Run: `npm test`
 - Expect: previously failing target test is now passing.
-- Run: `npm run build`
-- Expect: build succeeds with final implementation.
+- Run: `npm run validate:assets`
+- Expect: all validators pass with final implementation.
 
-## Error Handling
+## Failure Behavior
 
 - On cannot produce failing test: return `{ blocked: "no failing test possible", why: "<behavior is ambiguous or already covered>", unblock: "provide one concrete expectation for the behavior" }`.
 - On green phase fails repeatedly: return `{ blocked: "green phase stuck", why: "<failing signal after N attempts>", unblock: "<smallest remaining hypothesis to test>" }`.
@@ -56,7 +68,7 @@ Implement feature first, then add tests to match current behavior. This fails be
 - "I'll add tests later once it works."
 - "This change is too small to justify a failing test first."
 
-## Handoffs
+## Integration
 
 - **Before:** behavior request + existing test patterns + runtime gate state from `hf-core-delegation` or `hf-testing-gate`.
 - **After:** `{ tests: [added/updated], red_evidence: "<failing output>", green_evidence: "<passing output>", implementation: "<minimal change summary>" }`.

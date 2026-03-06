@@ -10,9 +10,21 @@ max_iterations: 5
 
 # Brainstorming
 
-## Iron Law
+Iron law: Do not start implementation while material design choices remain unresolved.
 
-Do not start implementation while material design choices remain unresolved.
+## Overview
+
+One brainstorming session converts one ambiguous request into one implementation-ready design brief. Orchestrator-led only — subagents do not initiate brainstorming unless explicitly delegated.
+
+## When to Use
+
+- When a request has unresolved design choices that materially change architecture, data flow, or risk profile.
+- When the user asks for options and trade-offs before coding.
+
+## When Not to Use
+
+- When scope is already explicit and implementable.
+- When user asks for direct implementation with no unresolved design branch.
 
 ## Scope
 
@@ -30,7 +42,7 @@ One brainstorming session converts one ambiguous request into one implementation
 - Run: `git status --short`
 - Expect: no coding side effects during brainstorming-only sessions.
 
-## Error Handling
+## Failure Behavior
 
 - On 5 questions reached with scope still unclear: return `{ blocked: "clarification limit", why: "5 questions asked, scope still has <unresolved items>", unblock: "user must clarify <specific decision>" }`.
 - On user selects no option: return `{ blocked: "no option selected", why: "user did not confirm an approach", unblock: "user must select one approach or provide alternative direction" }`.
@@ -58,7 +70,7 @@ Ten broad questions and no concrete recommendation. This fails because question 
 - Asking a long list of questions in one message.
 - Continuing clarification after scope is already explicit.
 
-## Handoffs
+## Integration
 
 - **Before:** user request with unresolved design choices.
 - **After:** design brief with `{ recommended_approach, alternatives_considered, scope_in, scope_out, risks, assumptions, decision_log }`. Consumed by `hf-core-delegation` or `hf-task-planner`.

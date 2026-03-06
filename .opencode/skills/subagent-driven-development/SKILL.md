@@ -10,9 +10,19 @@ max_iterations: 6
 
 # Subagent-Driven Development
 
-## Iron Law
+Iron law: Every delegation must preserve scope boundaries; any ambiguity returns to orchestrator before coding.
 
-Every delegation must preserve scope boundaries; any ambiguity returns to orchestrator before coding.
+## Overview
+
+One implementation session executing one approved plan through handoff, planning refinement, coding, and review.
+
+## When to Use
+
+- When executing an already-approved plan through planner, coder, reviewer chain in one session.
+
+## When Not to Use
+
+- When discovery is still open-ended or requirements are materially ambiguous.
 
 ## Scope
 
@@ -27,12 +37,12 @@ One implementation session executing one approved plan through handoff, planning
 
 ## Verification
 
-- Run: `npm run build`
-- Expect: build success after implementation.
+- Run: `npm run validate:assets`
+- Expect: all validators pass after implementation.
 - Run: `git status --short`
 - Expect: changed files match coder and reviewer summaries.
 
-## Error Handling
+## Failure Behavior
 
 - On requirement ambiguity: return `{ blocked: "ambiguous requirement", why: "<specific ambiguity>", unblock: "orchestrator must clarify <requirement> before coding" }`.
 - On brainstorming needed: return `{ blocked: "design decision needed", why: "<unresolved design choice>", unblock: "return to orchestrator for hf-brainstorming unless explicit delegation provided" }`.
@@ -60,7 +70,7 @@ Skipping reviewer pass 2 after meaningful code changes. This fails because quali
 - "Plan is clear enough" without explicit handoff fields.
 - "One review pass is probably enough."
 
-## Handoffs
+## Integration
 
 - **Before:** approved plan + handoff bundle (schema: `subagent-handoff-template.md`) from `hf-core-delegation` or `hf-core-agent`.
 - **After:** `{ coder_summary: { files_touched[], commands_run[], results[] }, reviewer_report: { approved: bool, findings[], evidence_gaps[], next_action } }`.

@@ -10,9 +10,20 @@ max_iterations: 6
 
 # Systematic Debugging
 
-## Iron Law
+Iron law: Do not ship a fix until root cause is evidenced and the failing symptom is re-verified as resolved.
 
-Do not ship a fix until root cause is evidenced and the failing symptom is re-verified as resolved.
+## Overview
+
+One debugging session: from symptom reproduction through root cause identification and minimum safe fix for one failure.
+
+## When to Use
+
+- When behavior is failing or unexpected and root cause is unclear.
+
+## When Not to Use
+
+- For known one-line fixes with a verified path.
+- For pure feature implementation with no failure signal.
 
 ## Scope
 
@@ -29,10 +40,10 @@ One debugging session: from symptom reproduction through root cause identificati
 
 - Run: `npm test`
 - Expect: failing path now passes when tests exist for symptom.
-- Run: `npm run build`
-- Expect: build remains successful after fix.
+- Run: `npm run validate:assets`
+- Expect: all validators remain passing after fix.
 
-## Error Handling
+## Failure Behavior
 
 - On cannot reproduce: return `{ blocked: "cannot reproduce", why: "<attempted reproduction steps and environment>", unblock: "provide additional reproduction context or environment details" }`.
 - On multiple plausible root causes: return `{ blocked: "ambiguous root cause", why: "<hypothesis A and B both plausible>", unblock: "<specific discriminating test to run>" }`.
@@ -58,7 +69,7 @@ Apply three speculative fixes at once and hope one works. This fails because eve
 - "I changed many things to be safe."
 - "The error disappeared once, so root cause is done."
 
-## Handoffs
+## Integration
 
 - **Before:** failure report with reproduction steps from `hf-core-delegation` or user. Optionally: context from `hf-bounded-parallel-scouting`.
 - **After:** `{ root_cause, fix_summary, residual_risk, verification_evidence: { commands_run[], results[] } }`.

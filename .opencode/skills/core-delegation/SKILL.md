@@ -10,9 +10,20 @@ max_iterations: 8
 
 # Core Delegation
 
-## Iron Law
+Iron law: No implementation starts until scope, constraints, and delegation chain are explicit.
 
-No implementation starts until scope, constraints, and delegation chain are explicit.
+## Overview
+
+One end-to-end delegation cycle: from intent classification through review signoff for one user request.
+
+## When to Use
+
+- When implementing tasks that need end-to-end orchestration through discovery, planning, coding, and review with explicit review gates.
+
+## When Not to Use
+
+- When plan is already finalized and only execution remains (use hf-subagent-driven-development).
+- For single-file edits with no delegation benefit.
 
 ## Scope
 
@@ -34,7 +45,7 @@ One end-to-end delegation cycle: from intent classification through review signo
 - Run: `git status --short`
 - Expect: scope of file changes matches delegation summary.
 
-## Error Handling
+## Failure Behavior
 
 - On unresolved ambiguity at any gate: return `{ blocked: "ambiguity at <gate>", why: "<specific ambiguity>", unblock: "<specific clarification needed>" }`.
 - On failed review pass: return `{ blocked: "review failed", why: "<pass 1 or 2 findings>", unblock: "<re-scope or re-implement specific items>" }`.
@@ -61,7 +72,7 @@ Direct coding before routing decision and without review artifacts. This fails b
 - Adding unrequested functionality.
 - Running git actions without explicit instruction.
 
-## Handoffs
+## Integration
 
 - **Before:** user request (raw or via `hf-brainstorming` design brief).
 - **After:** `{ plan_summary, implementation_summary: { files_changed[], rationale }, review_findings: { approved: bool, findings[], evidence_gaps[], next_action } }`. Per-role contracts: Coder → changes + files + commands + results + gaps; BuildValidator/Reviewer → commands + results + evidence + approved + findings + next_action. Pairs with `hf-git-workflows` when workspace strategy matters.
