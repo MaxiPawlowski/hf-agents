@@ -62,7 +62,7 @@ If blocked, return:
 
 - **Loaded by:** `hf-local-context-scout` (the subagent that runs this skill).
 - **Input from:** research brief's `local_search_targets` produced by `hf-brainstormer`.
-- **Output consumed by:** `hf-plan-orchestrator` Phase 3 synthesis via `hf-plan-synthesis`.
+- **Output consumed by:** `hf-planner-light` (Phase 2) or `hf-planner-deep` (Phase 3) via `hf-plan-synthesis`.
 
 ## Examples
 

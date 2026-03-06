@@ -16,7 +16,7 @@ Iron law: Do not start research or planning until feature intent, constraints, a
 ## Overview
 
 One brainstorming pass per planning session. Converts a feature request into a scoped
-research brief that `hf-plan-orchestrator` uses to target the parallel scout agents.
+research brief that `hf-planner-deep` uses to target the parallel scout agents.
 No implementation side effects. No file edits.
 
 ## When to Use
@@ -55,7 +55,7 @@ If blocked, return:
 
 ## Integration
 
-- **Loaded by:** `hf-plan-orchestrator` in Phase 1 (inline, sequential).
+- **Loaded by:** `hf-planner-deep` in Phase 1 (inline, sequential).
 - **Output consumed by:** `hf-local-context-scout`, `hf-web-research-scout`, `hf-code-search-scout` via the research brief.
 - **Followed by:** Phase 2 parallel research scouts, then `hf-plan-synthesis`.
 

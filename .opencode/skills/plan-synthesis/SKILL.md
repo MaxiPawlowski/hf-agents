@@ -61,9 +61,9 @@ If blocked, return:
 
 ## Integration
 
-- **Loaded by:** `hf-plan-orchestrator` in Phase 3 (synthesis).
-- **Input from:** `hf-brainstormer` output + all 3 scout results.
-- **Output consumed by:** `hf-build-orchestrator` reads the produced plan doc.
+- **Loaded by:** `hf-planner-light` (Phase 2) and `hf-planner-deep` (Phase 3).
+- **Input from:** `hf-brainstormer` output + all 3 scout results (deep) or local scout only (light).
+- **Output consumed by:** `hf-builder-light` and `hf-builder-deep` read the produced plan doc.
 
 ## Examples
 

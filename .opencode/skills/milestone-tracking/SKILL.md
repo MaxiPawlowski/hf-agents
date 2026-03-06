@@ -15,7 +15,7 @@ Iron law: The plan doc is the single source of truth. Never track milestone stat
 ## Overview
 
 Reads the plan doc to determine build progress, and updates milestone checkboxes
-in place as milestones are completed with evidence. Used by `hf-build-orchestrator`.
+in place as milestones are completed with evidence. Used by `hf-builder-light` and `hf-builder-deep`.
 
 ## When to Use
 
@@ -48,7 +48,7 @@ When all milestones are checked, update the frontmatter:
 
 ## Workflow
 
-1. Read the plan doc at the path provided by `hf-build-orchestrator`.
+1. Read the plan doc at the path provided by the active builder agent.
 2. Parse `## Milestones` section to determine current state.
 3. On milestone completion: update checkbox and append evidence under the milestone line.
 4. When all milestones checked: update frontmatter `status: complete`.
@@ -78,9 +78,9 @@ If blocked, return:
 
 ## Integration
 
-- **Loaded by:** `hf-build-orchestrator` at the start of every build session.
-- **Plan doc written by:** `hf-plan-orchestrator` via `hf-plan-synthesis`.
-- **Milestone completion triggered by:** `hf-reviewer` approval output.
+- **Loaded by:** `hf-builder-light` and `hf-builder-deep` at the start of every build session.
+- **Plan doc written by:** `hf-planner-light` or `hf-planner-deep` via `hf-plan-synthesis`.
+- **Milestone completion triggered by:** coder completion (builder-light) or `hf-reviewer` approval (builder-deep).
 
 ## Examples
 
