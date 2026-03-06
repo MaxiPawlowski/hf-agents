@@ -4,12 +4,7 @@
   "private": true,
   "description": "Selective agentic framework with OAC-style delegation and modular skills.",
   "type": "module",
-  "exports": {
-    ".": "./dist/src/index.js"
-  },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test tests/**/*.test.mjs",
     "validate": "npm run validate:assets",
     "validate:registry": "node scripts/validation/validate-registry.mjs",
     "validate:deps": "node scripts/validation/check-dependencies.mjs",
@@ -27,13 +22,5 @@
     "uninstall:opencode:dry": "node scripts/install/uninstall-opencode-assets.mjs --dry-run",
     "uninstall:opencode:global": "node scripts/install/uninstall-opencode-global.mjs",
     "uninstall:opencode:global:dry": "node scripts/install/uninstall-opencode-global.mjs --dry-run"
-  },
-  "dependencies": {
-    "zod": "^3.24.1"
-  },
-  "devDependencies": {
-    "@types/node": "^22.13.4",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.7.3"
   }
 }
