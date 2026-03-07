@@ -1,72 +1,85 @@
 # Hybrid Framework
 
-A markdown-first, contract-driven orchestration framework for [OpenCode](https://opencode.ai) that routes AI agent tasks through mode-based agent selection with explicit execution contracts.
+Hybrid Framework is a markdown-first orchestration framework centered on two decisions:
 
-## What It Does
+- plan with `hf-planner-light` or `hf-planner-deep`
+- build with `hf-builder-light` or `hf-builder-deep`
 
-The framework sits between you and OpenCode's AI agents. Instead of sending tasks directly to a single model, it breaks them into stages — planning and building — and routes each stage to a specialized subagent. You choose the execution mode by selecting the agent: light (fast, no review gate) or deep (coder→reviewer loop with verification).
+Everything else exists to support those flows.
 
-In short: every task follows a defined path, every gate is explicit, and every outcome is verifiable.
+## Canonical Layout
 
-## How It Works
+The root of the repo is the source of truth:
 
-### Execution Modes
+```text
+agents/       Main orchestrators
+subagents/    Worker roles used by the orchestrators
+skills/       Reusable workflow procedures
+plans/        Plan document destination
+.opencode/    OpenCode adapter files
+.claude/      Claude-specific notes and local settings
+.codex/       Codex-specific notes and adapter instructions
+```
 
-Four primary agents cover the two main workflows:
+## Main Agents
 
 | Agent | Role |
 |---|---|
-| `hf-planner-light` | Fast planning — local context scout only |
-| `hf-planner-deep` | Thorough planning — brainstorm + 3-scout parallel research |
-| `hf-builder-light` | Fast build — single coder pass per milestone |
-| `hf-builder-deep` | Quality build — coder→reviewer loop + verification before completion |
+| `hf-planner-light` | Fast planning from local context only |
+| `hf-planner-deep` | Research-backed planning with brainstorming and parallel scouting |
+| `hf-builder-light` | Fast build with a single coder pass per milestone |
+| `hf-builder-deep` | Higher-rigor build with coder, reviewer, and verification gates |
 
-Mode is selected by choosing an agent — no toggles, no runtime state.
+## Subagents
 
-### Skills and Commands
+The orchestrators delegate to six focused workers:
 
-The framework ships 13 **skills** (reusable workflow procedures — debugging, TDD, parallel scouting, git workflows, etc.) and 11 **commands** (one-shot invocations like `/verify`, `/plan-feature`, `/finish`). All are declared in `.opencode/registry.json` with explicit dependency edges, validated by the scripts in `scripts/validation/`.
+- `hf-local-context-scout`
+- `hf-web-research-scout`
+- `hf-code-search-scout`
+- `hf-coder`
+- `hf-reviewer`
+- `hf-build-validator`
 
-### Contract Model
+## Skills
 
-Every agent, command, and skill is a markdown file with a YAML frontmatter contract. Contracts declare: purpose, preconditions, execution steps, required output, and failure behavior. This makes the system auditable — you can read any `.opencode/` file and know exactly what it will do.
+The root `skills/` directory contains the reusable procedures that make the orchestrators work:
 
-## Quick Start
+- `hf-brainstormer` for deep-planning research briefs
+- `hf-plan-synthesis` for milestone plan generation
+- `hf-local-context` for targeted repository discovery
+- `hf-milestone-tracking` for plan progress updates
+- `hf-verification-before-completion` for final evidence checks
 
-```bash
-npm install
-npm run validate
-```
+Everything else that used to live under `skills/` was removed to keep orchestration policy in the agent files and avoid carrying unused workflow baggage.
 
-### Install into OpenCode
+## Project Context
 
-```bash
-# Dry run against a local target
-npm run install:opencode:dry -- --target .opencode.local --collision backup
+This framework does not ship project-specific context anymore.
 
-# Install globally into your OpenCode config directory
-npm run install:opencode:global -- --collision backup
-```
+Each consuming project should provide its own context in its own repo, usually through:
 
-### Validate Assets
+- a root `README.md`
+- local architecture or conventions docs if the project has them
+- the codebase itself
 
-```bash
-npm run validate
-```
+The framework assumes:
 
-This lints all registry references, command/agent/skill contracts, and context module paths.
+- planners write milestone plans into `plans/`
+- local-context discovery starts from the project README and nearby source files
+- handoff requirements are written inline in the current task, plan, or milestone instead of relying on a bundled schema file
+- verification evidence is reported in plain language unless the project defines a stricter format
 
-## Repository Layout
+## Tool Adapters
 
-```
-.opencode/            Framework assets (agents, commands, skills, context)
-scripts/              Validation and install utilities
-docs/                 Architecture and policy documentation
-```
+The tool folders are intentionally thin:
 
-## Documentation
+- `.opencode/` keeps an adapter registry that points at the root assets
+- `.claude/` keeps Claude-specific notes and optional local settings
+- `.codex/` keeps Codex-facing instructions that point back to the same root assets
 
-- Architecture overview: `docs/architecture.md`
-- Contract definitions: `docs/architecture-contracts.md`
-- Command catalog: `docs/commands/README.md`
-- Install and validation guide: `docs/install-and-validation.md`
+Tool folders are not the framework. They only explain how a given tool should consume the framework.
+
+## What Was Removed
+
+This repo used to carry older playground layers, OpenCode-first install scripts, validation scripts, command packs, and historical design documents. Those are no longer the center of the project and were removed to keep the current planner/builder orchestrator model clear.

@@ -1,5 +1,7 @@
 node_modules/
+plans/
 dist/
 .opencode.backup.*/
 .opencode.local/
 .tmp/
+.claude/settings.local.json
