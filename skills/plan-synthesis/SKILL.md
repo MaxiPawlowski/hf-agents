@@ -1,9 +1,9 @@
 ---
 name: hf-plan-synthesis
 description: >
-  Use after all research scouts have returned to synthesize findings into a milestone-based
-  plan document for the active planner orchestrator.
-  Do NOT use before research is complete.
+  Use when the required research inputs are in hand and the next step is to write the
+  canonical plan doc. Synthesize findings into a milestone-based plan with explicit
+  acceptance criteria and language that builders can execute without guessing.
 autonomy: supervised
 context_budget: 10000 / 3000
 max_iterations: 2
@@ -11,81 +11,70 @@ max_iterations: 2
 
 # Plan Synthesis
 
-Iron law: Do not write milestones until all research inputs are present. Missing research means missing constraints.
+Iron law: do not write milestones from partial research or unresolved user decisions. Missing inputs create faulty milestones.
 
 ## Overview
 
-One synthesis pass per planning session. Takes brainstorm brief + local context + web
-research + code examples and produces a single plan doc at
-`plans/YYYY-MM-DD-<slug>-plan.md`.
+Use this skill once the research phase is complete enough to support planning. It writes the canonical plan doc at `plans/YYYY-MM-DD-<slug>-plan.md` and makes that doc the source of truth for milestone order, acceptance criteria, and completion state.
+
+The plan must be specific enough that a builder can execute one milestone at a time and report a precise `TurnOutcome` without inventing missing context.
 
 ## When to Use
 
-- After all three research scouts have returned results.
-- When merging multi-source research findings into a structured, actionable milestone plan.
+- Required research inputs have returned and the remaining gaps are understood.
+- The user-confirmed intent is stable enough to turn into milestones.
+- A builder needs an executable plan doc rather than loose notes.
 
 ## When Not to Use
 
-- Before research scouts have returned — incomplete research produces incomplete milestones.
-- When feature intent is still ambiguous — run `hf-brainstormer` first.
+- Brainstorming is still in progress.
+- Material design unknowns are unresolved.
+- Research is missing in ways that would change milestone boundaries or acceptance criteria.
 
 ## Workflow
 
-1. **Synthesis gate** — Merge all research inputs. Identify: key constraints from local
-   conventions, relevant patterns from web research, applicable code examples.
-2. **Milestone gate** — Break the feature into 3-7 milestones. Each milestone must be:
-   - Achievable in one coder+reviewer loop
-   - Independently verifiable with an explicit acceptance criterion
-   - Named clearly enough to be self-explanatory
-3. **Risk gate** — List residual risks and open questions not resolved by research.
+1. Check preconditions: intent is confirmed, major unknowns are resolved, and required research inputs are present or explicitly missing.
+2. Synthesize the research into a short overview and research summary grounded in local context, external docs, and code examples as available.
+3. Break the work into 3-7 milestones. Each milestone must be independently executable, independently reviewable, and paired with a concrete acceptance criterion.
+4. Word milestones so the current scope is obvious, the done state is testable, and a builder can report progress or blocked status cleanly.
+5. Record residual risks and open questions that remain outside milestone scope.
 
 ## Milestone Quality Rules
 
-- No milestone depends on another being "partially done" — each is a complete unit
-- Scope fits comfortably in a single focused coding session
-- Acceptance criterion is checkable without ambiguity
+- The plan doc is the canonical planning artifact. Do not rely on runtime sidecars or hidden state to make the plan intelligible.
+- Each milestone should fit one focused coder-reviewer loop.
+- Each milestone line should carry the title plus a one-line scope and acceptance criterion.
+- Avoid vague continuation language such as "keep wiring", "finish leftovers", or "polish" without a checkable end state.
+- Milestones should not assume undocumented tool behavior or placeholder rendering.
 
 ## Verification
 
-- Run: `ls plans/` and confirm the new plan doc is present with correct YYYY-MM-DD prefix.
-- Confirm plan doc contains `## Milestones` section with at least one `- [ ]` checkbox.
-- Confirm frontmatter has `status: in-progress`.
+- Confirm the plan doc exists at `plans/YYYY-MM-DD-<slug>-plan.md`.
+- Confirm frontmatter includes `status: in-progress`.
+- Confirm the doc contains `## Milestones` with unchecked milestone lines.
+- Confirm every milestone has a clear acceptance criterion and can be completed without hidden assumptions.
 
 ## Failure Behavior
 
 If blocked, return:
 
-- blocked: what cannot be synthesized
-- why: missing research input or unresolvable constraint conflict
-- unblock: one targeted question or the specific missing scout result
+- blocked: what cannot be synthesized yet
+- why: the missing research, unresolved decision, or conflicting constraint
+- unblock: one targeted question or the specific missing research result
+
+Do not resolve plan-shaping unknowns by silent defaulting.
 
 ## Integration
 
-- **Loaded by:** `hf-planner-light` (Phase 2) and `hf-planner-deep` (Phase 3).
-- **Input from:** `hf-brainstormer` output + all 3 scout results (deep) or local scout only (light).
-- **Output consumed by:** `hf-builder-light` and `hf-builder-deep` read the produced plan doc.
-
-## Examples
-
-### Correct
-
-Three scouts return results. Synthesis merges local conventions, API docs, and idiomatic patterns. Writes plan doc with 4 milestones, each with a clear acceptance criterion. This works because every milestone is grounded in evidence from research.
-
-### Anti-pattern
-
-Writing milestones from memory before scouts return. This fails because local project conventions and library-specific patterns are missed, producing milestones that conflict with the codebase.
-
-## Red Flags
-
-- "I can guess the milestones without waiting for scouts."
-- "The research brief is close enough — I'll fill in gaps during coding."
-- "Acceptance criterion is implicit — it's obvious when done."
+- Loaded by `hf-planner-light` and `hf-planner-deep` after research.
+- Consumes the brainstorm output plus available scout findings.
+- Produces the plan doc used by `hf-builder-light`, `hf-builder-deep`, and `hf-milestone-tracking`.
 
 ## Plan Document Format
 
-Write to `plans/YYYY-MM-DD-<slug>-plan.md`:
+Write:
 
-```
+```md
 ---
 plan: <slug>
 created: YYYY-MM-DD
@@ -95,19 +84,18 @@ status: in-progress
 # Plan: <Feature Name>
 
 ## Overview
-<2-4 sentence synthesis of intent, approach chosen, and key constraints>
+<2-4 sentence synthesis of intent, chosen approach, and key constraints>
 
 ## Research Summary
-- **Local context**: <key files, patterns, conventions found>
-- **Web research**: <relevant docs, tutorials, prior art>
-- **Code examples**: <notable implementations found via remote code search>
+- **Local context**: <key files, patterns, and repo conventions>
+- **Web research**: <relevant docs, specs, or prior art>
+- **Code examples**: <useful remote examples or note none>
 
 ## Milestones
-- [ ] 1. <Title> — <one-line scope + acceptance criterion>
-- [ ] 2. <Title> — <one-line scope + acceptance criterion>
-- [ ] 3. <Title> — <one-line scope + acceptance criterion>
+- [ ] 1. <Title> - <one-line scope + acceptance criterion>
+- [ ] 2. <Title> - <one-line scope + acceptance criterion>
+- [ ] 3. <Title> - <one-line scope + acceptance criterion>
 
 ## Risks & Open Questions
-- <risk or unknown 1>
-- <risk or unknown 2>
+- <risk or unresolved item>
 ```

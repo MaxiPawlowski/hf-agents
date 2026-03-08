@@ -1,9 +1,9 @@
 ---
 name: hf-brainstormer
 description: >
-  Use at the start of a planning session to scope the feature, identify unknowns, and
-  produce a research brief for the parallel scout phase.
-  Do NOT use mid-plan or when intent is already explicit.
+  Use when planning cannot start cleanly because the user's real intent, decision points,
+  or preferred approach is still unclear. Drive a short gated conversation that confirms
+  intent, resolves the highest-impact unknowns, and ends with a scout-ready research brief.
 autonomy: supervised
 context_budget: 8000 / 2000
 max_iterations: 3
@@ -11,78 +11,67 @@ max_iterations: 3
 
 # Brainstormer
 
-Iron law: Do not start research or planning until feature intent, constraints, and top unknowns are explicit.
+Iron law: do not start research or plan synthesis until the user has confirmed the feature intent and the highest-impact unknowns are no longer implicit.
 
 ## Overview
 
-One brainstorming pass per planning session. Converts a feature request into a scoped
-research brief that `hf-planner-deep` uses to target the parallel scout agents.
-No implementation side effects. No file edits.
+Use this skill once at the beginning of a planning session. It turns an initial request into a user-confirmed research brief that downstream scouts and planners can trust.
+
+Keep the interaction progressive: inspect the repo first, then walk the user through one focused gate at a time. Do not front-load every question in one message.
 
 ## When to Use
 
-- At the start of a new planning session when the feature intent is not yet explicit.
-- When multiple implementation directions are possible and the best one is unknown.
-- When you need to produce a structured research brief for parallel scout agents.
+- A new planning session starts and the request still needs scoping.
+- Multiple implementation directions are plausible and the user has not chosen among them.
+- Scouts need a clear research brief instead of a vague feature description.
 
 ## When Not to Use
 
-- Mid-plan when intent and approach are already defined.
-- When the user has provided an explicit, detailed specification.
-- As a replacement for implementation — this skill produces research briefs, not code.
+- The user already provided a detailed, decision-ready specification.
+- Research is already complete and only synthesis remains.
+- Implementation is already underway and the active milestone scope is clear.
 
 ## Workflow
 
-1. **Intent gate** — Restate the feature request in one sentence. Name the top 2-3
-   unknowns that would materially change implementation direction.
-2. **Options gate** — Generate 2-3 approach options with trade-offs. Cover: architecture
-   shape, key components, data flow, risks. Name your recommended option.
-3. **Research brief gate** — Produce a structured research brief that tells each scout
-   exactly what to look for.
+1. Read the minimum local context needed to ground the conversation: root docs, obvious conventions, and any existing plan or feature surface relevant to the request.
+2. Confirm intent in one sentence. Ask one focused question and wait for the user's answer before moving on.
+3. Surface the 2-3 unknowns that would most change implementation direction. Prefer concrete options over open-ended prompts when possible.
+4. Present 2-3 viable approaches with trade-offs and a recommendation. Ask the user to choose or adjust.
+5. Produce a research brief with explicit targets for local context, web research, and remote code examples. Get user confirmation before handing off.
+
+Each gate is a stop point. If the user changes the intent or preferred approach, update the current gate and reconfirm before advancing.
 
 ## Verification
 
-- Run: `ls plans/` to confirm no plan doc was created prematurely during brainstorm.
-- Confirm research brief contains all three target lists: `local_search_targets`, `web_search_targets`, `code_search_targets`.
+- Confirm no plan doc was created during brainstorming.
+- Confirm each gate received an explicit user response before the next gate advanced.
+- Confirm the final research brief includes `local_search_targets`, `web_search_targets`, and `code_search_targets`.
+- Confirm the brief reflects user-confirmed intent rather than planner assumptions.
 
 ## Failure Behavior
 
 If blocked, return:
 
-- blocked: what cannot be scoped
-- why: missing input
-- unblock: one targeted question
+- blocked: what cannot be scoped yet
+- why: the missing answer, conflicting input, or ambiguity
+- unblock: one targeted question for the user
+
+Do not guess past unresolved intent or unresolved decision points.
 
 ## Integration
 
-- **Loaded by:** `hf-planner-deep` in Phase 1 (inline, sequential).
-- **Output consumed by:** `hf-local-context-scout`, `hf-web-research-scout`, `hf-code-search-scout` via the research brief.
-- **Followed by:** Phase 2 parallel research scouts, then `hf-plan-synthesis`.
-
-## Examples
-
-### Correct
-
-User asks to "add pagination to the results list." Brainstormer states intent as "add cursor-based pagination to search results," identifies unknowns (server-side vs. client-side, existing pagination patterns), proposes 2 options with trade-offs, produces a research brief with specific targets. This works because each scout now has a concrete target list.
-
-### Anti-pattern
-
-Immediately writing milestones without scoping. This fails because missing constraints produce milestones that conflict with existing codebase patterns.
-
-## Red Flags
-
-- "The intent is obvious — skip brainstorm."
-- "I'll generate the plan while brainstorming at the same time."
-- "I'll write milestones now and research later."
+- Loaded by `hf-planner-deep` before scout dispatch.
+- Produces the research brief consumed by local, web, and code-search scouts.
+- Hands off to research first, then to `hf-plan-synthesis`.
 
 ## Required Output
 
-Return:
+Return after the user confirms the final gate:
 
-- intent: one sentence
-- unknowns: top 2-3 decisions that must be resolved before planning
-- approach_options: 2-3 options; each includes trade-offs and recommendation flag
+- intent: one-sentence user-confirmed feature statement
+- unknowns: the decisions that were clarified or confirmed
+- approach_selected: the chosen approach and any user-requested adjustments
 - research_brief:
-  - local_search_targets: specific file paths, pattern names, or module names to find
-  - web_search_targets: specific library docs, RFCs, or tutorials to fetch
-  - code_search_targets: specific patterns or implementations to find via a remote code search provider
+  - local_search_targets: files, modules, patterns, or conventions to inspect locally
+  - web_search_targets: docs, specs, or external references to fetch
+  - code_search_targets: implementation patterns or repositories to look up remotely

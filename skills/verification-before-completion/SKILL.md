@@ -1,8 +1,9 @@
 ---
 name: hf-verification-before-completion
 description: >
-  Use before declaring work done to verify scope coverage, constraint compliance, and output quality.
-  Do NOT use for pure brainstorming or exploration with no completion claim.
+  Use when implementation is about to be declared done and scope coverage, policy
+  compliance, and evidence freshness still need a final check. Verify the actual requested
+  scope with the narrowest relevant checks, then report any remaining gaps clearly.
 autonomy: autonomous
 context_budget: 8000 / 2000
 max_iterations: 3
@@ -10,72 +11,71 @@ max_iterations: 3
 
 # Verification Before Completion
 
-Iron law: Never claim completion without fresh verification evidence tied to the exact requested scope.
+Iron law: never declare completion without fresh evidence tied to the exact scope being closed.
 
 ## Overview
 
-One verification pass for one completion claim. Read-only evidence gathering — no code changes. Verifies scope coverage, constraint compliance, and output quality before declaring work done.
+Use this skill for the final verification pass before a builder or reviewer reports work complete. It is a read-only check on scope fit, required gates, and evidence freshness.
+
+The plan doc remains the canonical record of milestone state. Runtime artifacts or prior runs can inform the check, but they do not replace current evidence, and the final verification result belongs under the last completed milestone before the plan moves to `status: complete`.
 
 ## When to Use
 
-- Before declaring any implementation task done.
-- Before committing or creating a PR when the plan requires verification evidence.
-- When a reviewer or gate requires fresh evidence of completion.
+- Before declaring a milestone or full plan complete.
+- Before reporting success on work that required tests, builds, screenshots, or other proof.
+- When a reviewer or builder needs a final confidence check against the original request.
 
 ## When Not to Use
 
-- For pure brainstorming or exploration with no completion claim.
-- When verification has already been run in this session with no subsequent changes.
-
-## Scope
-
-One verification pass for one completion claim. Read-only evidence gathering — no code changes. Constraints: verify against original request, not assumptions; respect runtime toggle states.
+- Brainstorming or open-ended exploration with no completion claim.
+- Re-running the same verification with no code or artifact changes since the last pass.
 
 ## Workflow
 
-1. **Scope-fit gate** — Entry: implementation claims completion. Map user request to delivered behavior. Verify: does behavior match user intent exactly? Were defaults respected (no worktrees, no auto-git, no forced tests)? Are changed files clearly documented? Are known trade-offs disclosed? Exit: all requested items are accounted for.
-2. **Constraint gate** — Entry: scope-fit confirmed. Validate runtime preferences and safety defaults were respected. Exit: no policy drift remains.
-3. **Evidence gate** — Entry: constraints validated. Attach fresh command outputs relevant to the change. Exit: completion claim is evidence-backed.
+1. Scope-fit gate: map the original request or milestone acceptance criterion to the delivered behavior.
+2. Constraint gate: confirm the workflow respected explicit limits such as no unapproved git actions, no scope expansion, and any required builder/runtime constraints.
+3. Evidence gate: gather the narrowest relevant fresh evidence for the change, such as status checks, targeted tests, build output, screenshots, or artifact inspection.
+4. Recording gate: make sure the final verification evidence that supports plan completion can be recorded under the last completed milestone in the plan doc.
+5. Gap gate: call out anything unverified, any known trade-off, and whether it blocks completion.
 
 ## Verification
 
-- Run: `git status --short`
-- Expect: changed file list matches reported implementation scope.
-- Run: `npm run build`
-- Expect: successful build for code-changing tasks.
+- Confirm the reported changed files match the implementation summary.
+- Confirm required commands or inspections ran after the last relevant code change.
+- Confirm evidence is specific to the requested scope rather than reused from an earlier state.
+- Confirm the completion claim matches both the milestone acceptance criterion and any explicit user constraints.
+- Confirm final verification evidence is ready to attach under the last completed milestone before any `status: complete` transition.
+
+Choose checks that fit the change. For docs-only work, file inspection may be enough. For code changes, use the smallest command set that can actually falsify the completion claim.
 
 ## Failure Behavior
 
-- On unresolved scope item: return `{ blocked: "scope gap", why: "<requested item> not delivered or not verified", unblock: "<implement or verify specific item>" }`.
-- On constraint violation: return `{ blocked: "policy drift", why: "<constraint> was violated by <action>", unblock: "<revert or correct specific violation>" }`.
-- On ambiguous trade-off: escalate to user for waiver or prioritization decision.
+If blocked, return:
+
+- blocked: what cannot yet be verified
+- why: the missing evidence, unresolved scope gap, or policy violation
+- unblock: the smallest concrete action needed to finish verification
+
+Escalate to the user when completion depends on a trade-off or waiver that the workflow cannot decide alone.
 
 ## Circuit Breaker
 
-- Warning at 2 re-checks on the same gap.
-- Hard stop at 3 — stop and escalate unresolved items.
-- On same gap identified twice with no new evidence: stop and escalate.
-
-## Examples
-
-### Correct
-Includes what changed, why it satisfies request, explicit scope mapping, and fresh build/status evidence. This works because the completion claim is falsifiable — anyone can verify it by re-running the commands.
-
-### Anti-pattern
-"Done" with no verification or explicit scope mapping. This fails because undetected scope gaps or constraint violations propagate downstream and become expensive to fix.
-
-## Red Flags
-
-- "This is small enough to skip verification."
-- "I already know this part works from earlier runs."
+- Warn after two verification passes on the same unresolved gap.
+- Stop after three passes with no new evidence.
+- Escalate if the same blocking issue repeats without progress.
 
 ## Integration
 
-- **Before:** implementation summary + fresh evidence from the active builder flow, reviewer output, and `hf-build-validator` when build or type checks were required.
-- **After:** `{ scope_map, evidence: { commands_run[], pass_fail[] }, gates: { toggle_gate, status }[], gaps[], residual_risks[] }`. Completion message: what changed, why it satisfies request, what was intentionally not done, optional next steps.
+- Used by builders before final completion reporting.
+- Consumes implementation summaries, reviewer output, and any required artifacts.
+- Produces completion-ready evidence and remaining gaps for the final response and for the last completed milestone entry in the plan doc.
 
-## Rollback
+## Required Output
 
-1. No side effects to revert.
-2. Retract completion claim.
-3. Report unresolved items with their last evidence state.
+Return:
+
+- scope_map: how the delivered work maps to the requested scope
+- evidence: commands, inspections, or captures used for verification and their results
+- gaps: anything still unverified or intentionally out of scope
+- residual_risks: remaining risks that do not block completion, if any
+- completion_decision: `ready` or `blocked`

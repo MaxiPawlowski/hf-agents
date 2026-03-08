@@ -1,0 +1,82 @@
+{
+  "surface": "subagents",
+  "purpose": "Starter fixtures for reviewer approval gating and validator evidence freshness.",
+  "cases": [
+    {
+      "id": "reviewer-rejects-missing-fresh-evidence",
+      "prompt": "subagents/hf-reviewer.md",
+      "focus": [
+        "approval gate",
+        "evidence freshness",
+        "single-action rejection"
+      ],
+      "input": {
+        "scope": "Current milestone requires fresh test evidence before approval.",
+        "delivered_changes": [
+          "Code files were updated",
+          "Only an older pre-change test run was attached"
+        ]
+      },
+      "expected": {
+        "approved": "no",
+        "must_include": [
+          "an evidence gap explaining that fresh test evidence is missing",
+          "one concrete next action for the coder or builder"
+        ],
+        "must_not": [
+          "approve on stale evidence",
+          "return vague feedback like improve quality"
+        ]
+      }
+    },
+    {
+      "id": "reviewer-keeps-validator-builder-owned",
+      "prompt": "subagents/hf-reviewer.md",
+      "focus": [
+        "builder-owned validator boundary",
+        "approval-loop contract"
+      ],
+      "input": {
+        "scope": "Builder attached hf-build-validator output for a milestone that requires build readiness.",
+        "delivered_changes": [
+          "Reviewer receives current validator evidence along with coder output"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "treat validator output as builder-supplied evidence"
+        ],
+        "must_not": [
+          "state or imply that reviewer owns validator dispatch"
+        ]
+      }
+    },
+    {
+      "id": "build-validator-returns-fresh-citable-evidence",
+      "prompt": "subagents/hf-build-validator.md",
+      "focus": [
+        "fresh evidence",
+        "minimal diagnostics",
+        "narrow validation scope"
+      ],
+      "input": {
+        "repo_context": [
+          "A milestone needs build readiness evidence",
+          "Standard build and typecheck commands are known"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "exact commands_run",
+          "pass or fail status",
+          "minimal actionable diagnostics",
+          "evidence that a reviewer or plan doc can cite as fresh proof"
+        ],
+        "must_not": [
+          "broad exploratory command sets unrelated to readiness",
+          "evidence phrased as stale or historical"
+        ]
+      }
+    }
+  ]
+}

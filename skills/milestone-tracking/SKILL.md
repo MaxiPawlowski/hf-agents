@@ -1,8 +1,10 @@
 ---
 name: hf-milestone-tracking
 description: >
-  Use to read, track, and update milestone checkboxes in a plan document.
-  Replaces hf-task-manager's lifecycle tracking with in-place plan doc updates.
+  Use when a builder needs to read milestone state or record milestone completion in a plan
+  doc. Treat the plan doc as the canonical progress record and append milestone evidence
+  directly under the completed milestone entry, including final verification evidence under
+  the last completed milestone before setting `status: complete`.
 autonomy: supervised
 context_budget: 4000 / 1000
 max_iterations: 1
@@ -10,99 +12,86 @@ max_iterations: 1
 
 # Milestone Tracking
 
-Iron law: The plan doc is the single source of truth. Never track milestone state anywhere else.
+Iron law: the plan doc is the source of truth for milestone state. Runtime status files may mirror progress, but they do not override the plan doc.
 
 ## Overview
 
-Reads the plan doc to determine build progress, and updates milestone checkboxes
-in place as milestones are completed with evidence. Used by `hf-builder-light` and `hf-builder-deep`.
+Use this skill to read the active plan, determine the next unchecked milestone, mark milestones complete, and update overall plan status when the last milestone is done.
+
+Evidence belongs in the plan doc itself so a later builder, reviewer, or runtime loop can understand progress without hidden state.
 
 ## When to Use
 
-- At the start of a build session to determine the current unchecked milestone.
-- After a milestone's reviewer approves, to mark it complete and attach evidence.
-- When checking whether all milestones are done (plan complete).
+- A builder needs to identify the current milestone from the plan doc.
+- A milestone has been approved and its completion needs to be recorded.
+- The builder needs to determine whether the full plan is now complete.
 
 ## When Not to Use
 
-- During planning — milestones are written by `hf-plan-synthesis`, not this skill.
-- For tracking state outside the plan doc — the plan doc is the only state store.
+- Planning new milestones; use `hf-plan-synthesis` for that.
+- Tracking progress anywhere other than the active plan doc.
+- Using runtime artifacts as milestone authority.
 
 ## Plan Doc Operations
 
 ### Reading state
-- Parse `## Milestones` section
-- `- [ ]` = pending, `- [x]` = complete
-- First unchecked milestone = current target
-- All checked = plan complete
+- Parse `## Milestones`.
+- `- [ ]` means pending.
+- `- [x]` means complete.
+- The first unchecked milestone is the current target.
 
 ### Marking a milestone complete
-When reviewer approves with evidence, update the milestone line:
-- Before: `- [ ] 2. Add validation — accept only non-empty inputs`
-- After:  `- [x] 2. Add validation — accept only non-empty inputs`
+1. Change the milestone checkbox from `- [ ]` to `- [x]`.
+2. Append evidence as indented bullets directly under that milestone line.
+3. If this is the last milestone, append final verification evidence in that same indented evidence block before changing plan status.
+4. Keep evidence concise and reviewable.
 
-### Marking plan complete
-When all milestones are checked, update the frontmatter:
-- Before: `status: in-progress`
-- After:  `status: complete`
+Example:
+```md
+- [x] 2. Add validation - reject empty inputs and cover the behavior with tests
+  - files: `src/validation.ts`, `tests/validation.test.ts`
+  - review: approved by `hf-reviewer` - validation logic matches scope
+  - verification: `npm test -- validation` passed
+```
+
+### Marking the plan complete
+- When every milestone is checked, first confirm the last completed milestone includes the required final verification evidence.
+- Only then update frontmatter from `status: in-progress` to `status: complete`.
 
 ## Workflow
 
-1. Read the plan doc at the path provided by the active builder agent.
-2. Parse `## Milestones` section to determine current state.
-3. On milestone completion: update checkbox and append evidence under the milestone line.
-4. When all milestones checked: update frontmatter `status: complete`.
-
-## Evidence Attachment
-
-After checking off a milestone, append evidence under it:
-```
-- [x] 2. Add validation — accept only non-empty inputs
-  - files: `src/validation.ts:12-34`
-  - test: `tests/validation.test.ts` passed
-  - screenshot: `plans/evidence/milestone-2-screenshot.png` (if UI work)
-```
+1. Read the plan doc path supplied by the active builder.
+2. Identify the first unchecked milestone.
+3. After approval, mark that milestone complete and append evidence under the milestone line.
+4. When no unchecked milestones remain, append final verification evidence under the last completed milestone if required, then update plan status to `complete`.
+5. Do not create or reconcile runtime sidecars here.
 
 ## Verification
 
-- Run: `grep -c "\- \[ \]" <plan-doc-path>` to count remaining unchecked milestones.
-- Run: `grep "status:" <plan-doc-path>` to confirm frontmatter status is updated correctly.
+- Confirm the milestone checkbox state matches the recorded milestone outcome.
+- Confirm new evidence is attached under the completed milestone line, not in a separate tracker.
+- Confirm final verification evidence, when required for plan completion, is attached under the last completed milestone line before `status: complete` is set.
+- Confirm plan frontmatter moves to `status: complete` only when all milestone checkboxes are checked and that final evidence is present.
 
 ## Failure Behavior
 
 If blocked, return:
 
-- blocked: what cannot be updated
-- why: plan doc not found, malformed milestones section, or no unchecked milestone
-- unblock: smallest specific step (path to plan doc, or format fix needed)
+- blocked: what could not be read or updated
+- why: missing plan path, malformed milestone section, or no actionable milestone state
+- unblock: the smallest format fix or path needed
 
 ## Integration
 
-- **Loaded by:** `hf-builder-light` and `hf-builder-deep` at the start of every build session.
-- **Plan doc written by:** `hf-planner-light` or `hf-planner-deep` via `hf-plan-synthesis`.
-- **Milestone completion triggered by:** coder completion (builder-light) or `hf-reviewer` approval (builder-deep).
-
-## Examples
-
-### Correct
-
-Build session starts. Load plan doc. Find first unchecked milestone: `- [ ] 3. Add export button`. After coder+reviewer approve with evidence, update to `- [x] 3. Add export button` with file refs and test result. This works because progress is visible in the plan doc without any external state.
-
-### Anti-pattern
-
-Tracking milestone state in a separate file or in memory. This fails because state is lost between sessions and diverges from the plan doc.
-
-## Red Flags
-
-- "I'll remember which milestone we're on without updating the doc."
-- "I'll mark it done before the reviewer approves."
-- "Evidence attachment is optional."
+- Loaded by `hf-builder-light` and `hf-builder-deep`.
+- Consumes the plan doc written by `hf-plan-synthesis`.
+- Records reviewer-approved evidence in the same plan doc the runtime reads.
 
 ## Required Output
 
-After each milestone update, return:
+Return after each update:
 
-- milestone_completed: number and title
-- evidence_attached: list of evidence items
-- next_milestone: number and title of next unchecked (or "none — plan complete")
-- plan_status: in-progress | complete
+- milestone_completed: number and title, or `none`
+- evidence_attached: evidence items added under the milestone, or `none`
+- next_milestone: next unchecked milestone, or `none - plan complete`
+- plan_status: `in-progress` or `complete`

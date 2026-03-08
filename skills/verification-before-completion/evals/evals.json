@@ -1,0 +1,60 @@
+{
+  "skill": "hf-verification-before-completion",
+  "purpose": "Starter fixtures for scope-fit checks, evidence freshness, and final completion gating.",
+  "cases": [
+    {
+      "id": "verification-before-completion-docs-only-ready",
+      "focus": [
+        "scope-fit gate",
+        "docs-only verification",
+        "completion readiness"
+      ],
+      "input": {
+        "change_type": "docs-only prompt update",
+        "scope": "Add lightweight review scaffolding for uncovered prompt surfaces.",
+        "evidence_available": [
+          "Direct inspection of newly added REVIEW.md files",
+          "Direct inspection of newly added eval fixtures"
+        ]
+      },
+      "expected": {
+        "completion_decision": "ready",
+        "must_include": [
+          "a scope_map tying the added review scaffolding to the requested coverage",
+          "inspection-based evidence rather than unnecessary command output",
+          "confirmation that final verification evidence is ready to record in the plan doc if plan completion depends on it"
+        ],
+        "must_not": [
+          "require unrelated build or test commands for docs-only changes",
+          "claim readiness without citing fresh inspection evidence"
+        ]
+      }
+    },
+    {
+      "id": "verification-before-completion-block-on-stale-evidence",
+      "focus": [
+        "freshness gate",
+        "gap reporting"
+      ],
+      "input": {
+        "change_type": "code change with required tests",
+        "scope": "Close the final milestone and report the whole plan complete.",
+        "evidence_available": [
+          "A test run from before the last code edit",
+          "No fresh verification note ready for the final milestone entry"
+        ]
+      },
+      "expected": {
+        "completion_decision": "blocked",
+        "must_include": [
+          "the missing fresh evidence",
+          "the smallest concrete action needed to finish verification"
+        ],
+        "must_not": [
+          "reuse stale evidence as proof of completion",
+          "allow plan completion without final verification evidence ready to attach"
+        ]
+      }
+    }
+  ]
+}
