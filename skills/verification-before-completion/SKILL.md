@@ -58,12 +58,6 @@ If blocked, return:
 
 Escalate to the user when completion depends on a trade-off or waiver that the workflow cannot decide alone.
 
-## Circuit Breaker
-
-- Warn after two verification passes on the same unresolved gap.
-- Stop after three passes with no new evidence.
-- Escalate if the same blocking issue repeats without progress.
-
 ## Integration
 
 - Used by builders before final completion reporting.

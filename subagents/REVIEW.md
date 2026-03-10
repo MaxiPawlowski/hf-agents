@@ -1,26 +1,29 @@
 # Subagent Prompt Review Notes
 
-Use these checks when editing high-risk subagent prompts or extending the starter subagent evals.
+Use these checks when editing lean-core subagent prompts or extending the starter subagent evals.
 
-This lightweight fixture pattern is directory-level: keep shared review notes in `subagents/REVIEW.md` and colocate starter prompt fixtures in `subagents/evals/evals.json` for the approval-loop surfaces that work together.
+Keep shared review notes in `subagents/REVIEW.md` and colocate starter fixtures in `subagents/evals/evals.json`.
 
 ## Covered Prompt Surface
 
+- `subagents/hf-coder.md` for milestone-scoped implementation behavior.
 - `subagents/hf-reviewer.md` for approval gating and actionable rejection behavior.
-- `subagents/hf-build-validator.md` for fresh readiness evidence handed back into the same loop.
+- `skills/verification-before-completion/SKILL.md` for final verification behavior without local retry thresholds.
 
 ## Regression Checks
 
-- Approval gate: does `hf-reviewer` still refuse approval when required evidence is missing, stale, or not specific to the reviewed change?
+- Scope discipline: does `hf-coder` stay inside the supplied milestone scope and report precise evidence?
+- Approval gate: does `hf-reviewer` refuse approval when required evidence is missing, stale, or not specific to the reviewed change?
+- Action ownership: does `hf-reviewer` return the correct `next_action_owner` for coder, builder, and user follow-ups?
 - Rejection quality: when not approved, does `hf-reviewer` return one concrete next action instead of broad rewrite guidance?
-- Builder-owned validator boundary: does `hf-reviewer` still treat `hf-build-validator` output as supplied evidence rather than claiming validator dispatch ownership?
-- Evidence freshness: does `hf-build-validator` still return fresh commands and diagnostics that a reviewer or plan doc can cite directly?
-- Minimal validation scope: does `hf-build-validator` still prefer the narrowest commands that prove readiness?
+- Runtime-owned thresholds: does `hf-verification-before-completion` avoid local retry or circuit-breaker counts?
 
 ## Adding Coverage
 
 Add new cases in `subagents/evals/evals.json` when prompt edits change:
 
+- coder scope boundaries
 - reviewer approval thresholds
+- reviewer next-action ownership
 - rejection loop payload shape
-- validator freshness or command-selection rules
+- final verification completion behavior

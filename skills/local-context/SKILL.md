@@ -1,9 +1,9 @@
 ---
 name: hf-local-context
 description: >
-  Use when a research brief needs the smallest useful set of local files, conventions, and
-  landing zones before planning can proceed. Find only the project context that changes
-  planning decisions, then stop.
+  Use when a planner needs the smallest useful set of local files, conventions, and landing
+  zones before writing a plan. Find only the project context that changes planning
+  decisions, then stop.
 autonomy: supervised
 context_budget: 8000 / 2000
 max_iterations: 2
@@ -15,11 +15,11 @@ Iron law: load only the local context that changes the plan. More files are not 
 
 ## Overview
 
-Use this skill to answer two planning questions: what conventions apply here, and where should changes land. Work from the research brief's local targets and stop once those answers are evidence-backed.
+Use this skill to answer two planning questions: what conventions apply here, and where should changes land. Work from the planner's local targets and stop once those answers are evidence-backed.
 
 ## When to Use
 
-- A research brief includes `local_search_targets` that need repo inspection.
+- A planner has concrete `local_search_targets` that need repo inspection.
 - A planner needs local conventions, file anchors, or likely edit locations before writing milestones.
 - Existing project patterns matter more than general framework knowledge.
 
@@ -27,7 +27,7 @@ Use this skill to answer two planning questions: what conventions apply here, an
 
 - The task is broad exploration with no focused brief.
 - Relevant files and conventions are already loaded.
-- External docs or prior art are the main unknown; use web or code-search research instead.
+- The main unknown is outside the repo and needs manual external research.
 
 ## Workflow
 
@@ -53,8 +53,8 @@ If blocked, return:
 
 ## Integration
 
-- Loaded by `hf-local-context-scout`.
-- Consumes `local_search_targets` from `hf-brainstormer`.
+- Loaded directly by `hf-planner`.
+- Consumes planner-supplied `local_search_targets`.
 - Feeds `hf-plan-synthesis` through the active planner.
 
 ## Required Output

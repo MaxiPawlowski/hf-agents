@@ -3,5 +3,9 @@ plans/
 dist/
 .opencode.backup.*/
 .opencode.local/
+.opencode/node_modules/
+.opencode/agents/
+.opencode/skills/
+.opencode/plugins/hybrid-runtime.js
 .tmp/
 .claude/settings.local.json

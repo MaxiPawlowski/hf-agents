@@ -1,0 +1,20 @@
+{
+  "name": "hybrid-framework",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "hf-runtime": "./dist/src/bin/hf-runtime.js",
+    "hf-claude-hook": "./dist/src/bin/hf-claude-hook.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "verify:e2e": "node scripts/verify-e2e.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.14",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  }
+}

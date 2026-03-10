@@ -1,85 +1,137 @@
 # Hybrid Framework
 
-Hybrid Framework is a markdown-first orchestration framework centered on two decisions:
+Markdown-first orchestration framework with a TypeScript runtime for unattended loop control.
 
-- plan with `hf-planner-light` or `hf-planner-deep`
-- build with `hf-builder-light` or `hf-builder-deep`
+- plan with `hf-planner`
+- build with `hf-builder`
+- run unattended loop control with the shipped runtime in `src/`
 
 Everything else exists to support those flows.
 
 ## Canonical Layout
 
-The root of the repo is the source of truth:
-
 ```text
 agents/       Main orchestrators
 subagents/    Worker roles used by the orchestrators
 skills/       Reusable workflow procedures
-plans/        Plan document destination
-.opencode/    OpenCode adapter files
-.claude/      Claude-specific notes and local settings
-.codex/       Codex-specific notes and adapter instructions
+plans/        Planner outputs; runtime sidecars at plans/runtime/<slug>/
+schemas/      Runtime event and outcome contracts
+src/          Runtime, CLI, and adapter implementations
+.opencode/    OpenCode adapter (points to root assets)
+.claude/      Claude adapter (hooks + local settings)
 ```
 
-## Main Agents
+Canonical prompt assets: `agents/`, `subagents/`, `skills/`
+Canonical runtime surface: `src/`, `schemas/`
+Adapters: `.opencode/`, `.claude/` - thin entrypoints that point back to root assets
+
+No `.codex/` directory is shipped in this repo.
+
+## Agents
 
 | Agent | Role |
 |---|---|
-| `hf-planner-light` | Fast planning from local context only |
-| `hf-planner-deep` | Research-backed planning with brainstorming and parallel scouting |
-| `hf-builder-light` | Fast build with a single coder pass per milestone |
-| `hf-builder-deep` | Higher-rigor build with coder, reviewer, and verification gates |
+| `hf-planner` | Local-context-first planning with manual escalation for external research |
+| `hf-builder` | Milestone execution with coder, reviewer, and final verification gates |
 
 ## Subagents
 
-The orchestrators delegate to six focused workers:
-
-- `hf-local-context-scout`
-- `hf-web-research-scout`
-- `hf-code-search-scout`
-- `hf-coder`
-- `hf-reviewer`
-- `hf-build-validator`
+| Subagent | Role |
+|---|---|
+| `hf-coder` | Implements a single milestone scope with targeted, convention-aligned changes |
+| `hf-reviewer` | Verifies scope fit and gate compliance, then routes the next action to the correct actor |
 
 ## Skills
 
-The root `skills/` directory contains the reusable procedures that make the orchestrators work:
+| Skill | When it runs |
+|---|---|
+| `hf-plan-synthesis` | Milestone plan generation during planning passes |
+| `hf-local-context` | Targeted repository discovery during planning |
+| `hf-milestone-tracking` | Plan progress updates during build turns |
+| `hf-verification-before-completion` | Final evidence checks before a plan is declared complete |
 
-- `hf-brainstormer` for deep-planning research briefs
-- `hf-plan-synthesis` for milestone plan generation
-- `hf-local-context` for targeted repository discovery
-- `hf-milestone-tracking` for plan progress updates
-- `hf-verification-before-completion` for final evidence checks
+## Runtime
 
-Everything else that used to live under `skills/` was removed to keep orchestration policy in the agent files and avoid carrying unused workflow baggage.
+Builders emit the canonical `turn_outcome:` trailer as the final block of their response:
 
-## Project Context
+````text
+turn_outcome:
+```json
+{
+  "state": "progress",
+  "summary": "Brief milestone-scoped outcome.",
+  "files_changed": [],
+  "tests_run": [],
+  "next_action": "Describe the next smallest step."
+}
+```
+````
 
-This framework does not ship project-specific context anymore.
+Adapters only ingest the final fenced `turn_outcome:` block.
 
-Each consuming project should provide its own context in its own repo, usually through:
+The runtime owns pause and escalation thresholds. Builders and reviewers should react to runtime state rather than inventing local retry counters.
+Turn closure is persisted as canonical `turn_outcome.*` events rather than duplicate raw stop/idle lifecycle entries.
 
-- a root `README.md`
-- local architecture or conventions docs if the project has them
-- the codebase itself
+Sidecars at `plans/runtime/<slug>/`:
 
-The framework assumes:
+| File | Contents |
+|---|---|
+| `status.json` | Current loop state and counters |
+| `events.jsonl` | Append-only event log |
+| `resume-prompt.txt` | Injected at next session start |
 
-- planners write milestone plans into `plans/`
-- local-context discovery starts from the project README and nearby source files
-- handoff requirements are written inline in the current task, plan, or milestone instead of relying on a bundled schema file
-- verification evidence is reported in plain language unless the project defines a stricter format
+Counters:
 
-## Tool Adapters
+- `loop_attempts` - every stop/idle that reaches the hard limit check
+- `evaluated_outcomes` - validated `TurnOutcome` payloads the runtime successfully ingested
 
-The tool folders are intentionally thin:
+A stop/idle without a trailer still consumes a loop attempt; the next resume prompt calls that out explicitly.
 
-- `.opencode/` keeps an adapter registry that points at the root assets
-- `.claude/` keeps Claude-specific notes and optional local settings
-- `.codex/` keeps Codex-facing instructions that point back to the same root assets
+`status: complete` is reserved for plans where every milestone is checked and fresh final verification evidence has been attached under the last completed milestone.
 
-Tool folders are not the framework. They only explain how a given tool should consume the framework.
+## Claude Hooks
 
-## What Was Removed
+Config in `.claude/settings.example.json`. Handler: `dist/src/bin/hf-claude-hook.js`.
 
-This repo used to carry older playground layers, OpenCode-first install scripts, validation scripts, command packs, and historical design documents. Those are no longer the center of the project and were removed to keep the current planner/builder orchestrator model clear.
+| Event | Matcher | Behavior |
+|---|---|---|
+| `SessionStart` | `startup\|resume\|clear\|compact` | Records event; injects `resume_prompt` as `additionalContext` |
+| `UserPromptSubmit` | `*` | Records event; injects `resume_prompt` as `additionalContext` |
+| `PreToolUse` | `Bash` | Denies `git reset --hard`, `git checkout --`, `rm -rf` |
+| `PreCompact` | `-` | Archives context snapshot; injects `resume_prompt` as `additionalContext` |
+| `Stop` | `-` | Ingests `turn_outcome`; maps all runtime decisions explicitly and blocks only when continuing |
+| `SubagentStart` | `-` | Records subagent start |
+| `SubagentStop` | `-` | Records subagent completion or failure |
+
+## OpenCode Hooks
+
+Plugin: `HybridRuntimePlugin` exported from `dist/src/opencode/plugin.js`, loaded via the generated `.opencode/plugins/hybrid-runtime.js`.
+
+| Event | Behavior |
+|---|---|
+| `tool.execute.before` | Records event; blocks destructive commands |
+| `session.created` | Records event; returns `resume_prompt` as `additionalContext` |
+| `session.status` | Returns runtime status without appending event noise |
+| `session.compacted` | Archives context snapshot; returns `resume_prompt` as `additionalContext` |
+| `session.idle` | Canonical end-of-turn ingestion point; applies the same runtime decision surface as Claude and auto-continues when enabled |
+| `subagent.started` | Records subagent start |
+| `subagent.completed` | Records subagent completion or failure |
+
+## Install
+
+Build and wire the runtime locally:
+
+- Linux: `./scripts/install-runtime.sh --tool all`
+- Windows: `.\scripts\install-runtime.ps1 --tool all`
+
+Tool-specific installs:
+
+- Claude only: `--tool claude`
+- OpenCode only: `--tool opencode`
+
+What the installers do:
+
+- run `npm install` and `npm run build` unless `--skip-build` is passed
+- merge Claude hook groups from `.claude/settings.example.json` into `.claude/settings.local.json` without replacing unrelated local settings
+- write the generated OpenCode local plugin loader at `.opencode/plugins/hybrid-runtime.js`
+- run `scripts/sync-opencode-assets.mjs` when installing the OpenCode adapter so generated `.opencode/agents/` and `.opencode/skills/` stay in sync

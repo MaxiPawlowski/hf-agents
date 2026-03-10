@@ -1,19 +1,59 @@
 {
   "surface": "agents",
-  "purpose": "Starter fixtures for high-risk agent prompts tied to approval loops and completion gating.",
+  "purpose": "Starter fixtures for the lean-core planner and builder prompts.",
   "cases": [
     {
-      "id": "builder-deep-requires-review-before-milestone-complete",
-      "prompt": "agents/hf-builder-deep.md",
+      "id": "planner-uses-local-context-first",
+      "prompt": "agents/hf-planner.md",
+      "focus": [
+        "local context first",
+        "minimal repo exploration"
+      ],
+      "input": {
+        "request": "Plan a cleanup of runtime milestone parsing in this repo."
+      },
+      "expected": {
+        "must_include": [
+          "inspect local repo context first",
+          "load hf-local-context when targeted local inspection is needed",
+          "write the plan doc with hf-plan-synthesis"
+        ],
+        "must_not": [
+          "dispatch built-in scout agents",
+          "start with external research by default"
+        ]
+      }
+    },
+    {
+      "id": "planner-escalates-manual-external-research",
+      "prompt": "agents/hf-planner.md",
+      "focus": [
+        "manual external research boundary"
+      ],
+      "input": {
+        "request": "Plan an integration with an unfamiliar third-party API that is not documented in the repo."
+      },
+      "expected": {
+        "must_include": [
+          "state exactly what manual external research is needed",
+          "avoid built-in web or code-search scout dispatch"
+        ],
+        "must_not": [
+          "pretend external research already happened",
+          "dispatch web or code-search scouts"
+        ]
+      }
+    },
+    {
+      "id": "builder-requires-review-before-milestone-complete",
+      "prompt": "agents/hf-builder.md",
       "focus": [
         "approval loop discipline",
-        "review gating",
-        "plan-doc evidence"
+        "review gating"
       ],
       "input": {
         "milestone_state": "current milestone implemented by coder",
-        "reviewer_state": "approval not yet granted",
-        "validator_state": "not needed for this docs-only milestone"
+        "reviewer_state": "approval not yet granted"
       },
       "expected": {
         "must_include": [
@@ -28,24 +68,23 @@
       }
     },
     {
-      "id": "builder-deep-blocks-plan-complete-on-failed-final-verification",
-      "prompt": "agents/hf-builder-deep.md",
+      "id": "builder-requires-final-verification-before-plan-complete",
+      "prompt": "agents/hf-builder.md",
       "focus": [
         "final verification gate",
         "status complete discipline"
       ],
       "input": {
         "milestone_state": "all milestone checkboxes are checked",
-        "verification_state": "hf-verification-before-completion returns blocked"
+        "verification_state": "hf-verification-before-completion has not run yet"
       },
       "expected": {
         "must_include": [
-          "do not set plan status to complete",
-          "return the verification failure or blocker and next action"
+          "load hf-verification-before-completion before plan completion",
+          "do not set plan status to complete without fresh final verification evidence"
         ],
         "must_not": [
-          "treat checked milestones alone as enough for plan completion",
-          "hide the final verification blocker from the user"
+          "treat checked milestones alone as enough for plan completion"
         ]
       }
     }

@@ -62,7 +62,7 @@ Return:
 - results: pass/fail signals and key diagnostics
 - gaps: what was not verified and why
 - risks_followups: residual risks + smallest follow-up steps
-- turn_outcome: JSON object matching `schemas/turn-outcome.schema.json`
+- turn_outcome: JSON object matching `schemas/turn-outcome.schema.json`, emitted as the final fenced `turn_outcome:` trailer block
 
 Example `turn_outcome`:
 ```json

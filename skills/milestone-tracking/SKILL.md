@@ -83,7 +83,7 @@ If blocked, return:
 
 ## Integration
 
-- Loaded by `hf-builder-light` and `hf-builder-deep`.
+- Loaded by `hf-builder`.
 - Consumes the plan doc written by `hf-plan-synthesis`.
 - Records reviewer-approved evidence in the same plan doc the runtime reads.
 

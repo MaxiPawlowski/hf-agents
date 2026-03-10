@@ -7,39 +7,14 @@
   },
   "assets": [
     {
-      "id": "agent-planner-light",
+      "id": "agent-planner",
       "type": "agent",
-      "path": "../agents/hf-planner-light.md"
+      "path": "../agents/hf-planner.md"
     },
     {
-      "id": "agent-planner-deep",
+      "id": "agent-builder",
       "type": "agent",
-      "path": "../agents/hf-planner-deep.md"
-    },
-    {
-      "id": "agent-builder-light",
-      "type": "agent",
-      "path": "../agents/hf-builder-light.md"
-    },
-    {
-      "id": "agent-builder-deep",
-      "type": "agent",
-      "path": "../agents/hf-builder-deep.md"
-    },
-    {
-      "id": "subagent-local-context-scout",
-      "type": "agent",
-      "path": "../subagents/hf-local-context-scout.md"
-    },
-    {
-      "id": "subagent-web-research-scout",
-      "type": "agent",
-      "path": "../subagents/hf-web-research-scout.md"
-    },
-    {
-      "id": "subagent-code-search-scout",
-      "type": "agent",
-      "path": "../subagents/hf-code-search-scout.md"
+      "path": "../agents/hf-builder.md"
     },
     {
       "id": "subagent-coder",
@@ -50,16 +25,6 @@
       "id": "subagent-reviewer",
       "type": "agent",
       "path": "../subagents/hf-reviewer.md"
-    },
-    {
-      "id": "subagent-build-validator",
-      "type": "agent",
-      "path": "../subagents/hf-build-validator.md"
-    },
-    {
-      "id": "skill-brainstormer",
-      "type": "skill",
-      "path": "../skills/brainstormer/SKILL.md"
     },
     {
       "id": "skill-local-context",

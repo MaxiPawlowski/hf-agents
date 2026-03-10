@@ -34,7 +34,7 @@ The plan must be specific enough that a builder can execute one milestone at a t
 ## Workflow
 
 1. Check preconditions: intent is confirmed, major unknowns are resolved, and required research inputs are present or explicitly missing.
-2. Synthesize the research into a short overview and research summary grounded in local context, external docs, and code examples as available.
+2. Synthesize the research into a short overview and research summary grounded in local context and any user-supplied external research when available.
 3. Break the work into 3-7 milestones. Each milestone must be independently executable, independently reviewable, and paired with a concrete acceptance criterion.
 4. Word milestones so the current scope is obvious, the done state is testable, and a builder can report progress or blocked status cleanly.
 5. Record residual risks and open questions that remain outside milestone scope.
@@ -66,9 +66,9 @@ Do not resolve plan-shaping unknowns by silent defaulting.
 
 ## Integration
 
-- Loaded by `hf-planner-light` and `hf-planner-deep` after research.
-- Consumes the brainstorm output plus available scout findings.
-- Produces the plan doc used by `hf-builder-light`, `hf-builder-deep`, and `hf-milestone-tracking`.
+- Loaded by `hf-planner` after local exploration and any needed user clarification.
+- Consumes the planner's local findings plus any user-supplied manual research.
+- Produces the plan doc used by `hf-builder` and `hf-milestone-tracking`.
 
 ## Plan Document Format
 
@@ -88,8 +88,7 @@ status: in-progress
 
 ## Research Summary
 - **Local context**: <key files, patterns, and repo conventions>
-- **Web research**: <relevant docs, specs, or prior art>
-- **Code examples**: <useful remote examples or note none>
+- **External research**: <user-supplied docs, specs, or note none>
 
 ## Milestones
 - [ ] 1. <Title> - <one-line scope + acceptance criterion>
