@@ -1,0 +1,101 @@
+{
+  "surface": "subagents",
+  "purpose": "Starter fixtures for the lean-core coder, reviewer, and final verification surfaces.",
+  "cases": [
+    {
+      "id": "coder-stays-milestone-scoped",
+      "prompt": "subagents/hf-coder.md",
+      "focus": [
+        "scope discipline"
+      ],
+      "input": {
+        "scope": "Update runtime milestone parsing only.",
+        "non_scope_example": "Do not rewrite adapter hooks."
+      },
+      "expected": {
+        "must_include": [
+          "implement only the approved milestone scope",
+          "stop if anything is ambiguous"
+        ],
+        "must_not": [
+          "expand into unrelated adapter work"
+        ]
+      }
+    },
+    {
+      "id": "reviewer-rejects-missing-fresh-evidence",
+      "prompt": "subagents/hf-reviewer.md",
+      "focus": [
+        "approval gate",
+        "evidence freshness",
+        "single-action rejection"
+      ],
+      "input": {
+        "scope": "Current milestone requires fresh test evidence before approval.",
+        "delivered_changes": [
+          "Code files were updated",
+          "Only an older pre-change test run was attached"
+        ]
+      },
+      "expected": {
+        "approved": "no",
+        "must_include": [
+          "next_action_owner",
+          "an evidence gap explaining that fresh test evidence is missing",
+          "one concrete next action for the coder or builder"
+        ],
+        "must_not": [
+          "approve on stale evidence",
+          "return vague feedback like improve quality"
+        ]
+      }
+    },
+    {
+      "id": "reviewer-returns-builder-owner-for-missing-build-evidence",
+      "prompt": "subagents/hf-reviewer.md",
+      "focus": [
+        "next action ownership",
+        "evidence routing"
+      ],
+      "input": {
+        "scope": "The milestone requires fresh build readiness evidence before approval.",
+        "delivered_changes": [
+          "Code is in scope",
+          "No fresh build evidence is attached"
+        ]
+      },
+      "expected": {
+        "approved": "no",
+        "must_include": [
+          "next_action_owner: builder",
+          "a required next action that asks for fresh build evidence"
+        ],
+        "must_not": [
+          "next_action_owner: coder for a pure evidence gap",
+          "loop_feedback that asks for code edits when evidence is the only gap"
+        ]
+      }
+    },
+    {
+      "id": "verification-skill-leaves-thresholds-to-runtime",
+      "prompt": "skills/verification-before-completion/SKILL.md",
+      "focus": [
+        "runtime-owned thresholds",
+        "final verification behavior"
+      ],
+      "input": {
+        "verification_state": "a final verification pass finds the same unresolved gap twice"
+      },
+      "expected": {
+        "must_include": [
+          "blocked output with the missing evidence or scope gap",
+          "escalate to the user when a waiver or trade-off is required"
+        ],
+        "must_not": [
+          "local retry counters",
+          "circuit breaker thresholds inside the skill"
+        ]
+      }
+    }
+  ]
+}

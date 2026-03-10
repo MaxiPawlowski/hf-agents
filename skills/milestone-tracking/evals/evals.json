@@ -1,0 +1,59 @@
+{
+  "skill": "hf-milestone-tracking",
+  "purpose": "Starter fixtures for milestone evidence placement and plan-completion gating.",
+  "cases": [
+    {
+      "id": "milestone-tracking-final-verification-before-complete",
+      "focus": [
+        "completion gating",
+        "final evidence placement",
+        "plan status transition"
+      ],
+      "input": {
+        "plan_state": [
+          "Only milestone 3 remains unchecked",
+          "Milestones 1 and 2 already have review evidence",
+          "The builder wants to mark the plan complete after milestone 3 approval"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "change milestone 3 from - [ ] to - [x]",
+          "append milestone 3 evidence directly under milestone 3",
+          "append final verification evidence under milestone 3 before setting status complete",
+          "update frontmatter from status: in-progress to status: complete only after the evidence is attached"
+        ],
+        "must_not": [
+          "set status complete before final verification evidence is present",
+          "store final verification evidence outside the plan doc"
+        ]
+      }
+    },
+    {
+      "id": "milestone-tracking-first-unchecked-only",
+      "focus": [
+        "current milestone discipline",
+        "evidence placement"
+      ],
+      "input": {
+        "plan_state": [
+          "Milestone 2 is the first unchecked milestone",
+          "Milestone 3 is also unchecked",
+          "Reviewer approval exists only for milestone 2"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "target milestone 2 as the current milestone",
+          "attach evidence under milestone 2",
+          "report milestone 3 as the next milestone"
+        ],
+        "must_not": [
+          "skip ahead to milestone 3",
+          "batch-complete multiple milestones in one update",
+          "write milestone evidence to a separate runtime tracker"
+        ]
+      }
+    }
+  ]
+}

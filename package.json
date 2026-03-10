@@ -1,39 +1,20 @@
 {
-  "name": "custom-agentic-framework",
-  "version": "0.1.0",
+  "name": "hybrid-framework",
   "private": true,
-  "description": "Selective agentic framework with OAC-style delegation and modular skills.",
   "type": "module",
-  "exports": {
-    ".": "./dist/src/index.js"
+  "bin": {
+    "hf-runtime": "./dist/src/bin/hf-runtime.js",
+    "hf-claude-hook": "./dist/src/bin/hf-claude-hook.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test tests/**/*.test.mjs",
-    "validate": "npm run validate:assets",
-    "validate:registry": "node scripts/validation/validate-registry.mjs",
-    "validate:deps": "node scripts/validation/check-dependencies.mjs",
-    "validate:context-refs": "node scripts/validation/validate-context-refs.mjs",
-    "validate:command-contracts": "node scripts/validation/lint-command-contracts.mjs",
-    "validate:agent-contracts": "node scripts/validation/lint-agent-contracts.mjs",
-    "validate:skill-contracts": "node scripts/validation/lint-skill-contracts.mjs",
-    "validate:assets": "npm run validate:registry && npm run validate:deps && npm run validate:context-refs && npm run validate:command-contracts && npm run validate:agent-contracts && npm run validate:skill-contracts",
-    "install:opencode": "node scripts/install/install-opencode-assets.mjs",
-    "install:opencode:copy": "node scripts/install/install-opencode-assets.mjs --mode copy",
-    "install:opencode:dry": "node scripts/install/install-opencode-assets.mjs --dry-run",
-    "install:opencode:global": "node scripts/install/install-opencode-global.mjs",
-    "install:opencode:global:dry": "node scripts/install/install-opencode-global.mjs --dry-run",
-    "uninstall:opencode": "node scripts/install/uninstall-opencode-assets.mjs",
-    "uninstall:opencode:dry": "node scripts/install/uninstall-opencode-assets.mjs --dry-run",
-    "uninstall:opencode:global": "node scripts/install/uninstall-opencode-global.mjs",
-    "uninstall:opencode:global:dry": "node scripts/install/uninstall-opencode-global.mjs --dry-run"
-  },
-  "dependencies": {
-    "zod": "^3.24.1"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "verify:e2e": "node scripts/verify-e2e.mjs"
   },
   "devDependencies": {
-    "@types/node": "^22.13.4",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.7.3"
+    "@types/node": "^22.13.14",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
   }
 }

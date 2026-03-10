@@ -1,0 +1,55 @@
+{
+  "skill": "hf-local-context",
+  "purpose": "Starter fixtures for minimal-context retrieval and research-brief discipline.",
+  "cases": [
+    {
+      "id": "local-context-minimal-targeted-scan",
+      "focus": [
+        "research brief quality",
+        "minimal file set",
+        "landing-zone identification"
+      ],
+      "input": {
+        "local_search_targets": [
+          "planner skill conventions",
+          "existing plan doc format",
+          "where eval fixtures for skills currently live"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "project entry document when present",
+          "concrete paths tied to each target",
+          "a stop_point explaining why more reading is low value"
+        ],
+        "must_not": [
+          "broad repo wandering unrelated to the targets",
+          "returning files without saying why they matter"
+        ]
+      }
+    },
+    {
+      "id": "local-context-missing-target-reported",
+      "focus": [
+        "gap reporting",
+        "bounded search behavior"
+      ],
+      "input": {
+        "local_search_targets": [
+          "legacy adapter prompt inventory",
+          "nonexistent benchmark directory"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "missing_context entries for unmatched targets",
+          "explicit note that the search stopped after the target could not be grounded"
+        ],
+        "must_not": [
+          "fabricated paths",
+          "indefinite widening of the search scope"
+        ]
+      }
+    }
+  ]
+}

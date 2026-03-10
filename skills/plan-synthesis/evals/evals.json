@@ -1,0 +1,59 @@
+{
+  "skill": "hf-plan-synthesis",
+  "purpose": "Starter fixtures for milestone quality, gate discipline, and canonical plan output.",
+  "cases": [
+    {
+      "id": "plan-synthesis-write-executable-plan",
+      "focus": [
+        "milestone quality",
+        "acceptance criteria clarity",
+        "canonical plan format"
+      ],
+      "input": {
+        "intent": "Add lightweight eval scaffolding for the planning skills so future prompt edits have obvious regression coverage.",
+        "research_signals": [
+          "The repo currently has almost no bundled eval material under skills/.",
+          "The change should stay lightweight and conservative.",
+          "The highest-leverage path is local context -> plan synthesis."
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "plans/YYYY-MM-DD-<slug>-plan.md output shape",
+          "3-7 independently executable milestones",
+          "a concrete acceptance criterion for every milestone",
+          "risks or open questions that stay outside milestone scope"
+        ],
+        "must_not": [
+          "milestones like 'finish wiring' or 'polish' without a checkable done state",
+          "plan writing before required research is present"
+        ]
+      }
+    },
+    {
+      "id": "plan-synthesis-block-on-missing-research",
+      "focus": [
+        "gate discipline",
+        "blocked behavior"
+      ],
+      "input": {
+        "intent": "Plan a migration from one adapter model to another.",
+        "research_signals": [
+          "No local context results yet",
+          "User has not chosen between backward-compatible and breaking migration modes"
+        ]
+      },
+      "expected": {
+        "should_block": true,
+        "must_include": [
+          "specific missing research or unresolved decision",
+          "one targeted unblock question or missing research request"
+        ],
+        "must_not": [
+          "default the migration strategy silently",
+          "emit milestone text from partial inputs"
+        ]
+      }
+    }
+  ]
+}
