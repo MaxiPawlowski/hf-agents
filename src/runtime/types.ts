@@ -54,12 +54,19 @@ export interface PlanConfig {
 }
 
 export interface RuntimeCounters {
+  /** Counts every stop/idle event (i.e. each agent invocation attempt). */
   totalAttempts: number;
+  /** Counts validated turn outcomes only (successful evaluateTurn calls). */
   totalTurns: number;
+  /** Upper bound on totalTurns before the loop is halted. */
   maxTotalTurns: number;
+  /** Consecutive turns with no forward progress. */
   noProgress: number;
+  /** Consecutive turns hitting the same blocker signature. */
   repeatedBlocker: number;
+  /** Consecutive verification failures. */
   verificationFailures: number;
+  /** Attempts since the last validated turn outcome. */
   turnsSinceLastOutcome: number;
 }
 
@@ -116,12 +123,6 @@ export interface MilestoneContext {
 }
 
 export type ReviewPolicy = "required" | "auto" | "skip";
-
-export interface LoopConfig {
-  pattern: string;
-  skill?: string;
-  perItem?: string;
-}
 
 export interface PlanMilestone {
   index: number;

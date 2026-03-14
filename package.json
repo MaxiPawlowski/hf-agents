@@ -15,8 +15,10 @@
     "test": "vitest run",
     "verify:e2e": "node scripts/verify-e2e.mjs"
   },
+  "dependencies": {
+    "@huggingface/transformers": "^3.8.1"
+  },
   "devDependencies": {
-    "@huggingface/transformers": "^3.8.1",
     "@types/node": "^22.13.14",
     "typescript": "^5.8.2",
     "vitest": "^3.0.8"

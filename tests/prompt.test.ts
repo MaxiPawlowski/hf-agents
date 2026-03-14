@@ -185,7 +185,25 @@ describe("buildResumePrompt with semantic retrieval", () => {
     expect(vaultIdx).toBeLessThan(lastTurnIdx);
   });
 
-  test("planning phase skips vault context even when search results are provided", () => {
+  test("planning phase includes vault context with reduced budget when vault documents exist", () => {
+    const plan = makePlan({
+      status: "planning",
+      approved: false
+    });
+    const status = makeStatus({ phase: "planning" });
+    const vault = makeVault();
+
+    const prompt = buildResumePrompt(plan, status, vault, null);
+
+    expect(prompt).toContain("planning-review loop");
+    expect(prompt).toContain("## Vault context");
+    expect(prompt).toContain("### Plan discoveries");
+    expect(prompt).toContain("Brute-force plan finding");
+    expect(prompt).toContain("### Shared patterns");
+    expect(prompt).toContain("Brute-force shared pattern");
+  });
+
+  test("planning phase includes semantic vault context when search results are provided", () => {
     const plan = makePlan({
       status: "planning",
       approved: false
@@ -196,8 +214,42 @@ describe("buildResumePrompt with semantic retrieval", () => {
     const prompt = buildResumePrompt(plan, status, null, results);
 
     expect(prompt).toContain("planning-review loop");
+    expect(prompt).toContain("## Vault context");
+    expect(prompt).toContain("### Section 1");
+    expect(prompt).toContain("### Section 2");
+  });
+
+  test("planning phase vault context uses reduced char budget", () => {
+    const plan = makePlan({
+      status: "planning",
+      approved: false
+    });
+    const status = makeStatus({ phase: "planning" });
+    const bigVault: VaultContext = {
+      plan: [{ path: "vault/plans/test/big.md", title: "Big doc", content: "Y".repeat(2000) }],
+      shared: [{ path: "vault/shared/big2.md", title: "Big shared", content: "Z".repeat(2000) }]
+    };
+
+    const prompt = buildResumePrompt(plan, status, bigVault, null);
+
+    expect(prompt).toContain("## Vault context");
+    // The vault section should be truncated due to the 1500 char planning budget
+    expect(prompt).toContain("[vault content truncated]");
+    // The second document should not appear because 1500 budget can't fit both
+    expect(prompt).not.toContain("### Big shared");
+  });
+
+  test("planning phase omits vault context when no vault and no search results", () => {
+    const plan = makePlan({
+      status: "planning",
+      approved: false
+    });
+    const status = makeStatus({ phase: "planning" });
+
+    const prompt = buildResumePrompt(plan, status, null, null);
+
+    expect(prompt).toContain("planning-review loop");
     expect(prompt).not.toContain("## Vault context");
-    expect(prompt).not.toContain("### Section 1");
   });
 
   test("char budget is respected with semantic search results in full prompt", () => {

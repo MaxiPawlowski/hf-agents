@@ -1,9 +1,12 @@
 import path from "node:path";
 import { promises as fs } from "node:fs";
 
-import type { ParsedPlan, RuntimeEvent, RuntimeStatus } from "./types.js";
+import type { ParsedPlan, RuntimeEvent, RuntimeStatus, VaultContext, VaultDocument, VaultPaths } from "./types.js";
 import { validateTurnOutcome } from "./turn-outcome-trailer.js";
-import { isRecord } from "./type-guards.js";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 export interface RuntimePaths {
   runtimeDir: string;
@@ -11,6 +14,19 @@ export interface RuntimePaths {
   eventsPath: string;
   resumePromptPath: string;
 }
+
+const PLAN_VAULT_FILES = [
+  { name: "context.md", title: "Plan context" },
+  { name: "discoveries.md", title: "Plan discoveries" },
+  { name: "decisions.md", title: "Plan decisions" },
+  { name: "references.md", title: "Plan references" }
+] as const;
+
+const SHARED_VAULT_FILES = [
+  { name: "architecture.md", title: "Shared architecture" },
+  { name: "patterns.md", title: "Shared patterns" },
+  { name: "decisions.md", title: "Shared decisions" }
+] as const;
 
 export function getRuntimePaths(plan: ParsedPlan): RuntimePaths {
   const runtimeDir = path.join(path.dirname(plan.path), "runtime", plan.slug);
@@ -20,6 +36,22 @@ export function getRuntimePaths(plan: ParsedPlan): RuntimePaths {
     statusPath: path.join(runtimeDir, "status.json"),
     eventsPath: path.join(runtimeDir, "events.jsonl"),
     resumePromptPath: path.join(runtimeDir, "resume-prompt.txt")
+  };
+}
+
+export function getVaultPaths(plan: ParsedPlan): VaultPaths {
+  const plansDir = path.dirname(plan.path);
+  const repoRoot = path.dirname(plansDir);
+  const vaultRoot = path.join(repoRoot, "vault");
+  const planDir = path.join(vaultRoot, "plans", plan.slug);
+  const sharedDir = path.join(vaultRoot, "shared");
+
+  return {
+    vaultRoot,
+    planDir,
+    sharedDir,
+    planFiles: PLAN_VAULT_FILES.map((file) => path.join(planDir, file.name)),
+    sharedFiles: SHARED_VAULT_FILES.map((file) => path.join(sharedDir, file.name))
   };
 }
 
@@ -70,6 +102,43 @@ export async function readEventLines(runtimePaths: RuntimePaths): Promise<string
     }
     throw error;
   }
+}
+
+export async function readVaultContext(vaultPaths: VaultPaths): Promise<VaultContext> {
+  const [plan, shared] = await Promise.all([
+    readVaultDocuments(vaultPaths.planFiles, PLAN_VAULT_FILES),
+    readVaultDocuments(vaultPaths.sharedFiles, SHARED_VAULT_FILES)
+  ]);
+
+  return { plan, shared };
+}
+
+async function readVaultDocuments(
+  filePaths: string[],
+  fileDefs: ReadonlyArray<{ name: string; title: string }>
+): Promise<VaultDocument[]> {
+  const documents = await Promise.all(filePaths.map(async (filePath, index) => {
+    try {
+      const content = await fs.readFile(filePath, "utf8");
+      const trimmed = content.trim();
+      if (!trimmed) {
+        return null;
+      }
+
+      return {
+        path: filePath,
+        title: fileDefs[index]?.title ?? path.basename(filePath, path.extname(filePath)),
+        content: trimmed
+      };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return null;
+      }
+      throw error;
+    }
+  }));
+
+  return documents.filter((document): document is VaultDocument => document !== null);
 }
 
 function validateRuntimeStatus(value: unknown, statusPath: string): asserts value is RuntimeStatus {

@@ -16,7 +16,6 @@ Keep shared review notes in `agents/REVIEW.md` and colocate starter fixtures in 
 - Context distribution: does `hf-planner` distribute local-context findings to individual milestones as `scope`, `conventions`, and `notes` metadata?
 - Review policy assignment: does `hf-planner` assign `review: required`, `auto`, or `skip` to each milestone based on complexity and risk?
 - Builder review policy: does `hf-builder` respect the milestone's `review` policy — dispatching `hf-reviewer` only for `required`, self-verifying for `auto`, and skipping for `skip`?
-- Builder loop handling: does `hf-builder` expand `loop` glob patterns, process items individually, and apply retry-then-escalate on failure?
 - Review gating: does `hf-builder` still refuse to mark a `review: required` milestone complete without reviewer approval and plan-doc evidence?
 - Completion gate: does `hf-builder` still require `hf-verification-before-completion` before `status: complete`?
 - Blocked behavior: does coder-blocked or reviewer-escalated work stop and surface the smallest unblock step to the user?
@@ -30,6 +29,5 @@ Add new cases in `agents/evals/evals.json` when prompt edits change:
 - manual research escalation wording
 - context distribution across milestones
 - review policy assignment and enforcement
-- loop milestone expansion and item processing
 - reviewer approval-loop rules
 - final verification before plan completion

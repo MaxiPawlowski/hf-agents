@@ -169,6 +169,21 @@ describe("vault-store", () => {
       const result = await loadIndex("/nonexistent/path/index.json");
       expect(result).toBeNull();
     });
+
+    test("returns null for corrupted index file instead of throwing", async () => {
+      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "vault-store-corrupt-"));
+      const indexPath = path.join(tmpDir, ".vault-index.json");
+
+      try {
+        await fs.writeFile(indexPath, "{ not valid json !!!", "utf8");
+
+        const result = await loadIndex(indexPath);
+
+        expect(result).toBeNull();
+      } finally {
+        await fs.rm(tmpDir, { recursive: true, force: true });
+      }
+    });
   });
 
   describe("saveIndex and loadIndex round-trip", () => {

@@ -101,31 +101,6 @@
           "insert evidence before the metadata lines"
         ]
       }
-    },
-    {
-      "id": "milestone-tracking-loop-milestone-completion-format",
-      "focus": [
-        "loop milestone evidence",
-        "completion format"
-      ],
-      "input": {
-        "plan_state": [
-          "Current milestone is a loop milestone: loop: src/modules/**/*.ts",
-          "All 3 items have been processed successfully",
-          "Final verification has run"
-        ]
-      },
-      "expected": {
-        "must_include": [
-          "completed: 3/3 items in the milestone evidence",
-          "final verification evidence under the loop milestone",
-          "milestone checkbox changed from - [ ] to - [x]"
-        ],
-        "must_not": [
-          "enumerate individual item checkboxes in the plan doc",
-          "omit the item count from the completion evidence"
-        ]
-      }
     }
   ]
 }

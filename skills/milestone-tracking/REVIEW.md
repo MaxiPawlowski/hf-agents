@@ -15,7 +15,6 @@ Use these checks when editing `skills/milestone-tracking/SKILL.md` or extending 
 - Current-milestone discipline: does it still target the first unchecked milestone and stop after one plan-doc update?
 - Failure clarity: does malformed plan state produce one concrete unblock step instead of guessed repairs?
 - Enriched metadata preservation: does evidence append after existing metadata lines (`scope`, `conventions`, `review` policy) rather than replacing them?
-- Loop milestone evidence: does it record `completed: N/N items` and final verification for loop milestones?
 
 ## Adding Coverage
 
@@ -25,4 +24,3 @@ Add new cases in `skills/milestone-tracking/evals/evals.json` when prompt edits 
 - where milestone or final verification evidence must be recorded
 - when `status: complete` is allowed
 - evidence placement relative to enriched metadata lines
-- loop milestone completion format

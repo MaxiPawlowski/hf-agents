@@ -95,7 +95,7 @@ describe("parsePlan enriched milestones", () => {
       "  - review: auto",
       "  - files: `src/api/users.ts`",
       "  - verification: `npm test` passed",
-      "  - review: approved by hf-reviewer - looks good"
+      "  - review_result: approved by hf-reviewer - looks good"
     ].join("\n"));
 
     const plan = await parsePlan(planPath);
@@ -103,7 +103,7 @@ describe("parsePlan enriched milestones", () => {
 
     expect(m.context?.scope).toEqual(["src/api/users.ts"]);
     expect(m.reviewPolicy).toBe("auto");
-    // Evidence review line should not overwrite policy
+    // Evidence review_result line should not overwrite policy
     expect(m.reviewPolicy).not.toBe("approved by hf-reviewer - looks good");
   });
 

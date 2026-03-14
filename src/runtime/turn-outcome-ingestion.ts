@@ -3,7 +3,10 @@ import {
   parseTurnOutcomeInput,
   type TurnOutcomeTrailerParseResult
 } from "./turn-outcome-trailer.js";
-import { isRecord } from "./type-guards.js";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 interface TurnOutcomeCandidate {
   source: string;

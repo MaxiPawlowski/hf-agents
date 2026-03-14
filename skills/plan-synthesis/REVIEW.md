@@ -19,7 +19,6 @@ Use these checks when editing `skills/plan-synthesis/SKILL.md`, changing plan fo
 - Contract clarity: can a builder report progress or blocked state without inventing missing context?
 - Context distribution: does each milestone carry `scope` and `conventions` metadata from local-context findings, rather than leaving them only in the Research Summary?
 - Review policy: does each milestone declare `review: required`, `auto`, or `skip` based on risk and complexity?
-- Loop milestones: are dynamic-set milestones expressed with `loop`, `per-item`, and optionally `skill` metadata instead of enumerating items?
 - Backward compatibility: do milestones without metadata lines still match the valid format?
 - Plan richness: does the Overview explain approach rationale and exclusions, not just restate the intent?
 - Research depth: does the Research Summary contain specific file-level findings and key decisions, not just file names?
@@ -37,7 +36,6 @@ Add new cases in `skills/plan-synthesis/evals/evals.json` when prompt edits chan
 - blocked behavior for missing research
 - context metadata distribution across milestones
 - review policy assignment rationale
-- loop milestone syntax for dynamic item sets
 - plan richness, overview depth, or research summary structure
 - milestone description and acceptance criteria expectations
 - proportionality guidance for simple vs complex plans

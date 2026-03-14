@@ -4,6 +4,7 @@ import { query } from "./vault-store.js";
 import type { PlanMilestone, ParsedPlan, RuntimeStatus, VaultContext, VaultDocument, VaultIndex, VaultSearchResult } from "./types.js";
 
 const DEFAULT_VAULT_CHAR_BUDGET = 3000;
+const PLANNING_VAULT_CHAR_BUDGET = 1500;
 const DEFAULT_SEMANTIC_TOP_K = 5;
 
 function formatMilestoneContext(milestone: PlanMilestone): string[] {
@@ -227,6 +228,13 @@ export function buildResumePrompt(
     const recoveryLines = formatRecoveryContext(status);
     if (recoveryLines.length > 0) {
       lines.push(...recoveryLines);
+    }
+
+    const planningVaultLines = vaultSearchResults && vaultSearchResults.length > 0
+      ? formatSemanticVaultContext(vaultSearchResults, PLANNING_VAULT_CHAR_BUDGET)
+      : formatVaultContext(vault, PLANNING_VAULT_CHAR_BUDGET);
+    if (planningVaultLines.length > 0) {
+      lines.push(...planningVaultLines);
     }
 
     lines.push("## Instructions");

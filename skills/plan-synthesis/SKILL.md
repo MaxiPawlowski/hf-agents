@@ -164,6 +164,6 @@ Policy keys control execution flow:
 Evidence keys are appended by the builder on completion (not written by the planner):
 - `files`: paths modified during implementation.
 - `verification`: command and result.
-- `review: approved by hf-reviewer - <reason>` (value distinguishes evidence from policy).
+- `review_result: approved by hf-reviewer - <reason>`
 
 Metadata lines are optional enrichments. A milestone with only the checkbox line is still valid (backward compatible). But every milestone should carry at least `scope` and `review` when the planner has the information.

@@ -127,8 +127,7 @@
           "Only after reviewer approval"
         ],
         "must_not": [
-          "hand off to hf-builder before review",
-          "use loop milestones"
+          "hand off to hf-builder before review"
         ]
       }
     },

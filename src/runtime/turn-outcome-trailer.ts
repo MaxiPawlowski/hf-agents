@@ -1,5 +1,8 @@
 import type { RuntimeEvent, TurnOutcome } from "./types.js";
-import { isRecord } from "./type-guards.js";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 export const TURN_OUTCOME_TRAILER_LABEL = "turn_outcome:";
 

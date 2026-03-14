@@ -86,31 +86,6 @@
       }
     },
     {
-      "id": "plan-synthesis-uses-loop-milestones-for-dynamic-sets",
-      "focus": [
-        "loop milestone syntax",
-        "dynamic item sets"
-      ],
-      "input": {
-        "intent": "Run code-simplifier on every module file in the project.",
-        "research_signals": [
-          "Module files are at src/modules/**/*.ts",
-          "Unknown number of files"
-        ]
-      },
-      "expected": {
-        "must_include": [
-          "loop metadata with a glob pattern",
-          "per-item acceptance criterion",
-          "skill metadata when a specific skill is named"
-        ],
-        "must_not": [
-          "enumerate individual files as separate milestones",
-          "fixed milestone count for unknown item sets"
-        ]
-      }
-    },
-    {
       "id": "plan-synthesis-milestones-support-builder-reporting",
       "focus": [
         "contract clarity",

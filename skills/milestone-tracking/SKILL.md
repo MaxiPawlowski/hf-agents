@@ -87,7 +87,7 @@ If blocked, return:
 
 - Loaded by `hf-builder`.
 - Consumes the plan doc written by `hf-plan-synthesis`.
-- Records reviewer-approved evidence in the same plan doc the runtime reads.
+- Records reviewer-approved evidence (`review_result:` key) in the same plan doc the runtime reads.
 
 ## Required Output
 

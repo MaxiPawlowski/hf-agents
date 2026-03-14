@@ -73,6 +73,12 @@ export async function loadIndex(indexPath: string): Promise<VaultIndex | null> {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return null;
     }
+    if (error instanceof SyntaxError) {
+      console.error(
+        `[vault-store] Corrupted index file, rebuilding from scratch: ${indexPath}`,
+      );
+      return null;
+    }
     throw error;
   }
 }

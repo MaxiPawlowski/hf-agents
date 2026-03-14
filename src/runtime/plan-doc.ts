@@ -84,7 +84,7 @@ function parseMetadataLines(
         if (REVIEW_POLICY_VALUES.has(value)) {
           reviewPolicy = value as ReviewPolicy;
         }
-        // Evidence values like "approved by hf-reviewer..." are ignored
+        // Legacy evidence values are ignored; new evidence uses review_result: key
         break;
       default:
         // Ignore evidence keys and unknown keys
@@ -194,7 +194,7 @@ export async function parsePlan(planPath: string): Promise<ParsedPlan> {
     path: absolutePlanPath,
     slug: derivePlanSlug(absolutePlanPath),
     raw,
-    userIntent,
+    ...(userIntent ? { userIntent } : {}),
     milestones,
     currentMilestone,
     status,

@@ -142,7 +142,7 @@ export class HybridLoopRuntime implements LoopRuntime {
       counters: {
         ...defaults.counters,
         ...baseStatus.counters,
-        totalAttempts: baseStatus.counters.totalAttempts ?? baseStatus.counters.totalTurns,
+        totalAttempts: baseStatus.counters.totalAttempts,
         maxTotalTurns: plan.config.maxTotalTurns
       },
       subagents: baseStatus.subagents ?? [],
@@ -380,8 +380,6 @@ export class HybridLoopRuntime implements LoopRuntime {
     const plan = this.requirePlan();
     const status = this.requireStatus();
     const runtimePaths = await ensureRuntimeDir(plan);
-    this.vault = await readVaultContext(getVaultPaths(plan));
-    await this.refreshVaultIndex();
     const prompt = buildResumePrompt(plan, status, this.vault, this.vaultSearchResults);
 
     await Promise.all([
