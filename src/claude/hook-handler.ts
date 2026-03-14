@@ -5,7 +5,7 @@ import {
   recordCompactionArchive,
   recordSubagentLifecycle
 } from "../adapters/lifecycle.js";
-import { HybridLoopRuntime, resolveManagedPlanPath } from "../runtime/runtime.js";
+import { HybridLoopRuntime, isManagedPlanUnavailable, resolveManagedPlanPath } from "../runtime/runtime.js";
 import { detectTurnOutcomeInPayload } from "../runtime/turn-outcome-ingestion.js";
 import type { RuntimeEvent } from "../runtime/types.js";
 
@@ -55,9 +55,24 @@ export async function handleClaudeHook(
   }
 
   const runtime = new HybridLoopRuntime();
-  const resolvedPlanPath = await resolveManagedPlanPath(cwd, explicitPlanPath);
+  try {
+    const resolvedPlanPath = await resolveManagedPlanPath(cwd, explicitPlanPath);
+    await runtime.hydrate(resolvedPlanPath);
+  } catch (error) {
+    if (!isManagedPlanUnavailable(error)) {
+      throw error;
+    }
 
-  await runtime.hydrate(resolvedPlanPath);
+    if (eventName === "SessionStart" || eventName === "UserPromptSubmit" || eventName === "PreCompact") {
+      return {
+        hookSpecificOutput: {
+          hookEventName: eventName
+        }
+      };
+    }
+
+    return { decision: "allow" };
+  }
   if (eventName !== "Stop") {
     await runtime.recordEvent(toRuntimeEvent(eventName, input));
   }

@@ -28,6 +28,7 @@ You are Coder.
 ## Preconditions
 
 - You have a single milestone scope: title, one-line scope, and acceptance criterion.
+- You may receive enriched context alongside the milestone: `scope` (target file paths), `conventions` (patterns to follow with reference files), and `notes` (additional guidance). When present, use these as your starting point instead of re-exploring the repo.
 - You have relevant local context from the plan doc's Research Summary or equivalent repo notes.
 - You do not need the full plan - only the current milestone, its acceptance criterion, and any directly relevant context.
 

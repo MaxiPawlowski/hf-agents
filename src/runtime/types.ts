@@ -79,6 +79,7 @@ export interface RuntimeStatus {
   planSlug: string;
   planMtimeMs: number;
   loopState: "idle" | "running" | "paused" | "escalated" | "complete";
+  phase: "planning" | "execution";
   currentMilestone: PlanMilestone | null;
   counters: RuntimeCounters;
   lastProgressAt?: string;
@@ -108,23 +109,92 @@ export interface ContinueDecision {
   resume_prompt?: string;
 }
 
+export interface MilestoneContext {
+  scope?: string[];
+  conventions?: string;
+  notes?: string;
+}
+
+export type ReviewPolicy = "required" | "auto" | "skip";
+
+export interface LoopConfig {
+  pattern: string;
+  skill?: string;
+  perItem?: string;
+}
+
 export interface PlanMilestone {
   index: number;
   checked: boolean;
   text: string;
   title: string;
+  context?: MilestoneContext;
+  reviewPolicy?: ReviewPolicy;
 }
 
 export interface ParsedPlan {
   path: string;
   slug: string;
   raw: string;
+  userIntent?: string;
   milestones: PlanMilestone[];
   currentMilestone: PlanMilestone | null;
-  status: "in-progress" | "complete";
+  status: "planning" | "in-progress" | "complete";
   completed: boolean;
+  approved: boolean;
   mtimeMs: number;
   config: PlanConfig;
+}
+
+export interface VaultPaths {
+  vaultRoot: string;
+  planDir: string;
+  sharedDir: string;
+  planFiles: string[];
+  sharedFiles: string[];
+}
+
+export interface VaultDocument {
+  path: string;
+  title: string;
+  content: string;
+}
+
+export interface VaultContext {
+  plan: VaultDocument[];
+  shared: VaultDocument[];
+}
+
+export interface VaultChunk {
+  /** Deterministic id derived from file path + section title, for deduplication. */
+  id: string;
+  /** Header line + body text of the section (markdown preserved). */
+  text: string;
+  /** Tracing metadata linking back to the source document. */
+  metadata: {
+    sourcePath: string;
+    sectionTitle: string;
+    documentTitle: string;
+  };
+}
+
+export interface VaultIndexEntry {
+  id: string;
+  vector: number[];
+  text: string;
+  metadata: VaultChunk["metadata"];
+}
+
+export interface VaultIndex {
+  entries: VaultIndexEntry[];
+  contentHash: string;
+  timestamp: string;
+}
+
+export interface VaultSearchResult {
+  score: number;
+  text: string;
+  metadata: VaultChunk["metadata"];
 }
 
 export interface LoopRuntime {

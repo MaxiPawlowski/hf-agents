@@ -13,7 +13,9 @@ Keep shared review notes in `subagents/REVIEW.md` and colocate starter fixtures 
 ## Regression Checks
 
 - Scope discipline: does `hf-coder` stay inside the supplied milestone scope and report precise evidence?
+- Enriched context usage: does `hf-coder` use `scope`, `conventions`, and `notes` from enriched milestones as starting points instead of re-exploring?
 - Approval gate: does `hf-reviewer` refuse approval when required evidence is missing, stale, or not specific to the reviewed change?
+- Technical testing: does `hf-reviewer` actively run or inspect the narrowest useful checks instead of behaving like a passive code approver?
 - Action ownership: does `hf-reviewer` return the correct `next_action_owner` for coder, builder, and user follow-ups?
 - Rejection quality: when not approved, does `hf-reviewer` return one concrete next action instead of broad rewrite guidance?
 - Runtime-owned thresholds: does `hf-verification-before-completion` avoid local retry or circuit-breaker counts?
@@ -23,7 +25,9 @@ Keep shared review notes in `subagents/REVIEW.md` and colocate starter fixtures 
 Add new cases in `subagents/evals/evals.json` when prompt edits change:
 
 - coder scope boundaries
+- coder use of enriched milestone context
 - reviewer approval thresholds
+- reviewer technical-testing behavior
 - reviewer next-action ownership
 - rejection loop payload shape
 - final verification completion behavior

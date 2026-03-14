@@ -9,3 +9,5 @@ dist/
 .opencode/plugins/hybrid-runtime.js
 .tmp/
 .claude/settings.local.json
+*.tgz
+vault/.vault-index.json

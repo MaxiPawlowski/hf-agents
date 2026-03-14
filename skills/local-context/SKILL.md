@@ -56,6 +56,7 @@ If blocked, return:
 - Loaded directly by `hf-planner`.
 - Consumes planner-supplied `local_search_targets`.
 - Feeds `hf-plan-synthesis` through the active planner.
+- Findings will be distributed across plan milestones as enriched metadata (`scope`, `conventions`, `notes`) by `hf-plan-synthesis`. Output context that maps naturally to specific areas of work so the planner can attach findings to individual milestones.
 
 ## Required Output
 

@@ -82,6 +82,7 @@ function validateRuntimeStatus(value: unknown, statusPath: string): asserts valu
   expectString(value.planSlug, "planSlug", statusPath);
   expectNumber(value.planMtimeMs, "planMtimeMs", statusPath);
   expectEnum(value.loopState, ["idle", "running", "paused", "escalated", "complete"], "loopState", statusPath);
+  expectEnum(value.phase, ["planning", "execution"], "phase", statusPath);
   expectNullableMilestone(value.currentMilestone, "currentMilestone", statusPath);
   expectCounters(value.counters, statusPath);
   expectSessions(value.sessions, statusPath);

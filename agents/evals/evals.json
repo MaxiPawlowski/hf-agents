@@ -87,6 +87,143 @@
           "treat checked milestones alone as enough for plan completion"
         ]
       }
+    },
+    {
+      "id": "planner-distributes-context-to-milestones",
+      "prompt": "agents/hf-planner.md",
+      "focus": [
+        "context distribution",
+        "enriched milestones"
+      ],
+      "input": {
+        "request": "Plan a feature that touches multiple files across the codebase."
+      },
+      "expected": {
+        "must_include": [
+          "distribute local-context findings across milestones",
+          "scope",
+          "conventions",
+          "review"
+        ],
+        "must_not": [
+          "leave all context only in the Research Summary"
+        ]
+      }
+    },
+    {
+      "id": "planner-requires-plan-reviewer-before-builder-handoff",
+      "prompt": "agents/hf-planner.md",
+      "focus": [
+        "planning approval",
+        "runtime-owned planner-reviewer loop"
+      ],
+      "input": {
+        "request": "Plan an exhaustive repo-wide cleanup and hand it to the builder."
+      },
+      "expected": {
+        "must_include": [
+          "hf-plan-reviewer",
+          "status: planning",
+          "Only after reviewer approval"
+        ],
+        "must_not": [
+          "hand off to hf-builder before review",
+          "use loop milestones"
+        ]
+      }
+    },
+    {
+      "id": "builder-respects-review-auto-policy",
+      "prompt": "agents/hf-builder.md",
+      "focus": [
+        "review policy enforcement",
+        "auto verification"
+      ],
+      "input": {
+        "milestone_state": "current milestone has review: auto",
+        "coder_state": "coder output received"
+      },
+      "expected": {
+        "must_include": [
+          "run the narrowest verification command directly",
+          "mark milestone complete without dispatching hf-reviewer if verification passes"
+        ],
+        "must_not": [
+          "dispatch hf-reviewer for review: auto milestones"
+        ]
+      }
+    },
+    {
+      "id": "builder-executes-one-enumerated-milestone-at-a-time",
+      "prompt": "agents/hf-builder.md",
+      "focus": [
+        "explicit milestone discipline",
+        "no hidden decomposition"
+      ],
+      "input": {
+        "milestone_state": "current milestone is one file in a fully enumerated exhaustive plan"
+      },
+      "expected": {
+        "must_include": [
+          "identify the first unchecked milestone",
+          "Do not expand file sets, invent hidden substeps, or rewrite milestone structure during execution"
+        ],
+        "must_not": [
+          "expand the loop glob pattern",
+          "process all items as a single batch"
+        ]
+      }
+    },
+    {
+      "id": "builder-surfaces-coder-blocked-to-user",
+      "prompt": "agents/hf-builder.md",
+      "focus": [
+        "blocked behavior",
+        "unblock escalation"
+      ],
+      "input": {
+        "milestone_state": "current milestone is in progress",
+        "coder_state": "hf-coder returned blocked: cannot proceed without knowing which adapter interface to implement",
+        "builder_state": "builder cannot resolve the blocker without user input"
+      },
+      "expected": {
+        "must_include": [
+          "surface the specific blocker to the user",
+          "state the smallest unblock step (e.g., which interface to use)",
+          "stop and wait rather than retrying the coder"
+        ],
+        "must_not": [
+          "retry hf-coder with the same inputs",
+          "silently drop the blocked state and advance the milestone"
+        ]
+      }
+    },
+    {
+      "id": "builder-forwards-enriched-context-to-coder",
+      "prompt": "agents/hf-builder.md",
+      "focus": [
+        "context forwarding",
+        "enriched milestones"
+      ],
+      "input": {
+        "milestone_state": "current milestone has enriched metadata",
+        "milestone_metadata": {
+          "scope": ["src/api/users.ts", "tests/api/users.test.ts"],
+          "conventions": "zod validation (ref: src/api/auth.ts), vitest for tests",
+          "notes": "endpoint uses express router pattern",
+          "review": "required"
+        }
+      },
+      "expected": {
+        "must_include": [
+          "forward scope, conventions, and notes to hf-coder",
+          "enriched context present in the coder dispatch payload"
+        ],
+        "must_not": [
+          "strip enriched metadata before dispatching hf-coder",
+          "require hf-coder to re-explore files already identified in scope"
+        ]
+      }
     }
   ]
 }

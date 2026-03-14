@@ -15,7 +15,7 @@ describe("lean-core repo shape", () => {
       .sort();
 
     expect(agentFiles).toEqual(["hf-builder.md", "hf-planner.md"]);
-    expect(subagentFiles).toEqual(["hf-coder.md", "hf-reviewer.md"]);
+    expect(subagentFiles).toEqual(["hf-coder.md", "hf-plan-reviewer.md", "hf-reviewer.md"]);
   });
 
   test("registry and sync script expose the same lean-core prompt set", async () => {
@@ -30,6 +30,7 @@ describe("lean-core repo shape", () => {
       "../agents/hf-builder.md",
       "../agents/hf-planner.md",
       "../subagents/hf-coder.md",
+      "../subagents/hf-plan-reviewer.md",
       "../subagents/hf-reviewer.md"
     ]);
 
@@ -37,6 +38,7 @@ describe("lean-core repo shape", () => {
     expect(syncScript).toContain('"agents/hf-planner.md"');
     expect(syncScript).toContain('"agents/hf-builder.md"');
     expect(syncScript).toContain('"subagents/hf-coder.md"');
+    expect(syncScript).toContain('"subagents/hf-plan-reviewer.md"');
     expect(syncScript).toContain('"subagents/hf-reviewer.md"');
     expect(syncScript).not.toContain("hf-builder-deep");
     expect(syncScript).not.toContain("hf-build-validator");

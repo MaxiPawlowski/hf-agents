@@ -1,0 +1,156 @@
+{
+  "skill": "hf-workflow-eval",
+  "purpose": "Starter fixtures for the three-pass workflow evaluation skill.",
+  "cases": [
+    {
+      "id": "workflow-eval-runs-all-three-passes",
+      "focus": [
+        "complete evaluation",
+        "report structure"
+      ],
+      "input": {
+        "state": "Framework has eval fixtures, runtime artifacts from one completed plan, and REVIEW.md files for all surfaces."
+      },
+      "expected": {
+        "must_include": [
+          "Prompt Regression section with per-case results",
+          "Execution Analysis section with per-plan metrics",
+          "Prompt Quality Audit section with per-surface coverage",
+          "Recommendations section with prioritized improvements",
+          "overall health score"
+        ],
+        "must_not": [
+          "skip any pass without explanation",
+          "recommendations without specific file citations"
+        ]
+      }
+    },
+    {
+      "id": "workflow-eval-handles-missing-runtime-artifacts",
+      "focus": [
+        "graceful degradation",
+        "partial results"
+      ],
+      "input": {
+        "state": "Framework has eval fixtures and REVIEW.md files but no plans/runtime/ directory (no plan has been executed yet)."
+      },
+      "expected": {
+        "must_include": [
+          "Pass 2 skipped note explaining no runtime artifacts found",
+          "Pass 1 and Pass 3 still produce results",
+          "report file is still written"
+        ],
+        "must_not": [
+          "fail the entire evaluation because one pass has no inputs",
+          "report execution metrics as zero instead of skipped"
+        ]
+      }
+    },
+    {
+      "id": "workflow-eval-detects-prompt-regression",
+      "focus": [
+        "prompt regression detection",
+        "semantic matching"
+      ],
+      "input": {
+        "state": "An eval case has must_include 'concrete acceptance criterion for every milestone' but the plan-synthesis prompt was edited to remove acceptance criteria language."
+      },
+      "expected": {
+        "must_include": [
+          "fail or warn result for the affected case",
+          "specific citation of which prompt file and which must_include item failed",
+          "recommendation to restore the missing behavior"
+        ],
+        "must_not": [
+          "pass the case because other milestones concepts are present",
+          "vague note like 'some regressions detected'"
+        ]
+      }
+    },
+    {
+      "id": "workflow-eval-finds-coverage-gaps",
+      "focus": [
+        "eval coverage cross-reference",
+        "quality audit"
+      ],
+      "input": {
+        "state": "A REVIEW.md lists a regression check for 'review policy assignment' but no eval case in the corresponding evals.json has 'review policy' in its focus topics."
+      },
+      "expected": {
+        "must_include": [
+          "coverage gap flagged for the uncovered regression check",
+          "specific REVIEW.md file and check text cited",
+          "recommendation to add an eval case"
+        ],
+        "must_not": [
+          "silently ignore regression checks without eval coverage",
+          "flag only the first gap and skip the rest"
+        ]
+      }
+    },
+    {
+      "id": "workflow-eval-flags-pass2-threshold-violations",
+      "focus": [
+        "execution thresholds",
+        "Pass 2 metrics",
+        "warn flags"
+      ],
+      "input": {
+        "state": "Runtime artifact shows turn efficiency of 7.0 turns/milestone (threshold: >5) and a no-progress streak of 4 turns (threshold: >=3)."
+      },
+      "expected": {
+        "must_include": [
+          "warn flag for turn efficiency exceeding 5 turns/milestone",
+          "warn flag for no-progress streak of 3 or more",
+          "specific threshold values cited in the flags ('>5' and '>=3')"
+        ],
+        "must_not": [
+          "report metrics without threshold flags",
+          "use different threshold values than those documented in the skill"
+        ]
+      }
+    },
+    {
+      "id": "workflow-eval-flags-undocumented-behavior-in-pass3",
+      "focus": [
+        "undocumented behavior detection",
+        "Pass 3 audit"
+      ],
+      "input": {
+        "state": "A prompt file contains the line 'Iron law: every finding must cite the specific file and line that triggered it.' No REVIEW.md regression check mentions citation discipline or the iron law."
+      },
+      "expected": {
+        "must_include": [
+          "undocumented behavior flagged with the specific file path containing the iron law",
+          "explanation that this behavior is a risk if changed without REVIEW.md coverage",
+          "specific text or paraphrase of the undocumented behavior"
+        ],
+        "must_not": [
+          "silently skip prompt behaviors not mentioned in REVIEW.md",
+          "require a REVIEW.md entry to exist before reporting undocumented behaviors"
+        ]
+      }
+    },
+    {
+      "id": "workflow-eval-applies-health-scoring-thresholds",
+      "focus": [
+        "health scoring",
+        "overall status",
+        "scoring thresholds"
+      ],
+      "input": {
+        "state": "Evaluation results: Pass 1 has 1 warn and 0 fail. Pass 3 has 2 coverage gaps. No fail findings anywhere."
+      },
+      "expected": {
+        "must_include": [
+          "overall health: needs attention (not good, not action required)",
+          "scoring follows the documented rule: any warn or 1-2 gaps = needs attention"
+        ],
+        "must_not": [
+          "report good health when warn findings or gaps are present",
+          "report action required when there are no fail findings and fewer than 3 gaps"
+        ]
+      }
+    }
+  ]
+}

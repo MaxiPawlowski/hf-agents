@@ -3,6 +3,13 @@ import { isRecord } from "./type-guards.js";
 
 export const TURN_OUTCOME_TRAILER_LABEL = "turn_outcome:";
 
+const TRAILER_PATTERN = /(?:^|\r?\n)turn_outcome:\s*\r?\n```json\s*\r?\n([\s\S]*?)\r?\n```\s*$/;
+const ALLOWED_STATES = new Set(["progress", "blocked", "milestone_complete", "plan_complete", "needs_review"]);
+const ALLOWED_RESULTS = new Set(["pass", "fail", "not_run"]);
+const ROOT_KEYS = new Set(["state", "summary", "files_changed", "tests_run", "blocker", "next_action"]);
+const TEST_KEYS = new Set(["command", "result", "summary"]);
+const BLOCKER_KEYS = new Set(["message", "signature"]);
+
 export const TURN_OUTCOME_TRAILER_FORMAT = [
   "turn_outcome:",
   "```json",
@@ -53,10 +60,9 @@ function describeType(value: unknown): string {
 function pushUnexpectedKeys(
   issues: TurnOutcomeValidationIssue[],
   value: Record<string, unknown>,
-  allowed: string[],
+  allowedKeys: Set<string>,
   path: string
 ): void {
-  const allowedKeys = new Set(allowed);
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) {
       issues.push({ path, message: `unexpected property \"${key}\"` });
@@ -70,13 +76,12 @@ export function validateTurnOutcome(value: unknown): TurnOutcomeValidationIssue[
     return [{ path: "$", message: `expected object, received ${describeType(value)}` }];
   }
 
-  pushUnexpectedKeys(issues, value, ["state", "summary", "files_changed", "tests_run", "blocker", "next_action"], "$");
+  pushUnexpectedKeys(issues, value, ROOT_KEYS, "$");
 
-  const allowedStates = new Set(["progress", "blocked", "milestone_complete", "plan_complete", "needs_review"]);
   if (typeof value.state !== "string") {
     issues.push({ path: "$.state", message: `expected string, received ${describeType(value.state)}` });
-  } else if (!allowedStates.has(value.state)) {
-    issues.push({ path: "$.state", message: `expected one of ${Array.from(allowedStates).join(", ")}` });
+  } else if (!ALLOWED_STATES.has(value.state)) {
+    issues.push({ path: "$.state", message: `expected one of ${Array.from(ALLOWED_STATES).join(", ")}` });
   }
 
   if (typeof value.summary !== "string") {
@@ -98,21 +103,20 @@ export function validateTurnOutcome(value: unknown): TurnOutcomeValidationIssue[
   if (!Array.isArray(value.tests_run)) {
     issues.push({ path: "$.tests_run", message: `expected array, received ${describeType(value.tests_run)}` });
   } else {
-    const allowedResults = new Set(["pass", "fail", "not_run"]);
     value.tests_run.forEach((test, index) => {
       const testPath = `$.tests_run[${index}]`;
       if (!isRecord(test)) {
         issues.push({ path: testPath, message: `expected object, received ${describeType(test)}` });
         return;
       }
-      pushUnexpectedKeys(issues, test, ["command", "result", "summary"], testPath);
+      pushUnexpectedKeys(issues, test, TEST_KEYS, testPath);
       if (typeof test.command !== "string") {
         issues.push({ path: `${testPath}.command`, message: `expected string, received ${describeType(test.command)}` });
       }
       if (typeof test.result !== "string") {
         issues.push({ path: `${testPath}.result`, message: `expected string, received ${describeType(test.result)}` });
-      } else if (!allowedResults.has(test.result)) {
-        issues.push({ path: `${testPath}.result`, message: `expected one of ${Array.from(allowedResults).join(", ")}` });
+      } else if (!ALLOWED_RESULTS.has(test.result)) {
+        issues.push({ path: `${testPath}.result`, message: `expected one of ${Array.from(ALLOWED_RESULTS).join(", ")}` });
       }
       if (test.summary !== undefined && typeof test.summary !== "string") {
         issues.push({ path: `${testPath}.summary`, message: `expected string, received ${describeType(test.summary)}` });
@@ -124,7 +128,7 @@ export function validateTurnOutcome(value: unknown): TurnOutcomeValidationIssue[
     if (!isRecord(value.blocker)) {
       issues.push({ path: "$.blocker", message: `expected object or null, received ${describeType(value.blocker)}` });
     } else {
-      pushUnexpectedKeys(issues, value.blocker, ["message", "signature"], "$.blocker");
+      pushUnexpectedKeys(issues, value.blocker, BLOCKER_KEYS, "$.blocker");
       if (typeof value.blocker.message !== "string") {
         issues.push({ path: "$.blocker.message", message: `expected string, received ${describeType(value.blocker.message)}` });
       }
@@ -175,8 +179,7 @@ function parseOutcomeJson(rawJson: string, source: "trailer" | "raw_json"): Turn
 }
 
 export function extractTurnOutcomeTrailer(text: string): TurnOutcomeTrailerParseResult {
-  const trailerPattern = /(?:^|\r?\n)turn_outcome:\s*\r?\n```json\s*\r?\n([\s\S]*?)\r?\n```\s*$/;
-  const match = text.match(trailerPattern);
+  const match = text.match(TRAILER_PATTERN);
   if (!match) {
     return {
       kind: "missing",

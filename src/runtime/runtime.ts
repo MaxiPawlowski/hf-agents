@@ -2,8 +2,9 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 
 import { parsePlan } from "./plan-doc.js";
-import { appendEvent, ensureRuntimeDir, readStatus, writeResumePrompt, writeStatus } from "./persistence.js";
-import { buildResumePrompt } from "./prompt.js";
+import { appendEvent, ensureRuntimeDir, getVaultPaths, readStatus, readVaultContext, writeResumePrompt, writeStatus } from "./persistence.js";
+import { buildResumePrompt, retrieveVaultChunks } from "./prompt.js";
+import { buildVaultIndex } from "./vault-index-pipeline.js";
 import type {
   ContinueDecision,
   LoopRuntime,
@@ -12,7 +13,10 @@ import type {
   RuntimeEvent,
   RuntimeStatus,
   SubagentRef,
-  TurnOutcome
+  TurnOutcome,
+  VaultContext,
+  VaultIndex,
+  VaultSearchResult
 } from "./types.js";
 
 function nowIso(): string {
@@ -26,6 +30,7 @@ function defaultStatus(plan: ParsedPlan): RuntimeStatus {
     planSlug: plan.slug,
     planMtimeMs: plan.mtimeMs,
     loopState: plan.completed ? "complete" : "idle",
+    phase: plan.approved ? "execution" : "planning",
     currentMilestone: plan.currentMilestone,
     counters: {
       totalAttempts: 0,
@@ -99,27 +104,43 @@ function detectRecoveryTrigger(event: RuntimeEvent): RuntimeRecoveryState["trigg
   return null;
 }
 
+export function isManagedPlanUnavailable(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return error.message.startsWith("No plan doc found")
+    || error.message.startsWith("Plan doc does not contain a ## Milestones section");
+}
+
 export class HybridLoopRuntime implements LoopRuntime {
   private plan: ParsedPlan | null = null;
   private status: RuntimeStatus | null = null;
+  private vault: VaultContext | null = null;
+  private vaultIndex: VaultIndex | null = null;
+  private vaultSearchResults: VaultSearchResult[] | null = null;
 
   public async hydrate(planRef: string): Promise<RuntimeStatus> {
     const plan = await parsePlan(planRef);
     const runtimePaths = await ensureRuntimeDir(plan);
     const existing = await readStatus(runtimePaths);
-    const baseStatus = existing ?? defaultStatus(plan);
-
     this.plan = plan;
+    this.vault = await readVaultContext(getVaultPaths(plan));
+    await this.refreshVaultIndex();
+    const defaults = defaultStatus(plan);
+    const baseStatus = existing ?? defaults;
+
     this.status = {
       ...baseStatus,
       planPath: plan.path,
       planSlug: plan.slug,
       planMtimeMs: plan.mtimeMs,
+      phase: plan.approved ? "execution" : "planning",
       currentMilestone: plan.currentMilestone,
       loopState: plan.completed ? "complete" : baseStatus.loopState,
       // Sync config from plan doc on every hydration so edits take effect
       counters: {
-        ...defaultStatus(plan).counters,
+        ...defaults.counters,
         ...baseStatus.counters,
         totalAttempts: baseStatus.counters.totalAttempts ?? baseStatus.counters.totalTurns,
         maxTotalTurns: plan.config.maxTotalTurns
@@ -177,22 +198,26 @@ export class HybridLoopRuntime implements LoopRuntime {
     const status = this.requireStatus();
     const plan = await parsePlan(this.requirePlan().path);
     this.plan = plan;
+    this.vault = await readVaultContext(getVaultPaths(plan));
+    await this.refreshVaultIndex();
+    const now = nowIso();
 
     status.planMtimeMs = plan.mtimeMs;
+    status.phase = plan.approved ? "execution" : "planning";
     status.currentMilestone = plan.currentMilestone;
     status.counters.totalAttempts += 1;
     status.counters.totalTurns += 1;
     status.counters.turnsSinceLastOutcome = 0;
     delete status.recovery;
     status.lastOutcome = outcome;
-    status.lastTurnEvaluatedAt = nowIso();
+    status.lastTurnEvaluatedAt = now;
     status.recommendedNextAction = outcome.next_action;
-    status.updatedAt = nowIso();
+    status.updatedAt = now;
 
     if (isProgressState(outcome)) {
       status.counters.noProgress = 0;
       status.counters.repeatedBlocker = 0;
-      status.lastProgressAt = nowIso();
+      status.lastProgressAt = now;
     } else {
       status.counters.noProgress += 1;
     }
@@ -204,7 +229,7 @@ export class HybridLoopRuntime implements LoopRuntime {
       status.lastBlocker = {
         signature,
         message: outcome.blocker?.message ?? outcome.summary,
-        at: nowIso()
+        at: now
       };
     } else if (isProgressState(outcome)) {
       delete status.lastBlocker;
@@ -218,7 +243,7 @@ export class HybridLoopRuntime implements LoopRuntime {
           .filter((test) => test.result === "fail")
           .map((test) => `${test.command}: ${test.summary ?? "failed"}`)
           .join("; "),
-        at: nowIso()
+        at: now
       };
     } else if (outcome.tests_run.length > 0) {
       status.lastVerification = {
@@ -227,7 +252,7 @@ export class HybridLoopRuntime implements LoopRuntime {
           .filter((test) => test.result === "pass")
           .map((test) => `${test.command}: ${test.summary ?? "passed"}`)
           .join("; "),
-        at: nowIso()
+        at: now
       };
       status.counters.verificationFailures = 0;
     }
@@ -268,8 +293,11 @@ export class HybridLoopRuntime implements LoopRuntime {
     const status = this.requireStatus();
     const plan = await parsePlan(this.requirePlan().path);
     this.plan = plan;
+    this.vault = await readVaultContext(getVaultPaths(plan));
+    await this.refreshVaultIndex();
 
     status.planMtimeMs = plan.mtimeMs;
+    status.phase = plan.approved ? "execution" : "planning";
     status.currentMilestone = plan.currentMilestone;
     status.counters.totalAttempts += 1;
     status.counters.turnsSinceLastOutcome += 1;
@@ -287,86 +315,79 @@ export class HybridLoopRuntime implements LoopRuntime {
   public decideNext(): ContinueDecision {
     const status = this.requireStatus();
     const plan = this.requirePlan();
+    const resume_prompt = buildResumePrompt(plan, status, this.vault, this.vaultSearchResults);
+
+    if (!plan.approved) {
+      if (status.counters.totalAttempts >= status.counters.maxTotalTurns) {
+        return { action: "max_turns", reason: `Hard attempt limit reached during planning review (${status.counters.totalAttempts}/${status.counters.maxTotalTurns}). Stop the loop and escalate the unresolved planning gap.`, resume_prompt };
+      }
+
+      if (status.counters.repeatedBlocker >= 3) {
+        return { action: "escalate", reason: "The planning-review loop has repeated the same blocker three times without reaching approval.", resume_prompt };
+      }
+
+      if (status.counters.noProgress >= 3) {
+        return { action: "pause", reason: "The planning-review loop recorded three turns without progress. Pause and resolve the missing planning input.", resume_prompt };
+      }
+
+      if (status.lastOutcome?.state === "milestone_complete" || status.lastOutcome?.state === "plan_complete") {
+        return { action: "allow_stop", reason: "The plan is approved and ready to hand off to the builder.", resume_prompt };
+      }
+
+      if (status.lastOutcome?.state === "blocked") {
+        return { action: "continue", reason: "The planning-review loop reported a blocker, but the runtime threshold has not been reached yet.", resume_prompt };
+      }
+
+      return { action: "continue", reason: "The planning-review loop is active and the draft plan still needs reviewer approval.", resume_prompt };
+    }
 
     if (plan.completed || status.loopState === "complete") {
-      return {
-        action: "complete",
-        reason: "All milestones are checked and the plan has been marked complete.",
-        resume_prompt: buildResumePrompt(plan, status)
-      };
+      return { action: "complete", reason: "All milestones are checked and the plan has been marked complete.", resume_prompt };
     }
 
     if (!plan.currentMilestone && !plan.completed) {
-      return {
-        action: "continue",
-        reason: "All milestones are checked, but final verification evidence is still required before plan completion.",
-        resume_prompt: buildResumePrompt(plan, status)
-      };
+      return { action: "continue", reason: "All milestones are checked, but final verification evidence is still required before plan completion.", resume_prompt };
     }
 
     if (status.counters.totalAttempts >= status.counters.maxTotalTurns) {
-      return {
-        action: "max_turns",
-        reason: `Hard attempt limit reached (${status.counters.totalAttempts}/${status.counters.maxTotalTurns}). Stop the loop to prevent runaway execution.`,
-        resume_prompt: buildResumePrompt(plan, status)
-      };
+      return { action: "max_turns", reason: `Hard attempt limit reached (${status.counters.totalAttempts}/${status.counters.maxTotalTurns}). Stop the loop to prevent runaway execution.`, resume_prompt };
     }
 
     if (status.counters.repeatedBlocker >= 3) {
-      return {
-        action: "escalate",
-        reason: "The same blocker has repeated three times without progress.",
-        resume_prompt: buildResumePrompt(plan, status)
-      };
+      return { action: "escalate", reason: "The same blocker has repeated three times without progress.", resume_prompt };
     }
 
     if (status.counters.verificationFailures >= 2) {
-      return {
-        action: "pause",
-        reason: "Verification failed twice. Pause the loop until the failure is addressed.",
-        resume_prompt: buildResumePrompt(plan, status)
-      };
+      return { action: "pause", reason: "Verification failed twice. Pause the loop until the failure is addressed.", resume_prompt };
     }
 
     if (status.counters.noProgress >= 3) {
-      return {
-        action: "pause",
-        reason: "No progress was recorded for three turns.",
-        resume_prompt: buildResumePrompt(plan, status)
-      };
+      return { action: "pause", reason: "No progress was recorded for three turns.", resume_prompt };
     }
 
     if (status.lastOutcome?.state === "milestone_complete") {
-      return {
-        action: "allow_stop",
-        reason: "The latest milestone was reported complete. The builder may stop or move to the next milestone.",
-        resume_prompt: buildResumePrompt(plan, status)
-      };
+      return { action: "allow_stop", reason: "The latest milestone was reported complete. The builder may stop or move to the next milestone.", resume_prompt };
     }
 
     if (status.lastOutcome?.state === "blocked") {
-      return {
-        action: "continue",
-        reason: "A blocker was recorded, but the loop threshold has not been reached yet.",
-        resume_prompt: buildResumePrompt(plan, status)
-      };
+      return { action: "continue", reason: "A blocker was recorded, but the loop threshold has not been reached yet.", resume_prompt };
     }
 
-    return {
-      action: "continue",
-      reason: "The current milestone is still active and the loop is healthy.",
-      resume_prompt: buildResumePrompt(plan, status)
-    };
+    return { action: "continue", reason: "The current milestone is still active and the loop is healthy.", resume_prompt };
   }
 
   public async writeState(): Promise<void> {
     const plan = this.requirePlan();
     const status = this.requireStatus();
     const runtimePaths = await ensureRuntimeDir(plan);
-    const prompt = buildResumePrompt(plan, status);
+    this.vault = await readVaultContext(getVaultPaths(plan));
+    await this.refreshVaultIndex();
+    const prompt = buildResumePrompt(plan, status, this.vault, this.vaultSearchResults);
 
-    await writeStatus(runtimePaths, status);
-    await writeResumePrompt(runtimePaths, prompt);
+    await Promise.all([
+      writeStatus(runtimePaths, status),
+      writeResumePrompt(runtimePaths, prompt)
+    ]);
   }
 
   public getStatus(): RuntimeStatus {
@@ -375,6 +396,35 @@ export class HybridLoopRuntime implements LoopRuntime {
 
   public getPlan(): ParsedPlan {
     return this.requirePlan();
+  }
+
+  private async refreshVaultIndex(): Promise<void> {
+    const plan = this.requirePlan();
+    const vaultPaths = getVaultPaths(plan);
+
+    if (this.vault) {
+      try {
+        this.vaultIndex = await buildVaultIndex(vaultPaths, this.vault);
+      } catch {
+        this.vaultIndex = null;
+      }
+    } else {
+      this.vaultIndex = null;
+    }
+
+    // Pre-compute search results for the current milestone
+    if (this.vaultIndex && plan.currentMilestone) {
+      try {
+        this.vaultSearchResults = await retrieveVaultChunks(
+          this.vaultIndex,
+          plan.currentMilestone.text
+        );
+      } catch {
+        this.vaultSearchResults = null;
+      }
+    } else {
+      this.vaultSearchResults = null;
+    }
   }
 
   private requirePlan(): ParsedPlan {
@@ -401,26 +451,43 @@ export async function resolveManagedPlanPath(cwd: string, explicitPlanPath?: str
     return path.resolve(cwd, process.env.HF_PLAN_PATH);
   }
 
-  const plansDir = path.join(cwd, "plans");
-  const entries = await fs.readdir(plansDir, { withFileTypes: true });
-  const candidates = await Promise.all(
-    entries
-      .filter((entry) => entry.isFile() && /-plan\.md$/i.test(entry.name))
-      .map(async (entry) => {
-        const candidatePath = path.join(plansDir, entry.name);
-        const stats = await fs.stat(candidatePath);
-        return { candidatePath, mtimeMs: stats.mtimeMs };
-      })
-  );
+  const startDir = path.resolve(cwd);
+  let searchDir = startDir;
 
-  if (candidates.length === 0) {
-    throw new Error("No plan doc found. Set HF_PLAN_PATH or pass an explicit plan path.");
+  while (true) {
+    const plansDir = path.join(searchDir, "plans");
+    try {
+      const entries = await fs.readdir(plansDir, { withFileTypes: true });
+      const candidates = await Promise.all(
+        entries
+          .filter((entry) => entry.isFile() && /-plan\.md$/i.test(entry.name))
+          .map(async (entry) => {
+            const candidatePath = path.join(plansDir, entry.name);
+            const stats = await fs.stat(candidatePath);
+            return { candidatePath, mtimeMs: stats.mtimeMs };
+          })
+      );
+
+      if (candidates.length > 0) {
+        candidates.sort((left, right) => right.mtimeMs - left.mtimeMs);
+        const latestCandidate = candidates[0];
+        if (!latestCandidate) {
+          throw new Error("No plan doc found after candidate sort.");
+        }
+        return latestCandidate.candidatePath;
+      }
+    } catch (error) {
+      if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) {
+        throw error;
+      }
+    }
+
+    const parentDir = path.dirname(searchDir);
+    if (parentDir === searchDir) {
+      break;
+    }
+    searchDir = parentDir;
   }
 
-  candidates.sort((left, right) => right.mtimeMs - left.mtimeMs);
-  const latestCandidate = candidates[0];
-  if (!latestCandidate) {
-    throw new Error("No plan doc found after candidate sort.");
-  }
-  return latestCandidate.candidatePath;
+  throw new Error(`No plan doc found from ${startDir}. Set HF_PLAN_PATH or pass an explicit plan path.`);
 }

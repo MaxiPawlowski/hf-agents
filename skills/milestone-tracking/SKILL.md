@@ -42,16 +42,18 @@ Evidence belongs in the plan doc itself so a later builder, reviewer, or runtime
 
 ### Marking a milestone complete
 1. Change the milestone checkbox from `- [ ]` to `- [x]`.
-2. Append evidence as indented bullets directly under that milestone line.
+2. Append evidence as indented bullets directly under that milestone line, after any existing metadata lines (`scope`, `conventions`, `notes`, `review`).
 3. If this is the last milestone, append final verification evidence in that same indented evidence block before changing plan status.
 4. Keep evidence concise and reviewable.
 
-Example:
+Standard milestone example:
 ```md
 - [x] 2. Add validation - reject empty inputs and cover the behavior with tests
+  - scope: `src/validation.ts`, `tests/validation.test.ts`
+  - conventions: zod schemas
+  - review: auto
   - files: `src/validation.ts`, `tests/validation.test.ts`
-  - review: approved by `hf-reviewer` - validation logic matches scope
-  - verification: `npm test -- validation` passed
+  - verification: `npm test -- validation` passed (auto-approved)
 ```
 
 ### Marking the plan complete

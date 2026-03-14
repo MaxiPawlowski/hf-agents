@@ -54,6 +54,78 @@
           "write milestone evidence to a separate runtime tracker"
         ]
       }
+    },
+    {
+      "id": "milestone-tracking-malformed-state-produces-unblock-step",
+      "focus": [
+        "failure clarity",
+        "unblock guidance"
+      ],
+      "input": {
+        "plan_state": [
+          "A milestone line is missing its checkbox syntax (no [ ] or [x])",
+          "The skill cannot determine which milestone is current"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "one concrete unblock step describing the malformed line",
+          "blocked output rather than a guessed repair"
+        ],
+        "must_not": [
+          "silently pick a milestone and continue",
+          "rewrite the malformed line without user confirmation"
+        ]
+      }
+    },
+    {
+      "id": "milestone-tracking-preserves-enriched-metadata",
+      "focus": [
+        "enriched metadata preservation",
+        "evidence placement"
+      ],
+      "input": {
+        "plan_state": [
+          "Milestone 1 is complete with reviewer approval",
+          "Milestone 1 has scope, conventions, notes, and review policy metadata lines",
+          "Evidence must now be appended under milestone 1"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "evidence appended after the existing metadata lines",
+          "scope, conventions, and review policy lines still present in the output plan"
+        ],
+        "must_not": [
+          "replace or remove enriched metadata lines when appending evidence",
+          "insert evidence before the metadata lines"
+        ]
+      }
+    },
+    {
+      "id": "milestone-tracking-loop-milestone-completion-format",
+      "focus": [
+        "loop milestone evidence",
+        "completion format"
+      ],
+      "input": {
+        "plan_state": [
+          "Current milestone is a loop milestone: loop: src/modules/**/*.ts",
+          "All 3 items have been processed successfully",
+          "Final verification has run"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "completed: 3/3 items in the milestone evidence",
+          "final verification evidence under the loop milestone",
+          "milestone checkbox changed from - [ ] to - [x]"
+        ],
+        "must_not": [
+          "enumerate individual item checkboxes in the plan doc",
+          "omit the item count from the completion evidence"
+        ]
+      }
     }
   ]
 }

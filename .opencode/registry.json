@@ -22,6 +22,11 @@
       "path": "../subagents/hf-coder.md"
     },
     {
+      "id": "subagent-plan-reviewer",
+      "type": "agent",
+      "path": "../subagents/hf-plan-reviewer.md"
+    },
+    {
       "id": "subagent-reviewer",
       "type": "agent",
       "path": "../subagents/hf-reviewer.md"

@@ -1,6 +1,6 @@
 {
   "skill": "hf-plan-synthesis",
-  "purpose": "Starter fixtures for milestone quality, gate discipline, and canonical plan output.",
+  "purpose": "Fixtures for milestone quality, gate discipline, canonical plan output, and plan richness.",
   "cases": [
     {
       "id": "plan-synthesis-write-executable-plan",
@@ -22,11 +22,14 @@
           "plans/YYYY-MM-DD-<slug>-plan.md output shape",
           "3-7 independently executable milestones",
           "a concrete acceptance criterion for every milestone",
-          "risks or open questions that stay outside milestone scope"
+          "risks or open questions that stay outside milestone scope",
+          "approach rationale explaining why this approach was chosen",
+          "multi-condition acceptance criteria for non-trivial milestones"
         ],
         "must_not": [
           "milestones like 'finish wiring' or 'polish' without a checkable done state",
-          "plan writing before required research is present"
+          "plan writing before required research is present",
+          "overview that merely restates the intent without approach justification"
         ]
       }
     },
@@ -52,6 +55,145 @@
         "must_not": [
           "default the migration strategy silently",
           "emit milestone text from partial inputs"
+        ]
+      }
+    },
+    {
+      "id": "plan-synthesis-distributes-context-to-milestones",
+      "focus": [
+        "context distribution",
+        "enriched milestone format"
+      ],
+      "input": {
+        "intent": "Add validation to API endpoints and refactor auth middleware.",
+        "research_signals": [
+          "Local context found zod validation patterns in src/api/auth.ts",
+          "Tests use vitest with describe/it structure",
+          "Auth middleware is in src/middleware/auth.ts",
+          "Token validation is duplicated in 3 route handlers"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "scope metadata on each milestone with relevant file paths",
+          "conventions metadata referencing discovered patterns",
+          "review policy for each milestone"
+        ],
+        "must_not": [
+          "leave all file paths only in the Research Summary",
+          "milestones without scope or conventions when context was available"
+        ]
+      }
+    },
+    {
+      "id": "plan-synthesis-uses-loop-milestones-for-dynamic-sets",
+      "focus": [
+        "loop milestone syntax",
+        "dynamic item sets"
+      ],
+      "input": {
+        "intent": "Run code-simplifier on every module file in the project.",
+        "research_signals": [
+          "Module files are at src/modules/**/*.ts",
+          "Unknown number of files"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "loop metadata with a glob pattern",
+          "per-item acceptance criterion",
+          "skill metadata when a specific skill is named"
+        ],
+        "must_not": [
+          "enumerate individual files as separate milestones",
+          "fixed milestone count for unknown item sets"
+        ]
+      }
+    },
+    {
+      "id": "plan-synthesis-milestones-support-builder-reporting",
+      "focus": [
+        "contract clarity",
+        "builder reporting"
+      ],
+      "input": {
+        "intent": "Add rate limiting to the public API.",
+        "research_signals": [
+          "Rate limiter middleware exists at src/middleware/ratelimit.ts",
+          "Current limit is hardcoded to 100 req/min",
+          "Tests use supertest for integration testing"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "acceptance criteria clear enough for a builder to determine done vs blocked",
+          "each milestone has a checkable done state (e.g., tests pass, config value present)",
+          "no milestone requires a builder to invent context not present in the plan"
+        ],
+        "must_not": [
+          "acceptance criteria like 'works correctly' without a measurable check",
+          "milestones that depend on unstated external decisions"
+        ]
+      }
+    },
+    {
+      "id": "plan-synthesis-plain-milestones-are-valid",
+      "focus": [
+        "backward compatibility",
+        "plain milestone format"
+      ],
+      "input": {
+        "intent": "Fix a typo in the README and update the changelog.",
+        "research_signals": [
+          "Change is confined to README.md and CHANGELOG.md",
+          "No code files involved, no conventions to record"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "valid plan with plain checkbox milestones (no scope or conventions required)",
+          "milestone lines in - [ ] N. Title - brief summary format"
+        ],
+        "must_not": [
+          "require scope or conventions metadata when research found none",
+          "treat missing enriched metadata as a plan format error"
+        ]
+      }
+    },
+    {
+      "id": "plan-synthesis-produces-self-contained-plan",
+      "focus": [
+        "plan richness",
+        "self-contained context",
+        "research depth",
+        "milestone descriptions",
+        "acceptance criteria quality",
+        "proportionality"
+      ],
+      "input": {
+        "intent": "Refactor the authentication middleware to support both JWT and session-based auth.",
+        "research_signals": [
+          "Current auth middleware is in src/middleware/auth.ts using JWT only",
+          "Session store uses express-session with Redis adapter at src/config/session.ts",
+          "Tests use supertest with mock JWT tokens",
+          "User model has both token and session fields but session field is unused",
+          "Three route files import auth middleware directly"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "overview explains why dual auth is needed and which approach was chosen over alternatives",
+          "research summary cites specific file-level findings (not just file names)",
+          "key decisions section explains milestone ordering rationale",
+          "milestone descriptions explain what and why, not just what",
+          "multi-condition acceptance criteria for non-trivial milestones",
+          "risks cite specific files or areas where the refactor could break things"
+        ],
+        "must_not": [
+          "overview that only restates the intent without approach rationale",
+          "research summary that lists file names without specific findings",
+          "milestones with only a title line and no description for a complex refactor",
+          "single-word acceptance criteria like 'works' or 'tests pass'"
         ]
       }
     }

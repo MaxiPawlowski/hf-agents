@@ -1,9 +1,10 @@
 import path from "node:path";
 import { promises as fs } from "node:fs";
 
-import type { ParsedPlan, PlanConfig, PlanMilestone } from "./types.js";
+import type { MilestoneContext, ParsedPlan, PlanConfig, PlanMilestone, ReviewPolicy } from "./types.js";
 
 const CHECKBOX_PATTERN = /^- \[( |x)\] (.+)$/;
+const METADATA_LINE_PATTERN = /^  - (\S+?):\s*(.+)$/;
 const DEFAULT_MAX_TOTAL_TURNS = 50;
 const DEFAULT_AUTO_CONTINUE = true;
 
@@ -13,13 +14,17 @@ export function derivePlanSlug(planPath: string): string {
   return match?.[1] ?? base;
 }
 
-function extractConfig(raw: string): PlanConfig {
-  const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!fmMatch) {
+const FRONTMATTER_PATTERN = /^---\r?\n([\s\S]*?)\r?\n---/;
+
+function extractFrontmatter(raw: string): string | null {
+  const match = raw.match(FRONTMATTER_PATTERN);
+  return match?.[1] ?? null;
+}
+
+function extractConfig(fm: string | null): PlanConfig {
+  if (!fm) {
     return { maxTotalTurns: DEFAULT_MAX_TOTAL_TURNS, autoContinue: DEFAULT_AUTO_CONTINUE };
   }
-
-  const fm = fmMatch[1] ?? "";
 
   const maxTurnsMatch = fm.match(/^max_turns:\s*(\d+)/m);
   const maxTotalTurns = maxTurnsMatch ? parseInt(maxTurnsMatch[1] ?? "", 10) : DEFAULT_MAX_TOTAL_TURNS;
@@ -33,15 +38,79 @@ function extractConfig(raw: string): PlanConfig {
   };
 }
 
-function extractStatus(raw: string): "in-progress" | "complete" {
-  const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!fmMatch) {
+function extractStatus(fm: string | null): "planning" | "in-progress" | "complete" {
+  if (!fm) {
     return "in-progress";
   }
 
-  const fm = fmMatch[1] ?? "";
-  const statusMatch = fm.match(/^status:\s*(in-progress|complete)\s*$/m);
-  return statusMatch?.[1] === "complete" ? "complete" : "in-progress";
+  const statusMatch = fm.match(/^status:\s*(planning|in-progress|complete)\s*$/m);
+  const value = statusMatch?.[1];
+  return value === "complete" || value === "in-progress" || value === "planning" ? value : "in-progress";
+}
+
+const REVIEW_POLICY_VALUES = new Set(["required", "auto", "skip"]);
+
+function parseScope(value: string): string[] {
+  return value
+    .split(",")
+    .map((s) => s.trim().replace(/^`|`$/g, ""))
+    .filter(Boolean);
+}
+
+function parseMetadataLines(
+  metadataLines: string[]
+): { context?: MilestoneContext; reviewPolicy?: ReviewPolicy } {
+  const context: MilestoneContext = {};
+  let reviewPolicy: ReviewPolicy | undefined;
+
+  for (const line of metadataLines) {
+    const match = line.match(METADATA_LINE_PATTERN);
+    if (!match) continue;
+
+    const key = match[1] ?? "";
+    const value = (match[2] ?? "").trim();
+
+    switch (key) {
+      case "scope":
+        context.scope = parseScope(value);
+        break;
+      case "conventions":
+        context.conventions = value;
+        break;
+      case "notes":
+        context.notes = value;
+        break;
+      case "review":
+        if (REVIEW_POLICY_VALUES.has(value)) {
+          reviewPolicy = value as ReviewPolicy;
+        }
+        // Evidence values like "approved by hf-reviewer..." are ignored
+        break;
+      default:
+        // Ignore evidence keys and unknown keys
+        break;
+    }
+  }
+
+  const result: { context?: MilestoneContext; reviewPolicy?: ReviewPolicy } = {};
+
+  if (context.scope || context.conventions || context.notes) {
+    result.context = context;
+  }
+
+  if (reviewPolicy) {
+    result.reviewPolicy = reviewPolicy;
+  }
+
+  return result;
+}
+
+function extractSection(raw: string, heading: string): string | undefined {
+  const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`^##\\s+${escapedHeading}\\b\\r?\\n([\\s\\S]*?)(?=^##\\s+|\\Z)`, "im");
+  const match = raw.match(pattern);
+  const section = match?.[1]?.trim();
+  return section && section.length > 0 ? section : undefined;
 }
 
 function extractMilestones(raw: string): PlanMilestone[] {
@@ -49,6 +118,17 @@ function extractMilestones(raw: string): PlanMilestone[] {
   const milestones: PlanMilestone[] = [];
 
   let inMilestones = false;
+  let pendingMetadata: string[] = [];
+
+  function finalizePending(): void {
+    if (milestones.length > 0 && pendingMetadata.length > 0) {
+      const last = milestones[milestones.length - 1]!;
+      const parsed = parseMetadataLines(pendingMetadata);
+      if (parsed.context) last.context = parsed.context;
+      if (parsed.reviewPolicy) last.reviewPolicy = parsed.reviewPolicy;
+    }
+    pendingMetadata = [];
+  }
 
   for (const line of lines) {
     if (/^##\s+Milestones\b/i.test(line)) {
@@ -57,6 +137,7 @@ function extractMilestones(raw: string): PlanMilestone[] {
     }
 
     if (inMilestones && /^##\s+/.test(line)) {
+      finalizePending();
       break;
     }
 
@@ -64,33 +145,44 @@ function extractMilestones(raw: string): PlanMilestone[] {
       continue;
     }
 
-    const match = line.match(CHECKBOX_PATTERN);
-    if (!match) {
+    const checkboxMatch = line.match(CHECKBOX_PATTERN);
+    if (checkboxMatch) {
+      finalizePending();
+
+      const [, checkedMark, rawText] = checkboxMatch;
+      const text = (rawText ?? "").trim();
+      const title = text.replace(/^\d+\.\s*/, "");
+
+      milestones.push({
+        index: milestones.length + 1,
+        checked: checkedMark === "x",
+        text,
+        title
+      });
       continue;
     }
 
-    const [, checkedMark, rawText] = match;
-    const text = (rawText ?? "").trim();
-    const title = text.replace(/^\d+\.\s*/, "");
-
-    milestones.push({
-      index: milestones.length + 1,
-      checked: checkedMark === "x",
-      text,
-      title
-    });
+    // Collect indented metadata lines for the current milestone
+    if (METADATA_LINE_PATTERN.test(line)) {
+      pendingMetadata.push(line);
+    }
   }
 
+  finalizePending();
   return milestones;
 }
 
 export async function parsePlan(planPath: string): Promise<ParsedPlan> {
   const absolutePlanPath = path.resolve(planPath);
-  const raw = await fs.readFile(absolutePlanPath, "utf8");
-  const stats = await fs.stat(absolutePlanPath);
+  const [raw, stats] = await Promise.all([
+    fs.readFile(absolutePlanPath, "utf8"),
+    fs.stat(absolutePlanPath)
+  ]);
+  const fm = extractFrontmatter(raw);
+  const userIntent = extractSection(raw, "User Intent");
   const milestones = extractMilestones(raw);
-  const config = extractConfig(raw);
-  const status = extractStatus(raw);
+  const config = extractConfig(fm);
+  const status = extractStatus(fm);
 
   if (milestones.length === 0) {
     throw new Error(`Plan doc does not contain a ## Milestones section with checkboxes: ${absolutePlanPath}`);
@@ -102,9 +194,11 @@ export async function parsePlan(planPath: string): Promise<ParsedPlan> {
     path: absolutePlanPath,
     slug: derivePlanSlug(absolutePlanPath),
     raw,
+    userIntent,
     milestones,
     currentMilestone,
     status,
+    approved: status !== "planning",
     completed: currentMilestone === null && status === "complete",
     mtimeMs: stats.mtimeMs,
     config

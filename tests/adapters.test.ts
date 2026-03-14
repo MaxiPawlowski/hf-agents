@@ -29,6 +29,42 @@ async function createPlan(root: string): Promise<string> {
   return planPath;
 }
 
+async function createEnrichedPlan(root: string, overrides?: { checkFirst?: boolean; checkFirstTwo?: boolean }): Promise<string> {
+  const plansDir = path.join(root, "plans");
+  await mkdir(plansDir, { recursive: true });
+  const planPath = path.join(plansDir, "2026-03-07-enriched-adapter-plan.md");
+  const m1Check = overrides?.checkFirst || overrides?.checkFirstTwo ? "x" : " ";
+  const m2Check = overrides?.checkFirstTwo ? "x" : " ";
+  await writeFile(planPath, [
+    "---",
+    "status: in-progress",
+    "---",
+    "",
+    "# Plan: Enriched E2E Adapter",
+    "",
+    "## User Intent",
+    "- Apply repo-native validation and config cleanup without hidden execution loops.",
+    "",
+    "## Milestones",
+    `- [${m1Check}] 1. Add validation to user endpoints - reject empty inputs, cover with tests`,
+    "  - scope: `src/api/users.ts`, `tests/api/users.test.ts`",
+    "  - conventions: zod validation (ref: `src/api/auth.ts`), vitest for tests",
+    "  - notes: endpoint uses express router pattern",
+    "  - review: required",
+    `- [${m2Check}] 2. Update config defaults - align with new schema`,
+    "  - scope: `src/config/defaults.ts`",
+    "  - review: auto",
+    "- [ ] 3. Review src/modules/example.ts - simplify the module and keep lint clean",
+    "  - scope: `src/modules/example.ts`",
+    "  - notes: plan is fully enumerated before builder execution starts",
+    "  - review: auto",
+    "",
+    "## Research Summary",
+    "- Enriched milestones carry context through the runtime lifecycle."
+  ].join("\n"), "utf8");
+  return planPath;
+}
+
 describe("adapter integration", () => {
   test("Claude Stop ingests a valid turn_outcome trailer automatically", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-adapter-"));
@@ -163,6 +199,17 @@ describe("adapter integration", () => {
     });
   });
 
+  test("Claude hooks allow normal operation when no managed plan exists yet", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-adapter-no-plan-"));
+
+    await expect(handleClaudeHook("SessionStart", {}, root)).resolves.toMatchObject({
+      hookSpecificOutput: {
+        hookEventName: "SessionStart"
+      }
+    });
+    await expect(handleClaudeHook("Stop", {}, root)).resolves.toEqual({ decision: "allow" });
+  });
+
   test("Claude compaction and resume keep recovery context coherent", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-adapter-"));
     const planPath = await createPlan(root);
@@ -196,6 +243,24 @@ describe("adapter integration", () => {
     ).rejects.toThrow("Hybrid runtime guardrail blocked a destructive command.");
     expect(isDestructiveCommand("rm -rf dist")).toBe(true);
     expect(isDestructiveCommand("npm test")).toBe(false);
+  });
+
+  test("OpenCode hooks stand down cleanly when no managed plan exists yet", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-adapter-no-plan-"));
+    const hooks = createHybridRuntimeHooks({ cwd: root, session: { id: "session-no-plan" } });
+
+    const sessionCreated = hooks["session.created"];
+    const sessionStatus = hooks["session.status"];
+    const sessionIdle = hooks["session.idle"];
+    const preToolUse = hooks["tool.execute.before"];
+    if (!sessionCreated || !sessionStatus || !sessionIdle || !preToolUse) {
+      throw new Error("expected hooks");
+    }
+
+    await expect(preToolUse({ command: "npm test" })).resolves.toBeNull();
+    await expect(sessionCreated({ sessionID: "session-no-plan" })).resolves.toEqual({});
+    await expect(sessionStatus()).resolves.toEqual({ enabled: false, reason: "no_active_plan" });
+    await expect(sessionIdle({ sessionID: "session-no-plan" })).resolves.toBeNull();
   });
 
   test("OpenCode idle hook returns a continue decision after progress", async () => {
@@ -325,5 +390,171 @@ describe("adapter integration", () => {
 
     expect(runtime.getStatus().subagents[0]?.startedAt).toBe(startedAt);
     expect(runtime.getStatus().subagents[0]?.completedAt).toBeTruthy();
+  });
+});
+
+describe("enriched milestone adapter integration", () => {
+  test("Claude SessionStart includes enriched context in resume prompt", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-enriched-"));
+    const planPath = await createEnrichedPlan(root);
+
+    const response = await handleClaudeHook("SessionStart", {}, root, planPath);
+    const additionalContext = String(
+      (response as { hookSpecificOutput?: { additionalContext?: string } }).hookSpecificOutput?.additionalContext ?? ""
+    );
+
+    expect(additionalContext).toContain("Add validation to user endpoints");
+    expect(additionalContext).toContain("scope: `src/api/users.ts`, `tests/api/users.test.ts`");
+    expect(additionalContext).toContain("conventions: zod validation");
+    expect(additionalContext).toContain("notes: endpoint uses express router pattern");
+    expect(additionalContext).toContain("review: required");
+  });
+
+  test("Claude Stop with enriched plan ingests turn outcome and preserves context", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-enriched-"));
+    const planPath = await createEnrichedPlan(root);
+
+    await handleClaudeHook("Stop", {
+      message: [
+        "Implemented validation.",
+        "",
+        "turn_outcome:",
+        "```json",
+        JSON.stringify({
+          state: "progress",
+          summary: "Added zod validation to user endpoints.",
+          files_changed: ["src/api/users.ts"],
+          tests_run: [],
+          next_action: "Add tests for the validation."
+        }, null, 2),
+        "```"
+      ].join("\n")
+    }, root, planPath);
+
+    const runtime = new HybridLoopRuntime();
+    const status = await runtime.hydrate(planPath);
+    const plan = await parsePlan(planPath);
+    const prompt = await readFile(getRuntimePaths(plan).resumePromptPath, "utf8");
+
+    expect(status.counters.totalTurns).toBe(1);
+    expect(status.currentMilestone?.context?.scope).toEqual(["src/api/users.ts", "tests/api/users.test.ts"]);
+    expect(status.currentMilestone?.reviewPolicy).toBe("required");
+    expect(prompt).toContain("scope: `src/api/users.ts`, `tests/api/users.test.ts`");
+    expect(prompt).toContain("conventions: zod validation");
+  });
+
+  test("Claude SessionStart includes user intent and enumerated milestone context", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-enriched-"));
+    const planPath = await createEnrichedPlan(root, { checkFirstTwo: true });
+
+    const response = await handleClaudeHook("SessionStart", {}, root, planPath);
+    const additionalContext = String(
+      (response as { hookSpecificOutput?: { additionalContext?: string } }).hookSpecificOutput?.additionalContext ?? ""
+    );
+
+    expect(additionalContext).toContain("Review src/modules/example.ts");
+    expect(additionalContext).toContain("scope: `src/modules/example.ts`");
+    expect(additionalContext).not.toContain("loop:");
+  });
+
+  test("OpenCode session.created includes enriched context in resume prompt", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-enriched-"));
+    await createEnrichedPlan(root);
+    const hooks = createHybridRuntimeHooks({ cwd: root, session: { id: "enriched-session" } });
+    const sessionCreated = hooks["session.created"];
+    if (!sessionCreated) {
+      throw new Error("expected session.created hook");
+    }
+
+    const result = await sessionCreated({ sessionID: "enriched-session" }) as { additionalContext?: string };
+
+    expect(result.additionalContext).toContain("Add validation to user endpoints");
+    expect(result.additionalContext).toContain("scope: `src/api/users.ts`, `tests/api/users.test.ts`");
+    expect(result.additionalContext).toContain("conventions: zod validation");
+    expect(result.additionalContext).toContain("review: required");
+  });
+
+  test("OpenCode idle with enriched plan ingests outcome and continues with context", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-enriched-"));
+    const planPath = await createEnrichedPlan(root);
+    const runtime = new HybridLoopRuntime();
+    const prompts: string[] = [];
+
+    await runtime.hydrate(planPath);
+    await runtime.evaluateTurn({
+      state: "progress",
+      summary: "Started validation implementation.",
+      files_changed: ["src/api/users.ts"],
+      tests_run: [],
+      next_action: "Add test coverage."
+    } satisfies TurnOutcome);
+
+    const hooks = createHybridRuntimeHooks({
+      cwd: root,
+      session: { id: "enriched-idle" },
+      client: {
+        prompt: async (message) => {
+          prompts.push(message);
+          return null;
+        }
+      }
+    });
+    const sessionIdle = hooks["session.idle"];
+    if (!sessionIdle) {
+      throw new Error("expected session.idle hook");
+    }
+
+    const decision = await sessionIdle({ sessionID: "enriched-idle" });
+
+    expect(decision).toMatchObject({ action: "continue" });
+    const firstPrompt = prompts[0];
+    if (!firstPrompt) {
+      throw new Error("expected continuation prompt");
+    }
+    expect(firstPrompt).toContain("scope: `src/api/users.ts`, `tests/api/users.test.ts`");
+    expect(firstPrompt).toContain("conventions: zod validation");
+    expect(firstPrompt).toContain("review: required");
+  });
+
+  test("OpenCode idle surfaces the next enumerated milestone without loop metadata", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-enriched-"));
+    const planPath = await createEnrichedPlan(root, { checkFirstTwo: true });
+    const runtime = new HybridLoopRuntime();
+    const prompts: string[] = [];
+
+    await runtime.hydrate(planPath);
+    await runtime.evaluateTurn({
+      state: "progress",
+      summary: "Completed first two milestones.",
+      files_changed: [],
+      tests_run: [],
+      next_action: "Start the next enumerated milestone."
+    } satisfies TurnOutcome);
+
+    const hooks = createHybridRuntimeHooks({
+      cwd: root,
+      session: { id: "enriched-loop" },
+      client: {
+        prompt: async (message) => {
+          prompts.push(message);
+          return null;
+        }
+      }
+    });
+    const sessionIdle = hooks["session.idle"];
+    if (!sessionIdle) {
+      throw new Error("expected session.idle hook");
+    }
+
+    const decision = await sessionIdle({ sessionID: "enriched-loop" });
+
+    expect(decision).toMatchObject({ action: "continue" });
+    const firstPrompt = prompts[0];
+    if (!firstPrompt) {
+      throw new Error("expected continuation prompt");
+    }
+    expect(firstPrompt).toContain("Review src/modules/example.ts");
+    expect(firstPrompt).toContain("scope: `src/modules/example.ts`");
+    expect(firstPrompt).not.toContain("loop:");
   });
 });

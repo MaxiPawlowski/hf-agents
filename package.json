@@ -1,5 +1,6 @@
 {
   "name": "hybrid-framework",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "bin": {
@@ -8,11 +9,14 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prepare": "npm run build",
+    "postinstall": "node scripts/postinstall.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "verify:e2e": "node scripts/verify-e2e.mjs"
   },
   "devDependencies": {
+    "@huggingface/transformers": "^3.8.1",
     "@types/node": "^22.13.14",
     "typescript": "^5.8.2",
     "vitest": "^3.0.8"

@@ -77,6 +77,32 @@
       }
     },
     {
+      "id": "reviewer-acts-like-technical-tester",
+      "prompt": "subagents/hf-reviewer.md",
+      "focus": [
+        "technical testing",
+        "evidence evaluation"
+      ],
+      "input": {
+        "scope": "The milestone changes runtime parsing and claims the new behavior is covered.",
+        "delivered_changes": [
+          "Code diff is present",
+          "A targeted test command can be run or inspected to verify the claim"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "technical tester",
+          "run or inspect the narrowest useful verification",
+          "evidence_used"
+        ],
+        "must_not": [
+          "approve based only on code shape",
+          "skip verification when a narrow direct check is possible"
+        ]
+      }
+    },
+    {
       "id": "verification-skill-leaves-thresholds-to-runtime",
       "prompt": "skills/verification-before-completion/SKILL.md",
       "focus": [
@@ -94,6 +120,31 @@
         "must_not": [
           "local retry counters",
           "circuit breaker thresholds inside the skill"
+        ]
+      }
+    },
+    {
+      "id": "coder-uses-enriched-context",
+      "prompt": "subagents/hf-coder.md",
+      "focus": [
+        "enriched context usage",
+        "scope targeting"
+      ],
+      "input": {
+        "scope": "Add validation to user endpoints",
+        "enriched_context": {
+          "scope": ["src/api/users.ts", "tests/api/users.test.ts"],
+          "conventions": "zod validation (ref: src/api/auth.ts), vitest for tests",
+          "notes": "endpoint uses express router pattern"
+        }
+      },
+      "expected": {
+        "must_include": [
+          "use enriched context as starting point",
+          "implement only the approved milestone scope"
+        ],
+        "must_not": [
+          "ignore the provided scope files and re-explore from scratch"
         ]
       }
     }

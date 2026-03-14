@@ -84,7 +84,12 @@ function createFixturePlan() {
     "",
     "## Milestones",
     "- [ ] 1. Verify runtime status, outcomes, and sidecar persistence",
+    "  - scope: `src/runtime/runtime.ts`, `src/opencode/plugin.ts`",
+    "  - conventions: vitest for unit tests, spawnSync for CLI checks",
+    "  - review: required",
     "- [ ] 2. Verify OpenCode discovery and plugin-driven session events",
+    "  - scope: `src/opencode/plugin.ts`, `.opencode/plugins/hybrid-runtime.js`",
+    "  - review: auto",
     "",
     "## Research Summary",
     "",
@@ -227,6 +232,22 @@ function main() {
   const runtimeStatusExists = fs.existsSync(path.join(fixtureRuntimeDir, "status.json"));
   const runtimeEventsExist = fs.existsSync(path.join(fixtureRuntimeDir, "events.jsonl"));
 
+  // Enriched milestone checks
+  const resumePromptPath = path.join(fixtureRuntimeDir, "resume-prompt.txt");
+  const resumePromptContent = fs.existsSync(resumePromptPath) ? fs.readFileSync(resumePromptPath, "utf8") : "";
+  const resumePromptHasScope = resumePromptContent.includes("scope:");
+  const resumePromptHasConventions = resumePromptContent.includes("conventions:");
+  const resumePromptHasReviewPolicy = resumePromptContent.includes("review: required");
+
+  let statusHasEnrichedMilestone = false;
+  const statusJsonPath = path.join(fixtureRuntimeDir, "status.json");
+  if (fs.existsSync(statusJsonPath)) {
+    try {
+      const statusJson = JSON.parse(fs.readFileSync(statusJsonPath, "utf8"));
+      statusHasEnrichedMilestone = statusJson.currentMilestone != null && typeof statusJson.currentMilestone.title === "string";
+    } catch { /* ignore parse errors */ }
+  }
+
   const summary = {
     proofDir,
     fixturePlanPath,
@@ -240,7 +261,11 @@ function main() {
       doctorPassed: doctorOk,
       runtimeStatusWritten: runtimeStatusExists,
       runtimeEventsWritten: runtimeEventsExist,
-      opencodeAssetLinksAreSymlinks: true
+      opencodeAssetLinksAreSymlinks: true,
+      resumePromptHasScope,
+      resumePromptHasConventions,
+      resumePromptHasReviewPolicy,
+      statusHasEnrichedMilestone
     }
   };
 

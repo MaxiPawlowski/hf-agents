@@ -5,7 +5,7 @@ import {
   recordCompactionArchive,
   recordSubagentLifecycle
 } from "../adapters/lifecycle.js";
-import { HybridLoopRuntime, resolveManagedPlanPath } from "../runtime/runtime.js";
+import { HybridLoopRuntime, isManagedPlanUnavailable, resolveManagedPlanPath } from "../runtime/runtime.js";
 import { detectTurnOutcomeInPayload } from "../runtime/turn-outcome-ingestion.js";
 import type { ContinueDecision, RuntimeEvent } from "../runtime/types.js";
 
@@ -124,16 +124,22 @@ async function promptContinuation(
 }
 
 export function createHybridRuntimeHooks(context: OpenCodePluginContext): Record<string, OpenCodeHook> {
-  let runtimePromise: Promise<HybridLoopRuntime> | null = null;
+  let runtimePromise: Promise<HybridLoopRuntime | null> | null = null;
 
-  const getRuntime = async (): Promise<HybridLoopRuntime> => {
+  const getRuntime = async (): Promise<HybridLoopRuntime | null> => {
     if (!runtimePromise) {
       runtimePromise = hydrateRuntime(context).catch((error) => {
+        if (isManagedPlanUnavailable(error)) {
+          return null;
+        }
         runtimePromise = null;
         throw error;
       });
     }
-    return runtimePromise;
+    return runtimePromise.catch((error) => {
+      runtimePromise = null;
+      throw error;
+    });
   };
 
   return {
@@ -143,26 +149,41 @@ export function createHybridRuntimeHooks(context: OpenCodePluginContext): Record
         throw new Error("Hybrid runtime guardrail blocked a destructive command.");
       }
       const runtime = await getRuntime();
+      if (!runtime) {
+        return null;
+      }
       await recordOpenCodeEvent(runtime, "tool.execute.before", input, output, context);
       return null;
     },
     "session.created": async (input?: HookInput, output?: HookInput) => {
       const runtime = await getRuntime();
+      if (!runtime) {
+        return {};
+      }
       await recordOpenCodeEvent(runtime, "session.created", input, output, context);
       return { additionalContext: runtime.decideNext().resume_prompt };
     },
     "session.status": async () => {
       const runtime = await getRuntime();
+      if (!runtime) {
+        return { enabled: false, reason: "no_active_plan" };
+      }
       return runtime.getStatus();
     },
     "session.compacted": async (input?: HookInput, output?: HookInput) => {
       const runtime = await getRuntime();
+      if (!runtime) {
+        return {};
+      }
       await recordOpenCodeEvent(runtime, "session.compacted", input, output, context);
       await recordCompactionArchive(runtime, "opencode", "opencode.pre_compact_archive");
       return { additionalContext: runtime.decideNext().resume_prompt };
     },
     "session.idle": async (input?: HookInput, output?: HookInput) => {
       const runtime = await getRuntime();
+      if (!runtime) {
+        return null;
+      }
       const sessionId = extractSessionId(input, output, context);
       await ingestOpenCodeOutcome(runtime, input, output, sessionId);
       const decision = runtime.decideNext();
@@ -175,6 +196,9 @@ export function createHybridRuntimeHooks(context: OpenCodePluginContext): Record
     },
     "subagent.started": async (input?: HookInput, output?: HookInput) => {
       const runtime = await getRuntime();
+      if (!runtime) {
+        return null;
+      }
       await recordOpenCodeEvent(runtime, "subagent.started", input, output, context);
       const subagentId = String(input?.subagent_id ?? input?.id ?? "unknown");
       const subagentName = String(input?.subagent_name ?? input?.name ?? "unnamed");
@@ -187,6 +211,9 @@ export function createHybridRuntimeHooks(context: OpenCodePluginContext): Record
     },
     "subagent.completed": async (input?: HookInput, output?: HookInput) => {
       const runtime = await getRuntime();
+      if (!runtime) {
+        return null;
+      }
       await recordOpenCodeEvent(runtime, "subagent.completed", input, output, context);
       const subagentId = String(input?.subagent_id ?? input?.id ?? "unknown");
       const subagentName = String(input?.subagent_name ?? input?.name ?? "unnamed");
@@ -206,12 +233,8 @@ export async function HybridRuntimePlugin(input: {
   client?: OpenCodePluginContext["client"];
 }): Promise<Record<string, OpenCodeHook>> {
   const context: OpenCodePluginContext = {};
-  if (input.directory) {
-    context.cwd = input.directory;
-  }
-  if (input.client) {
-    context.client = input.client;
-  }
+  if (input.directory) context.cwd = input.directory;
+  if (input.client) context.client = input.client;
   return createHybridRuntimeHooks(context);
 }
 
