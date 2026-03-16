@@ -7,10 +7,8 @@ import { spawnSync } from "node:child_process";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const today = new Date().toISOString().slice(0, 10);
-const proofSlug = `${today}-e2e-proof`;
+const proofSlug = `${today}-package-lifecycle-proof`;
 const proofDir = path.join(repoRoot, "plans", "evidence", proofSlug);
-const fixturePlanPath = path.join(repoRoot, "plans", `${today}-e2e-runtime-plan.md`);
-const fixtureRuntimeDir = path.join(repoRoot, "plans", "runtime", "e2e-runtime");
 
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
@@ -28,7 +26,7 @@ function writeFile(relativePath, content) {
 }
 
 function run(command, args, options = {}) {
-  const windowsCmdShim = process.platform === "win32" && ["npm", "opencode"].includes(command);
+  const windowsCmdShim = process.platform === "win32" && command === "npm";
   const executable = windowsCmdShim ? "cmd.exe" : command;
   const finalArgs = windowsCmdShim ? ["/d", "/s", "/c", command, ...args] : args;
   const result = spawnSync(executable, finalArgs, {
@@ -70,202 +68,48 @@ function writeCommandResult(relativeBase, result) {
   }, null, 2)}\n`);
 }
 
-function createFixturePlan() {
-  const planBody = [
-    "---",
-    "status: in-progress",
-    "---",
-    "",
-    "# Plan: E2E Runtime Verification",
-    "",
-    "## Goal",
-    "",
-    "Verify the Ralph-style runtime, OpenCode plugin, and Claude hook surfaces end to end.",
-    "",
-    "## Milestones",
-    "- [ ] 1. Verify runtime status, outcomes, and sidecar persistence",
-    "  - scope: `src/runtime/runtime.ts`, `src/opencode/plugin.ts`",
-    "  - conventions: vitest for unit tests, spawnSync for CLI checks",
-    "  - review: required",
-    "- [ ] 2. Verify OpenCode discovery and plugin-driven session events",
-    "  - scope: `src/opencode/plugin.ts`, `.opencode/plugins/hybrid-runtime.js`",
-    "  - review: auto",
-    "",
-    "## Research Summary",
-    "",
-    "- Runtime sidecars should be written under `plans/runtime/e2e-runtime/`.",
-    "- OpenCode should discover local agents and skills from `.opencode/`.",
-    "- Claude hooks should provide additional context and block premature stop when continuation is required.",
-    "",
-    "## Notes",
-    "",
-    "- This plan is generated automatically by `scripts/verify-e2e.mjs`."
-  ].join("\n");
-
-  fs.writeFileSync(fixturePlanPath, planBody, "utf8");
-}
-
-function copyIfExists(sourcePath, targetRelativePath) {
-  if (!fs.existsSync(sourcePath)) {
-    return;
+function parsePackSummary(stdout) {
+  const jsonPayload = stdout.match(/(\[\s*\{[\s\S]*\}\s*\])/u)?.[1];
+  if (!jsonPayload) {
+    throw new Error(`Could not find npm pack JSON output.\n\n${stdout}`);
   }
-  const content = fs.readFileSync(sourcePath, "utf8");
-  writeFile(targetRelativePath, content);
-}
 
-function symlinkProof() {
-  const agentLink = fs.lstatSync(path.join(repoRoot, ".opencode", "agents", "hf-builder.md"));
-  const skillLink = fs.lstatSync(path.join(repoRoot, ".opencode", "skills", "milestone-tracking"));
-  writeFile("symlink-check.json", `${JSON.stringify({
-    agentLink: {
-      path: ".opencode/agents/hf-builder.md",
-      isSymbolicLink: agentLink.isSymbolicLink()
-    },
-    skillLink: {
-      path: ".opencode/skills/milestone-tracking",
-      isSymbolicLink: skillLink.isSymbolicLink()
-    }
-  }, null, 2)}\n`);
+  const parsed = JSON.parse(jsonPayload);
+  const packResult = parsed[0];
+  if (!packResult) {
+    throw new Error("Expected npm pack --dry-run --json to return one result.");
+  }
+
+  const packagedPaths = new Set(packResult.files.map((file) => file.path));
+  return {
+    entryCount: packResult.entryCount,
+    includesRuntimeBin: packagedPaths.has("dist/src/bin/hf-runtime.js"),
+    includesInstaller: packagedPaths.has("scripts/install-runtime.mjs"),
+    includesVaultTemplate: packagedPaths.has("vault/templates/plan-context.md"),
+    excludesTests: !packagedPaths.has("tests/install-runtime.test.ts"),
+    excludesSource: !packagedPaths.has("src/runtime/runtime.ts"),
+    excludesPlans: !packagedPaths.has("plans/2026-03-16-package-distribution-and-project-init-plan.md")
+  };
 }
 
 function main() {
   cleanDir(proofDir);
-  createFixturePlan();
-  fs.rmSync(fixtureRuntimeDir, { recursive: true, force: true });
 
-  const syncResult = run("node", ["scripts/sync-opencode-assets.mjs"]);
-  assertSuccess(syncResult, "sync-opencode-assets");
-  writeCommandResult("01-sync-opencode-assets", syncResult);
+  const packResult = run("npm", ["pack", "--dry-run", "--json"]);
+  assertSuccess(packResult, "npm pack --dry-run --json");
+  writeCommandResult("01-pack-dry-run", packResult);
 
-  const buildResult = run("npm", ["run", "build"]);
-  assertSuccess(buildResult, "npm run build");
-  writeCommandResult("02-build", buildResult);
+  const lifecycleTests = run("npm", ["run", "test:lifecycle"]);
+  assertSuccess(lifecycleTests, "npm run test:lifecycle");
+  writeCommandResult("02-test-lifecycle", lifecycleTests);
 
-  const installOpenCodeResult = run("node", ["scripts/install-runtime.mjs", "--tool", "opencode", "--skip-build"]);
-  assertSuccess(installOpenCodeResult, "install-runtime opencode");
-  writeCommandResult("03-install-opencode", installOpenCodeResult);
-
-  const testResult = run("npm", ["test"]);
-  assertSuccess(testResult, "npm test");
-  writeCommandResult("04-test", testResult);
-
-  const initialStatus = run("node", ["dist/src/bin/hf-runtime.js", "status", fixturePlanPath]);
-  assertSuccess(initialStatus, "hf-runtime status");
-  writeCommandResult("05-runtime-status-initial", initialStatus);
-
-  const progressOutcome = JSON.stringify({
-    state: "progress",
-    summary: "Recorded progress for the runtime verification milestone.",
-    files_changed: ["src/runtime/runtime.ts", "src/opencode/plugin.ts"],
-    tests_run: [
-      { command: "npm test", result: "pass", summary: "Unit tests passed during verification" }
-    ],
-    next_action: "Run OpenCode and Claude integration checks."
-  });
-  const outcomeResult = run("node", ["dist/src/bin/hf-runtime.js", "outcome", fixturePlanPath, "--json", progressOutcome]);
-  assertSuccess(outcomeResult, "hf-runtime outcome");
-  writeCommandResult("06-runtime-outcome-progress", outcomeResult);
-
-  const resumeResult = run("node", ["dist/src/bin/hf-runtime.js", "resume", fixturePlanPath, "--via", "opencode"]);
-  assertSuccess(resumeResult, "hf-runtime resume");
-  writeCommandResult("07-runtime-resume-opencode", resumeResult);
-
-  const claudeSessionStartInput = JSON.stringify({ session_id: "claude-e2e-session" });
-  const claudeSessionStart = run(
-    "node",
-    ["dist/src/bin/hf-claude-hook.js", "SessionStart", "--plan", fixturePlanPath],
-    { input: claudeSessionStartInput }
-  );
-  assertSuccess(claudeSessionStart, "hf-claude-hook SessionStart");
-  writeCommandResult("08-claude-session-start", claudeSessionStart);
-
-  const claudeStop = run(
-    "node",
-    ["dist/src/bin/hf-claude-hook.js", "Stop", "--plan", fixturePlanPath],
-    { input: JSON.stringify({ session_id: "claude-e2e-session" }) }
-  );
-  assertSuccess(claudeStop, "hf-claude-hook Stop");
-  writeCommandResult("09-claude-stop", claudeStop);
-
-  const opencodeDebug = run("opencode", ["debug", "config", "--print-logs"], {
-    env: {
-      ...process.env,
-      HF_PLAN_PATH: fixturePlanPath
-    }
-  });
-  assertSuccess(opencodeDebug, "opencode debug config");
-  writeCommandResult("10-opencode-debug-config", opencodeDebug);
-
-  const opencodeRun = run("opencode", ["run", "--print-logs", "--format", "json", "say exactly ok"], {
-    env: {
-      ...process.env,
-      HF_PLAN_PATH: fixturePlanPath
-    }
-  });
-  assertSuccess(opencodeRun, "opencode run");
-  writeCommandResult("11-opencode-run", opencodeRun);
-
-  const statusAfter = run("node", ["dist/src/bin/hf-runtime.js", "status", fixturePlanPath]);
-  assertSuccess(statusAfter, "hf-runtime status after live run");
-  writeCommandResult("12-runtime-status-after", statusAfter);
-
-  const tailResult = run("node", ["dist/src/bin/hf-runtime.js", "tail", fixturePlanPath, "--lines", "20"]);
-  assertSuccess(tailResult, "hf-runtime tail");
-  writeCommandResult("13-runtime-tail", tailResult);
-
-  const doctorResult = run("node", ["dist/src/bin/hf-runtime.js", "doctor", fixturePlanPath]);
-  assertSuccess(doctorResult, "hf-runtime doctor");
-  writeCommandResult("14-runtime-doctor", doctorResult);
-
-  copyIfExists(path.join(fixtureRuntimeDir, "status.json"), "runtime/status.json");
-  copyIfExists(path.join(fixtureRuntimeDir, "events.jsonl"), "runtime/events.jsonl");
-  copyIfExists(path.join(fixtureRuntimeDir, "resume-prompt.txt"), "runtime/resume-prompt.txt");
-  copyIfExists(fixturePlanPath, "fixture-plan.md");
-  symlinkProof();
-
-  const debugStdout = opencodeDebug.stdout;
-  const opencodeDebugHasAgent = debugStdout.includes("\"hf-builder\"") && debugStdout.includes("\"hf-coder\"");
-  const opencodeDebugHasPlugin = debugStdout.includes(".opencode/plugins/hybrid-runtime.js");
-  const opencodeRunReturnedOk = opencodeRun.stdout.includes("\"text\":\"ok\"") || opencodeRun.stdout.includes("\nok\n");
-  const claudeStopBlocks = claudeStop.stdout.includes("\"decision\":\"block\"");
-  const doctorOk = doctorResult.stdout.includes("\"ok\": true");
-  const runtimeStatusExists = fs.existsSync(path.join(fixtureRuntimeDir, "status.json"));
-  const runtimeEventsExist = fs.existsSync(path.join(fixtureRuntimeDir, "events.jsonl"));
-
-  // Enriched milestone checks
-  const resumePromptPath = path.join(fixtureRuntimeDir, "resume-prompt.txt");
-  const resumePromptContent = fs.existsSync(resumePromptPath) ? fs.readFileSync(resumePromptPath, "utf8") : "";
-  const resumePromptHasScope = resumePromptContent.includes("scope:");
-  const resumePromptHasConventions = resumePromptContent.includes("conventions:");
-  const resumePromptHasReviewPolicy = resumePromptContent.includes("review: required");
-
-  let statusHasEnrichedMilestone = false;
-  const statusJsonPath = path.join(fixtureRuntimeDir, "status.json");
-  if (fs.existsSync(statusJsonPath)) {
-    try {
-      const statusJson = JSON.parse(fs.readFileSync(statusJsonPath, "utf8"));
-      statusHasEnrichedMilestone = statusJson.currentMilestone != null && typeof statusJson.currentMilestone.title === "string";
-    } catch { /* ignore parse errors */ }
-  }
-
+  const packSummary = parsePackSummary(packResult.stdout);
   const summary = {
     proofDir,
-    fixturePlanPath,
     checks: {
-      buildPassed: buildResult.status === 0,
-      testsPassed: testResult.status === 0,
-      opencodeAgentsDiscovered: opencodeDebugHasAgent,
-      opencodePluginLoaded: opencodeDebugHasPlugin,
-      opencodeLiveRunReturnedOk: opencodeRunReturnedOk,
-      claudeStopBlockedContinuation: claudeStopBlocks,
-      doctorPassed: doctorOk,
-      runtimeStatusWritten: runtimeStatusExists,
-      runtimeEventsWritten: runtimeEventsExist,
-      opencodeAssetLinksAreSymlinks: true,
-      resumePromptHasScope,
-      resumePromptHasConventions,
-      resumePromptHasReviewPolicy,
-      statusHasEnrichedMilestone
+      packPassed: packResult.status === 0,
+      lifecycleTestsPassed: lifecycleTests.status === 0,
+      ...packSummary
     }
   };
 
@@ -276,6 +120,6 @@ function main() {
 try {
   main();
 } catch (error) {
-  console.error((error instanceof Error ? error.message : String(error)));
+  console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 }

@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -14,27 +13,22 @@ function hasPackageJson(dirPath) {
 }
 
 function main() {
-  if (targetRoot === sourceRoot) {
+  if (targetRoot === sourceRoot || !hasPackageJson(targetRoot)) {
     return;
   }
 
-  if (!hasPackageJson(targetRoot)) {
-    return;
-  }
-
-  const result = spawnSync(
-    "node",
-    [path.join(sourceRoot, "scripts", "install-runtime.mjs"), "--tool", "all", "--skip-build", "--target-dir", targetRoot],
-    {
-      cwd: sourceRoot,
-      stdio: "inherit",
-      shell: process.platform === "win32"
-    }
+  process.stdout.write(
+    [
+      "hybrid-framework: package install completed.",
+      "No adapter wiring or project scaffolding runs automatically during postinstall.",
+      "Next steps:",
+      "  - npm exec hf-install -- --target-dir .",
+      "  - npm exec hf-init -- --target-dir .",
+      "  - npm exec hf-sync -- --target-dir .",
+      "  - npm exec hf-uninstall -- --target-dir .",
+      "See README.md for the consumer installation contract and config file shape."
+    ].join("\n") + "\n"
   );
-
-  if (result.status !== 0) {
-    process.exitCode = result.status ?? 1;
-  }
 }
 
 main();

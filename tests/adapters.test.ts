@@ -1,5 +1,6 @@
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 
 import { describe, expect, test } from "vitest";
@@ -9,6 +10,8 @@ import {
   mapDecisionToClaudeStopResponse,
   recordSubagentLifecycle
 } from "../src/adapters/lifecycle.js";
+// @ts-ignore -- Vitest executes the JS installer module directly for consumer fixture coverage.
+import { buildOpenCodePluginSource } from "../scripts/install-runtime.mjs";
 import { handleClaudeHook } from "../src/claude/hook-handler.js";
 import { createHybridRuntimeHooks } from "../src/opencode/plugin.js";
 import { parsePlan } from "../src/runtime/plan-doc.js";
@@ -66,6 +69,23 @@ async function createEnrichedPlan(root: string, overrides?: { checkFirst?: boole
 }
 
 describe("adapter integration", () => {
+  test("generated OpenCode plugin loader resolves the packaged consumer path", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-adapter-loader-"));
+    const packagedPluginPath = path.join(root, "node_modules", "hybrid-framework", "dist", "src", "opencode", "plugin.js");
+    const generatedPluginPath = path.join(root, ".opencode", "plugins", "hybrid-runtime.js");
+
+    await mkdir(path.dirname(packagedPluginPath), { recursive: true });
+    await mkdir(path.dirname(generatedPluginPath), { recursive: true });
+    await writeFile(packagedPluginPath, "export const HybridRuntimePlugin = { name: 'fixture-plugin' };\n", "utf8");
+    await writeFile(generatedPluginPath, buildOpenCodePluginSource(root, "hybrid-framework"), "utf8");
+
+    const imported = await import(`${pathToFileURL(generatedPluginPath).href}?fixture=${Date.now()}`) as {
+      HybridRuntimePlugin?: { name?: string };
+    };
+
+    expect(imported.HybridRuntimePlugin?.name).toBe("fixture-plugin");
+  });
+
   test("Claude Stop ingests a valid turn_outcome trailer automatically", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-adapter-"));
     const planPath = await createPlan(root);
@@ -207,7 +227,10 @@ describe("adapter integration", () => {
         hookEventName: "SessionStart"
       }
     });
-    await expect(handleClaudeHook("Stop", {}, root)).resolves.toEqual({ decision: "allow" });
+    await expect(handleClaudeHook("Stop", {}, root)).resolves.toEqual({
+      decision: "allow",
+      reason: "No active plan. The runtime is providing guardrails only."
+    });
   });
 
   test("Claude compaction and resume keep recovery context coherent", async () => {
@@ -245,7 +268,7 @@ describe("adapter integration", () => {
     expect(isDestructiveCommand("npm test")).toBe(false);
   });
 
-  test("OpenCode hooks stand down cleanly when no managed plan exists yet", async () => {
+  test("OpenCode hooks operate in planless mode when no managed plan exists yet", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-adapter-no-plan-"));
     const hooks = createHybridRuntimeHooks({ cwd: root, session: { id: "session-no-plan" } });
 
@@ -257,10 +280,20 @@ describe("adapter integration", () => {
       throw new Error("expected hooks");
     }
 
+    // Guardrails still work
     await expect(preToolUse({ command: "npm test" })).resolves.toBeNull();
+    await expect(
+      (hooks["tool.execute.before"] as Function)({ command: "git reset --hard HEAD~1" })
+    ).rejects.toThrow("Hybrid runtime guardrail blocked a destructive command.");
+
+    // Session hooks return planless status
     await expect(sessionCreated({ sessionID: "session-no-plan" })).resolves.toEqual({});
-    await expect(sessionStatus()).resolves.toEqual({ enabled: false, reason: "no_active_plan" });
-    await expect(sessionIdle({ sessionID: "session-no-plan" })).resolves.toBeNull();
+    const status = await sessionStatus();
+    expect(status).toMatchObject({ planless: true, planSlug: "_planless" });
+
+    // Idle returns allow_stop decision instead of null
+    const idleResult = await sessionIdle({ sessionID: "session-no-plan" });
+    expect(idleResult).toMatchObject({ action: "allow_stop", reason: expect.stringContaining("No active plan") });
   });
 
   test("OpenCode idle hook returns a continue decision after progress", async () => {

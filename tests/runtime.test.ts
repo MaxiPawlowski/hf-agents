@@ -280,7 +280,7 @@ describe("HybridLoopRuntime", () => {
 
     const runtime = new HybridLoopRuntime();
     const status = await runtime.hydrate(planPath);
-    const decision = runtime.decideNext();
+    const decision = await runtime.decideNext();
     const plan = await parsePlan(planPath);
     const prompt = await readFile(getRuntimePaths(plan).resumePromptPath, "utf8");
 
@@ -306,7 +306,7 @@ describe("HybridLoopRuntime", () => {
     await runtime.evaluateTurn(outcome("blocked", { blocker: { message: "same blocker" } }));
     await runtime.evaluateTurn(outcome("blocked", { blocker: { message: "same blocker" } }));
     const status = await runtime.evaluateTurn(outcome("blocked", { blocker: { message: "same blocker" } }));
-    const decision = runtime.decideNext();
+    const decision = await runtime.decideNext();
 
     expect(status.loopState).toBe("escalated");
     expect(status.counters.repeatedBlocker).toBe(3);
@@ -335,7 +335,7 @@ describe("HybridLoopRuntime", () => {
     }));
 
     expect(status.counters.verificationFailures).toBe(2);
-    expect(runtime.decideNext().action).toBe("pause");
+    expect((await runtime.decideNext()).action).toBe("pause");
   });
 
   test("counts trailerless stops toward the hard attempt limit", async () => {
@@ -361,7 +361,7 @@ describe("HybridLoopRuntime", () => {
     expect(status.counters.totalTurns).toBe(1);
     expect(status.counters.turnsSinceLastOutcome).toBe(1);
     expect(status.loopState).toBe("paused");
-    expect(runtime.decideNext().action).toBe("max_turns");
+    expect((await runtime.decideNext()).action).toBe("max_turns");
   });
 
   test("resume prompt carries recovery context across stop and resume without stale warning text", async () => {
@@ -528,6 +528,9 @@ describe("HybridLoopRuntime", () => {
 
     const runtime = new HybridLoopRuntime();
     await runtime.hydrate(planPath);
+    // Vault context is lazy-loaded in decideNext(), which persists the
+    // updated resume prompt including vault sections.
+    await runtime.decideNext();
 
     const prompt = await readFile(getRuntimePaths(plan).resumePromptPath, "utf8");
     const currentMilestoneIndex = prompt.indexOf("## Current milestone");
@@ -623,7 +626,7 @@ describe("HybridLoopRuntime", () => {
     const prompt = await readFile(getRuntimePaths(plan).resumePromptPath, "utf8");
 
     expect(plan.completed).toBe(false);
-    expect(runtime.decideNext().action).toBe("continue");
+    expect((await runtime.decideNext()).action).toBe("continue");
     expect(prompt).toContain("## Final verification");
     expect(prompt).toContain("status: complete");
   });

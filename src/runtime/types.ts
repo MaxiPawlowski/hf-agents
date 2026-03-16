@@ -205,8 +205,8 @@ export interface LoopRuntime {
   recordSubagent(ref: SubagentRef): Promise<RuntimeStatus>;
   recordOutcomeIngestionIssue(event: RuntimeEvent): Promise<void>;
   noteStopWithoutOutcome(): Promise<RuntimeStatus>;
-  decideNext(): ContinueDecision;
+  decideNext(): Promise<ContinueDecision>;
   writeState(): Promise<void>;
   getStatus(): RuntimeStatus;
-  getPlan(): ParsedPlan;
+  getPlan(): ParsedPlan | null;
 }

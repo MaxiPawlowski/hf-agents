@@ -1,5 +1,7 @@
 import path from "node:path";
-import { readFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
+import os from "node:os";
 
 import { describe, expect, test } from "vitest";
 
@@ -7,6 +9,106 @@ import { describe, expect, test } from "vitest";
 import { buildClaudeHooks, buildOpenCodePluginSource, main } from "../scripts/install-runtime.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
+
+function runInstaller(args: string[], targetDir?: string) {
+  const result = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "install-runtime.mjs"), ...args], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+
+  if (result.status !== 0) {
+    throw new Error([
+      `install-runtime failed: ${args.join(" ")}`,
+      result.stdout,
+      result.stderr
+    ].filter(Boolean).join("\n\n"));
+  }
+
+  return result;
+}
+
+function runPackDryRun() {
+  const result = spawnSync("npm", ["pack", "--dry-run", "--json"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    shell: process.platform === "win32"
+  });
+
+  if (result.status !== 0) {
+    throw new Error([
+      "npm pack --dry-run --json failed",
+      result.stdout,
+      result.stderr
+    ].filter(Boolean).join("\n\n"));
+  }
+
+  const match = result.stdout.match(/(\[\s*\{[\s\S]*\}\s*\])/u);
+  const jsonPayload = match?.[1];
+  if (!jsonPayload) {
+    throw new Error(`Could not find npm pack JSON output:\n\n${result.stdout}`);
+  }
+
+  return JSON.parse(jsonPayload) as Array<{ files: Array<{ path: string }>; entryCount: number }>;
+}
+
+async function expectPath(filePath: string) {
+  await expect(stat(filePath)).resolves.toBeDefined();
+}
+
+async function createConsumerFixture() {
+  const fixtureRoot = await mkdtemp(path.join(os.tmpdir(), "hf-install-runtime-"));
+
+  await writeFile(path.join(fixtureRoot, "package.json"), JSON.stringify({
+    name: "fixture-project",
+    private: true
+  }, null, 2), "utf8");
+
+  await writeFile(path.join(fixtureRoot, "hybrid-framework.json"), JSON.stringify({
+    adapters: {
+      claude: { enabled: true },
+      opencode: { enabled: true }
+    },
+    scaffold: {
+      plans: true,
+      vault: true
+    },
+    assets: {
+      mode: "copy",
+      claude: {
+        copy: [
+          "agents/hf-builder.md",
+          "skills/local-context/SKILL.md"
+        ]
+      },
+      opencode: {
+        copy: [
+          "agents/hf-builder.md",
+          "skills/local-context/SKILL.md"
+        ],
+        syncGenerated: true
+      }
+    }
+  }, null, 2), "utf8");
+
+  await mkdir(path.join(fixtureRoot, ".claude"), { recursive: true });
+  await writeFile(path.join(fixtureRoot, ".claude", "settings.local.json"), JSON.stringify({
+    permissions: { allow: ["Bash(npm test)"] },
+    hooks: {
+      Stop: [
+        {
+          hooks: [
+            {
+              type: "command",
+              command: "node ./custom-stop.js"
+            }
+          ]
+        }
+      ]
+    }
+  }, null, 2), "utf8");
+
+  return fixtureRoot;
+}
 
 describe("install-runtime surfaces", () => {
   test("Claude example settings stay aligned with the shipped linux hook map", async () => {
@@ -22,6 +124,25 @@ describe("install-runtime surfaces", () => {
 });
 
 describe("install-runtime smoke tests", () => {
+  test("npm pack dry-run retains lifecycle files and excludes dev-only sources", () => {
+    const packResult = runPackDryRun()[0];
+    if (!packResult) {
+      throw new Error("expected npm pack output");
+    }
+
+    const { files, entryCount } = packResult;
+    const packagedPaths = new Set(files.map((file) => file.path));
+
+    expect(entryCount).toBeGreaterThan(0);
+    expect(packagedPaths).toContain("scripts/install-runtime.mjs");
+    expect(packagedPaths).toContain("scripts/sync-opencode-assets.mjs");
+    expect(packagedPaths).toContain("dist/src/bin/hf-runtime.js");
+    expect(packagedPaths).toContain("vault/templates/plan-context.md");
+    expect(packagedPaths).not.toContain("tests/install-runtime.test.ts");
+    expect(packagedPaths).not.toContain("src/runtime/runtime.ts");
+    expect(packagedPaths).not.toContain("plans/2026-03-16-package-distribution-and-project-init-plan.md");
+  });
+
   test("module exports are defined functions", () => {
     expect(typeof buildClaudeHooks).toBe("function");
     expect(typeof buildOpenCodePluginSource).toBe("function");
@@ -84,5 +205,87 @@ describe("install-runtime smoke tests", () => {
     expect(source).toContain("node_modules/hybrid-framework/dist/src/opencode/plugin.js");
     expect(source).toMatch(/^export \{/);
     expect(source).toMatch(/\n$/);
+  });
+
+  test("init, sync, and uninstall manage a consumer fixture safely and idempotently", async () => {
+    const fixtureRoot = await createConsumerFixture();
+    const plansReadmePath = path.join(fixtureRoot, "plans", "README.md");
+    const opencodeAgentPath = path.join(fixtureRoot, ".opencode", "agents", "hf-builder.md");
+    const claudeAgentPath = path.join(fixtureRoot, ".claude", "agents", "hf-builder.md");
+
+    runInstaller(["init", "--skip-build", "--target-dir", fixtureRoot]);
+
+    await expectPath(path.join(fixtureRoot, "plans"));
+    await expectPath(path.join(fixtureRoot, "plans", "evidence", ".gitkeep"));
+    await expectPath(path.join(fixtureRoot, "plans", "runtime", ".gitkeep"));
+    await expectPath(path.join(fixtureRoot, "vault", "README.md"));
+    await expectPath(path.join(fixtureRoot, "vault", "shared", "architecture.md"));
+    await expectPath(path.join(fixtureRoot, "vault", "templates", "plan-context.md"));
+    await expectPath(path.join(fixtureRoot, ".hybrid-framework", "generated-state.json"));
+    await expectPath(path.join(fixtureRoot, ".opencode", "plugins", "hybrid-runtime.js"));
+    await expectPath(path.join(fixtureRoot, ".opencode", "skills", "local-context", "SKILL.md"));
+    await expectPath(opencodeAgentPath);
+    await expectPath(path.join(fixtureRoot, ".claude", "skills", "local-context", "SKILL.md"));
+    await expectPath(claudeAgentPath);
+
+    const initialSettings = JSON.parse(await readFile(path.join(fixtureRoot, ".claude", "settings.local.json"), "utf8")) as {
+      permissions?: { allow?: string[] };
+      hooks?: Record<string, Array<{ hooks?: Array<{ command?: string }> }>>;
+    };
+    expect(initialSettings.permissions?.allow).toContain("Bash(npm test)");
+    expect(initialSettings.hooks?.Stop?.[0]?.hooks?.[0]?.command).toBe("node ./custom-stop.js");
+    const installedStopCommands = initialSettings.hooks?.Stop
+      ?.flatMap((group) => group.hooks ?? [])
+      .map((hook) => hook.command)
+      .filter((command): command is string => typeof command === "string" && command.includes("hf-claude-hook.js") && command.endsWith(" Stop")) ?? [];
+    expect(installedStopCommands).toHaveLength(1);
+
+    await writeFile(plansReadmePath, `${await readFile(plansReadmePath, "utf8")}\nMANUAL MARKER\n`, "utf8");
+    await writeFile(opencodeAgentPath, "tampered opencode agent\n", "utf8");
+    await writeFile(claudeAgentPath, "tampered claude agent\n", "utf8");
+
+    runInstaller(["init", "--skip-build", "--target-dir", fixtureRoot]);
+
+    expect(await readFile(plansReadmePath, "utf8")).toContain("MANUAL MARKER");
+    const rerunSettings = JSON.parse(await readFile(path.join(fixtureRoot, ".claude", "settings.local.json"), "utf8")) as {
+      hooks?: Record<string, Array<{ hooks?: Array<{ command?: string }> }>>;
+    };
+    const rerunStopCommands = rerunSettings.hooks?.Stop
+      ?.flatMap((group) => group.hooks ?? [])
+      .map((hook) => hook.command)
+      .filter((command): command is string => typeof command === "string" && command.includes("hf-claude-hook.js") && command.endsWith(" Stop")) ?? [];
+    expect(rerunStopCommands).toHaveLength(1);
+
+    runInstaller(["sync", "--target-dir", fixtureRoot]);
+
+    expect(await readFile(opencodeAgentPath, "utf8")).toBe(await readFile(path.join(repoRoot, "agents", "hf-builder.md"), "utf8"));
+    expect(await readFile(claudeAgentPath, "utf8")).toBe(await readFile(path.join(repoRoot, "agents", "hf-builder.md"), "utf8"));
+
+    await writeFile(path.join(fixtureRoot, ".opencode", "agents", "custom-agent.md"), "custom agent\n", "utf8");
+    await mkdir(path.join(fixtureRoot, ".opencode", "skills", "custom-skill"), { recursive: true });
+    await writeFile(path.join(fixtureRoot, ".opencode", "skills", "custom-skill", "SKILL.md"), "custom skill\n", "utf8");
+
+    runInstaller(["uninstall", "--target-dir", fixtureRoot]);
+
+    await expect(stat(path.join(fixtureRoot, "plans", "README.md"))).resolves.toBeDefined();
+    await expect(stat(path.join(fixtureRoot, "vault", "README.md"))).resolves.toBeDefined();
+    await expect(stat(path.join(fixtureRoot, ".hybrid-framework", "generated-state.json"))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(stat(path.join(fixtureRoot, ".opencode", "plugins", "hybrid-runtime.js"))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(stat(opencodeAgentPath)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(stat(claudeAgentPath)).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(path.join(fixtureRoot, ".opencode", "agents", "custom-agent.md"), "utf8")).toBe("custom agent\n");
+    expect(await readFile(path.join(fixtureRoot, ".opencode", "skills", "custom-skill", "SKILL.md"), "utf8")).toBe("custom skill\n");
+
+    const postUninstallSettings = JSON.parse(await readFile(path.join(fixtureRoot, ".claude", "settings.local.json"), "utf8")) as {
+      permissions?: { allow?: string[] };
+      hooks?: Record<string, Array<{ hooks?: Array<{ command?: string }> }>>;
+    };
+    expect(postUninstallSettings.permissions?.allow).toContain("Bash(npm test)");
+    expect(postUninstallSettings.hooks?.Stop?.[0]?.hooks?.[0]?.command).toBe("node ./custom-stop.js");
+    const remainingStopCommands = postUninstallSettings.hooks?.Stop
+      ?.flatMap((group) => group.hooks ?? [])
+      .map((hook) => hook.command)
+      .filter((command): command is string => typeof command === "string" && command.includes("hf-claude-hook.js") && command.endsWith(" Stop")) ?? [];
+    expect(remainingStopCommands).toHaveLength(0);
   });
 });

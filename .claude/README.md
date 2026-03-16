@@ -1,5 +1,10 @@
 # Claude Adapter
 
+This folder has two roles depending on where you are reading it:
+
+- In this package repo, `.claude/` contains the tracked Claude hook reference surface.
+- In a consumer project after `hf-install`, `hf-init`, or `hf-sync`, `.claude/` is generated managed output derived from the installed package.
+
 Claude-specific material belongs here; the framework itself lives at the repo root:
 
 - `agents/`
@@ -14,7 +19,33 @@ See `../README.md` for the canonical framework surface and `../plans/README.md` 
 
 `settings.example.json` is the tracked reference for wiring the current Claude hook surface implemented by `../src/claude/hook-handler.ts`.
 
+## Consumer Project Behavior
+
+When a consumer project runs `hf-install` or `hf-init`, the package manages `.claude/` in the target project by:
+
+- merging the framework hook groups into `.claude/settings.local.json`
+- preserving unrelated user-owned Claude settings
+- optionally generating `.claude/agents/` and `.claude/skills/` when `assets.claude.copy` requests adapter-local markdown mirrors
+
+Re-running `hf-sync` refreshes the managed Claude surface from the installed package without re-scaffolding `plans/` or `vault/`.
+
 `scripts/install-runtime.mjs --tool claude` merges those hook groups into `settings.local.json`; it does not overwrite unrelated local settings.
+
+Claude does not have a default generated prompt surface the way OpenCode does. The only always-managed Claude file is the hook wiring in `settings.local.json`.
+
+If a consumer project sets `assets.claude.copy` in `hybrid-framework.json`, `scripts/sync-opencode-assets.mjs` can also materialize selected canonical markdown assets into adapter-local reference folders:
+
+- `agents/` and `subagents/` entries are written to `.claude/agents/`
+- `skills/` entries mirror their canonical path under `.claude/skills/`
+- `assets.mode` uses the same `copy` / `symlink` / `references` rules as OpenCode, with `references` falling back to copies when symlinks are unavailable
+
+Those Claude markdown mirrors are generated references for the consumer project; the root package assets remain canonical.
+
+In consumer projects, treat `.claude/` as generated output:
+
+- customize behavior through `hybrid-framework.json`
+- run `hf-sync` after changing adapter asset settings or upgrading the package
+- run `hf-uninstall` to remove managed Claude wiring cleanly while preserving unrelated local settings
 
 The tracked example covers the currently supported Claude hook events:
 

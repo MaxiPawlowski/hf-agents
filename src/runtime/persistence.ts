@@ -39,6 +39,23 @@ export function getRuntimePaths(plan: ParsedPlan): RuntimePaths {
   };
 }
 
+export function getPlanlessRuntimePaths(cwd: string): RuntimePaths {
+  const runtimeDir = path.join(cwd, "plans", "runtime", "_planless");
+
+  return {
+    runtimeDir,
+    statusPath: path.join(runtimeDir, "status.json"),
+    eventsPath: path.join(runtimeDir, "events.jsonl"),
+    resumePromptPath: path.join(runtimeDir, "resume-prompt.txt")
+  };
+}
+
+export async function ensurePlanlessRuntimeDir(cwd: string): Promise<RuntimePaths> {
+  const runtimePaths = getPlanlessRuntimePaths(cwd);
+  await fs.mkdir(runtimePaths.runtimeDir, { recursive: true });
+  return runtimePaths;
+}
+
 export function getVaultPaths(plan: ParsedPlan): VaultPaths {
   const plansDir = path.dirname(plan.path);
   const repoRoot = path.dirname(plansDir);

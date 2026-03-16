@@ -1,0 +1,71 @@
+{
+  "skill": "hf-vault-bootstrap",
+  "purpose": "Starter fixtures for conversational vault initialization and file-boundary discipline.",
+  "cases": [
+    {
+      "id": "vault-bootstrap-new-project-shared-context",
+      "focus": [
+        "kickoff interview",
+        "shared vault mapping",
+        "lean initialization"
+      ],
+      "input": {
+        "user_prompt": "We just installed the framework into a new B2B analytics app. Help me bootstrap the vault by interviewing me and then write down the project's purpose, main services, Postgres plus Redis architecture, TypeScript conventions, and deployment constraints. There is no active plan yet."
+      },
+      "expected": {
+        "must_include": [
+          "a short conversational intake that reuses the context already present in the prompt",
+          "updates targeted at vault/shared/ files only",
+          "an explicit note that no plan-scoped files were created because no slug is known"
+        ],
+        "must_not": [
+          "invent a plan slug",
+          "create milestones or acceptance criteria",
+          "dump generic filler into every vault file"
+        ]
+      }
+    },
+    {
+      "id": "vault-bootstrap-active-plan-context-split",
+      "focus": [
+        "shared versus plan-scoped split",
+        "plan-context seeding"
+      ],
+      "input": {
+        "user_prompt": "Bootstrap the vault for our checkout reliability work. The current plan slug is 2026-03-20-checkout-reliability. Through a short conversation, capture project-wide Node and observability conventions plus this plan's scope, stakeholders, and rollout risks."
+      },
+      "expected": {
+        "must_include": [
+          "project-wide conventions mapped to vault/shared/ files",
+          "plan-specific framing mapped to vault/plans/2026-03-20-checkout-reliability/context.md or related plan-scoped files",
+          "clear reasoning for why each note is shared or plan-scoped"
+        ],
+        "must_not": [
+          "store rollout risks only in shared files when they are specific to the active initiative",
+          "rewrite the plan doc or add milestone logic"
+        ]
+      }
+    },
+    {
+      "id": "vault-bootstrap-boundary-against-plan-synthesis",
+      "focus": [
+        "boundary enforcement",
+        "non-goal handling"
+      ],
+      "input": {
+        "user_prompt": "Please talk to me about our platform and then turn that into whatever vault notes and milestone plan you think we need."
+      },
+      "expected": {
+        "must_include": [
+          "vault initialization help",
+          "an explicit boundary note that milestone planning stays in the plan doc workflow",
+          "only vault-scoped output requirements"
+        ],
+        "must_not": [
+          "silently synthesize milestones",
+          "claim the vault replaces canonical planning"
+        ]
+      }
+    }
+  ]
+}

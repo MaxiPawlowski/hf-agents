@@ -39,6 +39,19 @@ async function getExtractor(): Promise<FeatureExtractionPipeline> {
 }
 
 /**
+ * Start loading the embedding model in the background.
+ * Call early (e.g. during hydrate) so the model is warm
+ * by the time embedBatch() is actually needed.
+ * Safe to call multiple times — deduplicates via loadingPromise.
+ */
+export function warmupEmbeddingModel(): void {
+  getExtractor().catch(() => {
+    // Swallowed — callers that actually need embeddings
+    // will get the real error from embed/embedBatch.
+  });
+}
+
+/**
  * Embed a single text string into a 384-dimensional normalized vector.
  */
 export async function embed(text: string): Promise<number[]> {

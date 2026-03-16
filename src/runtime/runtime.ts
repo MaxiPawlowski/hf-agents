@@ -2,9 +2,11 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 
 import { parsePlan } from "./plan-doc.js";
-import { appendEvent, ensureRuntimeDir, getVaultPaths, readStatus, readVaultContext, writeResumePrompt, writeStatus } from "./persistence.js";
+import { appendEvent, ensureRuntimeDir, ensurePlanlessRuntimeDir, getVaultPaths, readStatus, readVaultContext, writeResumePrompt, writeStatus } from "./persistence.js";
 import { buildResumePrompt, retrieveVaultChunks } from "./prompt.js";
 import { buildVaultIndex } from "./vault-index-pipeline.js";
+import { warmupEmbeddingModel } from "./vault-embeddings.js";
+import { hfLog, hfLogTimed } from "./logger.js";
 import type {
   ContinueDecision,
   LoopRuntime,
@@ -21,6 +23,18 @@ import type {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+const VAULT_INDEX_TIMEOUT_MS = 5_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(fallback), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    clearTimeout(timer!);
+  });
 }
 
 function defaultStatus(plan: ParsedPlan): RuntimeStatus {
@@ -119,14 +133,18 @@ export class HybridLoopRuntime implements LoopRuntime {
   private vault: VaultContext | null = null;
   private vaultIndex: VaultIndex | null = null;
   private vaultSearchResults: VaultSearchResult[] | null = null;
+  private planlessCwd: string | null = null;
 
   public async hydrate(planRef: string): Promise<RuntimeStatus> {
+    const done = hfLogTimed({ tag: "runtime", msg: "hydrate", data: { planRef } });
     const plan = await parsePlan(planRef);
     const runtimePaths = await ensureRuntimeDir(plan);
     const existing = await readStatus(runtimePaths);
     this.plan = plan;
-    this.vault = await readVaultContext(getVaultPaths(plan));
-    await this.refreshVaultIndex();
+    // Vault context is loaded lazily in decideNext() to keep hydration fast.
+    this.vault = null;
+    this.vaultIndex = null;
+    this.vaultSearchResults = null;
     const defaults = defaultStatus(plan);
     const baseStatus = existing ?? defaults;
 
@@ -151,13 +169,61 @@ export class HybridLoopRuntime implements LoopRuntime {
     };
 
     await this.writeState();
+
+    // Start loading the ONNX embedding model in the background so it's
+    // warm by the time decideNext() actually needs it for vault indexing.
+    warmupEmbeddingModel();
+
+    done({ plan: plan.slug, phase: this.status.phase });
     return this.status;
+  }
+
+  public async hydratePlanless(cwd: string): Promise<RuntimeStatus> {
+    this.planlessCwd = cwd;
+    this.plan = null;
+    this.vault = null;
+    this.vaultIndex = null;
+    this.vaultSearchResults = null;
+
+    const runtimePaths = await ensurePlanlessRuntimeDir(cwd);
+    const existing = await readStatus(runtimePaths);
+
+    this.status = existing ?? {
+      version: 1,
+      planPath: "",
+      planSlug: "_planless",
+      planMtimeMs: 0,
+      loopState: "idle",
+      phase: "execution",
+      currentMilestone: null,
+      counters: {
+        totalAttempts: 0,
+        totalTurns: 0,
+        maxTotalTurns: 50,
+        noProgress: 0,
+        repeatedBlocker: 0,
+        verificationFailures: 0,
+        turnsSinceLastOutcome: 0
+      },
+      sessions: {},
+      subagents: [],
+      autoContinue: false,
+      updatedAt: nowIso()
+    };
+
+    await writeStatus(runtimePaths, this.status);
+    return this.status;
+  }
+
+  public isPlanless(): boolean {
+    return this.planlessCwd !== null;
   }
 
   public async recordEvent(event: RuntimeEvent): Promise<RuntimeStatus> {
     const status = this.requireStatus();
-    const plan = this.requirePlan();
-    const runtimePaths = await ensureRuntimeDir(plan);
+    const runtimePaths = this.planlessCwd
+      ? await ensurePlanlessRuntimeDir(this.planlessCwd)
+      : await ensureRuntimeDir(this.requirePlan());
     const recoveryTrigger = detectRecoveryTrigger(event);
 
     if (event.sessionId) {
@@ -195,11 +261,14 @@ export class HybridLoopRuntime implements LoopRuntime {
   }
 
   public async evaluateTurn(outcome: TurnOutcome): Promise<RuntimeStatus> {
+    const done = hfLogTimed({ tag: "runtime", msg: "evaluateTurn", data: { state: outcome.state } });
     const status = this.requireStatus();
     const plan = await parsePlan(this.requirePlan().path);
     this.plan = plan;
-    this.vault = await readVaultContext(getVaultPaths(plan));
-    await this.refreshVaultIndex();
+    // Invalidate vault — will be reloaded lazily in decideNext().
+    this.vault = null;
+    this.vaultIndex = null;
+    this.vaultSearchResults = null;
     const now = nowIso();
 
     status.planMtimeMs = plan.mtimeMs;
@@ -260,6 +329,7 @@ export class HybridLoopRuntime implements LoopRuntime {
     applyLoopState(plan, status, outcome);
 
     await this.writeState();
+    done({ loopState: status.loopState });
     return status;
   }
 
@@ -290,11 +360,14 @@ export class HybridLoopRuntime implements LoopRuntime {
   }
 
   public async noteStopWithoutOutcome(): Promise<RuntimeStatus> {
+    hfLog({ tag: "runtime", msg: "noteStopWithoutOutcome" });
     const status = this.requireStatus();
     const plan = await parsePlan(this.requirePlan().path);
     this.plan = plan;
-    this.vault = await readVaultContext(getVaultPaths(plan));
-    await this.refreshVaultIndex();
+    // Invalidate vault — will be reloaded lazily in decideNext().
+    this.vault = null;
+    this.vaultIndex = null;
+    this.vaultSearchResults = null;
 
     status.planMtimeMs = plan.mtimeMs;
     status.phase = plan.approved ? "execution" : "planning";
@@ -312,9 +385,35 @@ export class HybridLoopRuntime implements LoopRuntime {
     return status;
   }
 
-  public decideNext(): ContinueDecision {
+  public async decideNext(): Promise<ContinueDecision> {
     const status = this.requireStatus();
+
+    if (this.planlessCwd) {
+      hfLog({ tag: "runtime", msg: "decideNext planless" });
+      return {
+        action: "allow_stop",
+        reason: "No active plan. The runtime is providing guardrails only."
+      };
+    }
+
     const plan = this.requirePlan();
+
+    // Lazy vault loading — only when we actually need a resume prompt
+    if (!this.vault) {
+      const vaultDone = hfLogTimed({ tag: "runtime", msg: "lazy vault load" });
+      try {
+        this.vault = await readVaultContext(getVaultPaths(plan));
+        await this.refreshVaultIndex();
+      } catch {
+        this.vault = null;
+        this.vaultIndex = null;
+        this.vaultSearchResults = null;
+      }
+      // Persist the enriched resume prompt now that vault is loaded
+      await this.writeState();
+      vaultDone({ hasVault: this.vault !== null, hasIndex: this.vaultIndex !== null });
+    }
+
     const resume_prompt = buildResumePrompt(plan, status, this.vault, this.vaultSearchResults);
 
     if (!plan.approved) {
@@ -377,8 +476,15 @@ export class HybridLoopRuntime implements LoopRuntime {
   }
 
   public async writeState(): Promise<void> {
-    const plan = this.requirePlan();
     const status = this.requireStatus();
+
+    if (this.planlessCwd) {
+      const runtimePaths = await ensurePlanlessRuntimeDir(this.planlessCwd);
+      await writeStatus(runtimePaths, status);
+      return;
+    }
+
+    const plan = this.requirePlan();
     const runtimePaths = await ensureRuntimeDir(plan);
     const prompt = buildResumePrompt(plan, status, this.vault, this.vaultSearchResults);
 
@@ -392,8 +498,8 @@ export class HybridLoopRuntime implements LoopRuntime {
     return this.requireStatus();
   }
 
-  public getPlan(): ParsedPlan {
-    return this.requirePlan();
+  public getPlan(): ParsedPlan | null {
+    return this.plan;
   }
 
   private async refreshVaultIndex(): Promise<void> {
@@ -402,7 +508,11 @@ export class HybridLoopRuntime implements LoopRuntime {
 
     if (this.vault) {
       try {
-        this.vaultIndex = await buildVaultIndex(vaultPaths, this.vault);
+        this.vaultIndex = await withTimeout(
+          buildVaultIndex(vaultPaths, this.vault),
+          VAULT_INDEX_TIMEOUT_MS,
+          null
+        );
       } catch {
         this.vaultIndex = null;
       }
@@ -413,9 +523,10 @@ export class HybridLoopRuntime implements LoopRuntime {
     // Pre-compute search results for the current milestone
     if (this.vaultIndex && plan.currentMilestone) {
       try {
-        this.vaultSearchResults = await retrieveVaultChunks(
-          this.vaultIndex,
-          plan.currentMilestone.text
+        this.vaultSearchResults = await withTimeout(
+          retrieveVaultChunks(this.vaultIndex, plan.currentMilestone.text),
+          VAULT_INDEX_TIMEOUT_MS,
+          null
         );
       } catch {
         this.vaultSearchResults = null;

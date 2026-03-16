@@ -94,7 +94,7 @@ async function main(): Promise<void> {
         type: "session.resume_requested",
         timestamp: new Date().toISOString()
       });
-      const decision = runtime.decideNext();
+      const decision = await runtime.decideNext();
       console.log(JSON.stringify(decision, null, 2));
       return;
     }
@@ -126,7 +126,7 @@ async function main(): Promise<void> {
       }
 
       const status = await runtime.evaluateTurn(parsed.outcome);
-      const decision = runtime.decideNext();
+      const decision = await runtime.decideNext();
       console.log(JSON.stringify({ status, decision }, null, 2));
       return;
     }
