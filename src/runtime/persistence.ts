@@ -1,11 +1,72 @@
 import path from "node:path";
 import { promises as fs } from "node:fs";
 
-import type { ParsedPlan, RuntimeEvent, RuntimeStatus, VaultContext, VaultDocument, VaultPaths } from "./types.js";
+import type { IndexCodeConfig, IndexConfig, ParsedPlan, RuntimeEvent, RuntimeStatus, VaultContext, VaultDocument, VaultPaths } from "./types.js";
 import { validateTurnOutcome } from "./turn-outcome-trailer.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export const DEFAULT_INDEX_CONFIG: IndexConfig = {
+  enabled: true,
+  code: {
+    enabled: true,
+    roots: ["src"],
+    extensions: [".ts"],
+    exclude: ["node_modules/", "dist/"],
+  },
+  semanticTopK: 5,
+  maxChunkChars: 2000,
+  embeddingBatchSize: 100,
+  timeoutMs: 15000,
+  charBudget: 3000,
+  planningCharBudget: 1500,
+};
+
+function mergeCodeConfig(defaults: IndexCodeConfig, raw: unknown): IndexCodeConfig {
+  if (!isRecord(raw)) return defaults;
+  return {
+    enabled: typeof raw.enabled === "boolean" ? raw.enabled : defaults.enabled,
+    roots: Array.isArray(raw.roots) && raw.roots.every((r: unknown) => typeof r === "string") ? raw.roots as string[] : defaults.roots,
+    extensions: Array.isArray(raw.extensions) && raw.extensions.every((e: unknown) => typeof e === "string") ? raw.extensions as string[] : defaults.extensions,
+    exclude: Array.isArray(raw.exclude) && raw.exclude.every((e: unknown) => typeof e === "string") ? raw.exclude as string[] : defaults.exclude,
+  };
+}
+
+function safeNumber(value: unknown, fallback: number): number {
+  return typeof value === "number" && !Number.isNaN(value) && value > 0 ? value : fallback;
+}
+
+export async function loadIndexConfig(repoRoot: string): Promise<IndexConfig> {
+  const configPath = path.join(repoRoot, "hybrid-framework.json");
+  try {
+    const raw = await fs.readFile(configPath, "utf8");
+    const parsed = JSON.parse(raw);
+    if (!isRecord(parsed) || !isRecord(parsed.index)) {
+      return { ...DEFAULT_INDEX_CONFIG };
+    }
+    const idx = parsed.index;
+    return {
+      enabled: typeof idx.enabled === "boolean" ? idx.enabled : DEFAULT_INDEX_CONFIG.enabled,
+      code: mergeCodeConfig(DEFAULT_INDEX_CONFIG.code, idx.code),
+      semanticTopK: safeNumber(idx.semanticTopK, DEFAULT_INDEX_CONFIG.semanticTopK),
+      maxChunkChars: safeNumber(idx.maxChunkChars, DEFAULT_INDEX_CONFIG.maxChunkChars),
+      embeddingBatchSize: safeNumber(idx.embeddingBatchSize, DEFAULT_INDEX_CONFIG.embeddingBatchSize),
+      timeoutMs: safeNumber(idx.timeoutMs, DEFAULT_INDEX_CONFIG.timeoutMs),
+      charBudget: safeNumber(idx.charBudget, DEFAULT_INDEX_CONFIG.charBudget),
+      planningCharBudget: safeNumber(idx.planningCharBudget, DEFAULT_INDEX_CONFIG.planningCharBudget),
+    };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return { ...DEFAULT_INDEX_CONFIG };
+    }
+    if (error instanceof SyntaxError) {
+      console.error(`[loadIndexConfig] Invalid JSON in ${configPath}, using defaults.`);
+      return { ...DEFAULT_INDEX_CONFIG };
+    }
+    throw error;
+  }
 }
 
 export interface RuntimePaths {
@@ -56,6 +117,18 @@ export async function ensurePlanlessRuntimeDir(cwd: string): Promise<RuntimePath
   return runtimePaths;
 }
 
+export function getRepoRoot(plan?: ParsedPlan, planlessCwd?: string): string {
+  if (plan) {
+    return path.dirname(path.dirname(plan.path));
+  }
+
+  if (planlessCwd) {
+    return planlessCwd;
+  }
+
+  throw new Error("Repo root requires a parsed plan or a planless cwd.");
+}
+
 export function getVaultPaths(plan: ParsedPlan): VaultPaths {
   const plansDir = path.dirname(plan.path);
   const repoRoot = path.dirname(plansDir);
@@ -101,8 +174,22 @@ export async function writeStatus(runtimePaths: RuntimePaths, status: RuntimeSta
   await fs.writeFile(runtimePaths.statusPath, `${JSON.stringify(status, null, 2)}\n`, "utf8");
 }
 
+/**
+ * Per-file write queue to prevent concurrent appendFile calls from
+ * interleaving partial JSON lines.
+ */
+const writeQueues = new Map<string, Promise<void>>();
+
 export async function appendEvent(runtimePaths: RuntimePaths, event: RuntimeEvent): Promise<void> {
-  await fs.appendFile(runtimePaths.eventsPath, `${JSON.stringify(event)}\n`, "utf8");
+  const key = runtimePaths.eventsPath;
+  const previous = writeQueues.get(key) ?? Promise.resolve();
+  const next = previous.then(async () => {
+    await fs.appendFile(key, `${JSON.stringify(event)}\n`, "utf8");
+  });
+  writeQueues.set(key, next.catch((error) => {
+    console.error(`[appendEvent] Failed to append to ${key}: ${(error as Error).message}`);
+  }));
+  await next;
 }
 
 export async function writeResumePrompt(runtimePaths: RuntimePaths, prompt: string): Promise<void> {
@@ -158,184 +245,120 @@ async function readVaultDocuments(
   return documents.filter((document): document is VaultDocument => document !== null);
 }
 
+// ── Compact validation helpers ──────────────────────────────────────
+// Each helper throws with a consistent message format:
+//   "Invalid runtime status at <path>: <field> must be <constraint>."
+
+function fail(statusPath: string, field: string, constraint: string): never {
+  throw new Error(`Invalid runtime status at ${statusPath}: ${field} must be ${constraint}.`);
+}
+
+function expectString(v: unknown, f: string, p: string): asserts v is string { if (typeof v !== "string") fail(p, f, "a string"); }
+function expectNumber(v: unknown, f: string, p: string): asserts v is number { if (typeof v !== "number" || Number.isNaN(v)) fail(p, f, "a number"); }
+function expectBoolean(v: unknown, f: string, p: string): asserts v is boolean { if (typeof v !== "boolean") fail(p, f, "a boolean"); }
+
+function expectEnum(v: unknown, allowed: readonly string[], f: string, p: string): void {
+  if (typeof v !== "string" || !allowed.includes(v)) fail(p, f, `one of ${allowed.join(", ")}`);
+}
+
+function expectObject(v: unknown, f: string, p: string): asserts v is Record<string, unknown> {
+  if (!isRecord(v)) fail(p, f, "an object");
+}
+
+/** Validate a flat record where every listed key must be a certain type. */
+function expectFields(
+  obj: Record<string, unknown>,
+  fields: Record<string, "string" | "number" | "boolean">,
+  prefix: string,
+  p: string,
+): void {
+  for (const [key, type] of Object.entries(fields)) {
+    const fq = prefix ? `${prefix}.${key}` : key;
+    if (type === "string") expectString(obj[key], fq, p);
+    else if (type === "number") expectNumber(obj[key], fq, p);
+    else expectBoolean(obj[key], fq, p);
+  }
+}
+
+/** Validate a field only if it's present (not undefined). */
+function optionalString(obj: Record<string, unknown>, key: string, prefix: string, p: string): void {
+  if (obj[key] !== undefined) expectString(obj[key], `${prefix}.${key}`, p);
+}
+
 function validateRuntimeStatus(value: unknown, statusPath: string): asserts value is RuntimeStatus {
-  if (!isRecord(value)) {
-    throw new Error(`Invalid runtime status at ${statusPath}: expected an object.`);
+  const p = statusPath;
+  expectObject(value, "root", p);
+
+  if (value.version !== 1) fail(p, "version", "1");
+  expectFields(value, { planPath: "string", planSlug: "string", planMtimeMs: "number", autoContinue: "boolean", updatedAt: "string" }, "", p);
+  expectEnum(value.loopState, ["idle", "running", "paused", "escalated", "complete"], "loopState", p);
+  expectEnum(value.phase, ["planning", "execution"], "phase", p);
+
+  // currentMilestone: null | object
+  if (value.currentMilestone !== null) {
+    expectObject(value.currentMilestone, "currentMilestone", p);
+    expectFields(value.currentMilestone, { index: "number", checked: "boolean", text: "string", title: "string" }, "currentMilestone", p);
   }
 
-  expectLiteral(value.version, 1, "version", statusPath);
-  expectString(value.planPath, "planPath", statusPath);
-  expectString(value.planSlug, "planSlug", statusPath);
-  expectNumber(value.planMtimeMs, "planMtimeMs", statusPath);
-  expectEnum(value.loopState, ["idle", "running", "paused", "escalated", "complete"], "loopState", statusPath);
-  expectEnum(value.phase, ["planning", "execution"], "phase", statusPath);
-  expectNullableMilestone(value.currentMilestone, "currentMilestone", statusPath);
-  expectCounters(value.counters, statusPath);
-  expectSessions(value.sessions, statusPath);
-  expectSubagents(value.subagents, statusPath);
-  expectBoolean(value.autoContinue, "autoContinue", statusPath);
-  expectString(value.updatedAt, "updatedAt", statusPath);
+  // counters
+  expectObject(value.counters, "counters", p);
+  for (const f of ["totalAttempts", "totalTurns", "maxTotalTurns", "noProgress", "repeatedBlocker", "verificationFailures", "turnsSinceLastOutcome"]) {
+    expectNumber(value.counters[f], `counters.${f}`, p);
+  }
 
-  if (value.lastProgressAt !== undefined) {
-    expectString(value.lastProgressAt, "lastProgressAt", statusPath);
+  // sessions
+  expectObject(value.sessions, "sessions", p);
+  for (const [vendor, session] of Object.entries(value.sessions)) {
+    if (session === undefined) continue;
+    expectObject(session, `sessions.${vendor}`, p);
+    expectFields(session, { id: "string", updatedAt: "string" }, `sessions.${vendor}`, p);
   }
-  if (value.recommendedNextAction !== undefined) {
-    expectString(value.recommendedNextAction, "recommendedNextAction", statusPath);
+
+  // subagents
+  if (!Array.isArray(value.subagents)) fail(p, "subagents", "an array");
+  (value.subagents as unknown[]).forEach((sub, i) => {
+    expectObject(sub, `subagents[${i}]`, p);
+    expectFields(sub, { id: "string", name: "string", startedAt: "string" }, `subagents[${i}]`, p);
+    expectEnum(sub.status, ["running", "completed", "failed"], `subagents[${i}].status`, p);
+    optionalString(sub, "completedAt", `subagents[${i}]`, p);
+  });
+
+  // optional top-level strings
+  for (const key of ["lastProgressAt", "recommendedNextAction", "lastTurnEvaluatedAt"] as const) {
+    optionalString(value, key, "", p);
   }
-  if (value.lastTurnEvaluatedAt !== undefined) {
-    expectString(value.lastTurnEvaluatedAt, "lastTurnEvaluatedAt", statusPath);
-  }
+
+  // lastBlocker
   if (value.lastBlocker !== undefined) {
-    expectLastBlocker(value.lastBlocker, statusPath);
+    expectObject(value.lastBlocker, "lastBlocker", p);
+    expectFields(value.lastBlocker, { signature: "string", message: "string", at: "string" }, "lastBlocker", p);
   }
+
+  // lastVerification
   if (value.lastVerification !== undefined) {
-    expectLastVerification(value.lastVerification, statusPath);
+    expectObject(value.lastVerification, "lastVerification", p);
+    expectEnum(value.lastVerification.status, ["pass", "fail", "unknown"], "lastVerification.status", p);
+    optionalString(value.lastVerification, "summary", "lastVerification", p);
+    expectString(value.lastVerification.at, "lastVerification.at", p);
   }
+
+  // recovery
   if (value.recovery !== undefined) {
-    expectRecovery(value.recovery, statusPath);
+    expectObject(value.recovery, "recovery", p);
+    expectEnum(value.recovery.trigger, ["stop", "idle", "compact", "resume"], "recovery.trigger", p);
+    if (value.recovery.sourceTrigger !== undefined) {
+      expectEnum(value.recovery.sourceTrigger, ["stop", "idle", "compact"], "recovery.sourceTrigger", p);
+    }
+    expectEnum(value.recovery.vendor, ["opencode", "claude", "runtime"], "recovery.vendor", p);
+    expectFields(value.recovery, { eventType: "string", pendingOutcome: "boolean", at: "string" }, "recovery", p);
+    optionalString(value.recovery, "sessionId", "recovery", p);
   }
+
+  // lastOutcome
   if (value.lastOutcome !== undefined && value.lastOutcome !== null) {
     const issues = validateTurnOutcome(value.lastOutcome);
     if (issues.length > 0) {
-      throw new Error(`Invalid runtime status at ${statusPath}: lastOutcome ${issues[0]?.path} ${issues[0]?.message}`);
+      throw new Error(`Invalid runtime status at ${p}: lastOutcome ${issues[0]?.path} ${issues[0]?.message}`);
     }
   }
-}
-
-function expectString(value: unknown, field: string, statusPath: string): asserts value is string {
-  if (typeof value !== "string") {
-    throw new Error(`Invalid runtime status at ${statusPath}: ${field} must be a string.`);
-  }
-}
-
-function expectNumber(value: unknown, field: string, statusPath: string): asserts value is number {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    throw new Error(`Invalid runtime status at ${statusPath}: ${field} must be a number.`);
-  }
-}
-
-function expectBoolean(value: unknown, field: string, statusPath: string): asserts value is boolean {
-  if (typeof value !== "boolean") {
-    throw new Error(`Invalid runtime status at ${statusPath}: ${field} must be a boolean.`);
-  }
-}
-
-function expectLiteral<T extends string | number>(value: unknown, expected: T, field: string, statusPath: string): void {
-  if (value !== expected) {
-    throw new Error(`Invalid runtime status at ${statusPath}: ${field} must be ${JSON.stringify(expected)}.`);
-  }
-}
-
-function expectEnum(value: unknown, allowed: string[], field: string, statusPath: string): void {
-  if (typeof value !== "string" || !allowed.includes(value)) {
-    throw new Error(`Invalid runtime status at ${statusPath}: ${field} must be one of ${allowed.join(", ")}.`);
-  }
-}
-
-function expectNullableMilestone(value: unknown, field: string, statusPath: string): void {
-  if (value === null) {
-    return;
-  }
-  expectMilestone(value, field, statusPath);
-}
-
-function expectMilestone(value: unknown, field: string, statusPath: string): void {
-  if (!isRecord(value)) {
-    throw new Error(`Invalid runtime status at ${statusPath}: ${field} must be an object.`);
-  }
-  expectNumber(value.index, `${field}.index`, statusPath);
-  expectBoolean(value.checked, `${field}.checked`, statusPath);
-  expectString(value.text, `${field}.text`, statusPath);
-  expectString(value.title, `${field}.title`, statusPath);
-}
-
-function expectCounters(value: unknown, statusPath: string): void {
-  if (!isRecord(value)) {
-    throw new Error(`Invalid runtime status at ${statusPath}: counters must be an object.`);
-  }
-
-  for (const field of [
-    "totalAttempts",
-    "totalTurns",
-    "maxTotalTurns",
-    "noProgress",
-    "repeatedBlocker",
-    "verificationFailures",
-    "turnsSinceLastOutcome"
-  ]) {
-    expectNumber(value[field], `counters.${field}`, statusPath);
-  }
-}
-
-function expectSessions(value: unknown, statusPath: string): void {
-  if (!isRecord(value)) {
-    throw new Error(`Invalid runtime status at ${statusPath}: sessions must be an object.`);
-  }
-
-  for (const [vendor, session] of Object.entries(value)) {
-    if (session === undefined) {
-      continue;
-    }
-    if (!isRecord(session)) {
-      throw new Error(`Invalid runtime status at ${statusPath}: sessions.${vendor} must be an object.`);
-    }
-    expectString(session.id, `sessions.${vendor}.id`, statusPath);
-    expectString(session.updatedAt, `sessions.${vendor}.updatedAt`, statusPath);
-  }
-}
-
-function expectSubagents(value: unknown, statusPath: string): void {
-  if (!Array.isArray(value)) {
-    throw new Error(`Invalid runtime status at ${statusPath}: subagents must be an array.`);
-  }
-
-  value.forEach((subagent, index) => {
-    if (!isRecord(subagent)) {
-      throw new Error(`Invalid runtime status at ${statusPath}: subagents[${index}] must be an object.`);
-    }
-    expectString(subagent.id, `subagents[${index}].id`, statusPath);
-    expectString(subagent.name, `subagents[${index}].name`, statusPath);
-    expectString(subagent.startedAt, `subagents[${index}].startedAt`, statusPath);
-    expectEnum(subagent.status, ["running", "completed", "failed"], `subagents[${index}].status`, statusPath);
-    if (subagent.completedAt !== undefined) {
-      expectString(subagent.completedAt, `subagents[${index}].completedAt`, statusPath);
-    }
-  });
-}
-
-function expectLastBlocker(value: unknown, statusPath: string): void {
-  if (!isRecord(value)) {
-    throw new Error(`Invalid runtime status at ${statusPath}: lastBlocker must be an object.`);
-  }
-  expectString(value.signature, "lastBlocker.signature", statusPath);
-  expectString(value.message, "lastBlocker.message", statusPath);
-  expectString(value.at, "lastBlocker.at", statusPath);
-}
-
-function expectLastVerification(value: unknown, statusPath: string): void {
-  if (!isRecord(value)) {
-    throw new Error(`Invalid runtime status at ${statusPath}: lastVerification must be an object.`);
-  }
-  expectEnum(value.status, ["pass", "fail", "unknown"], "lastVerification.status", statusPath);
-  if (value.summary !== undefined) {
-    expectString(value.summary, "lastVerification.summary", statusPath);
-  }
-  expectString(value.at, "lastVerification.at", statusPath);
-}
-
-function expectRecovery(value: unknown, statusPath: string): void {
-  if (!isRecord(value)) {
-    throw new Error(`Invalid runtime status at ${statusPath}: recovery must be an object.`);
-  }
-  expectEnum(value.trigger, ["stop", "idle", "compact", "resume"], "recovery.trigger", statusPath);
-  if (value.sourceTrigger !== undefined) {
-    expectEnum(value.sourceTrigger, ["stop", "idle", "compact"], "recovery.sourceTrigger", statusPath);
-  }
-  expectEnum(value.vendor, ["opencode", "claude", "runtime"], "recovery.vendor", statusPath);
-  expectString(value.eventType, "recovery.eventType", statusPath);
-  if (value.sessionId !== undefined) {
-    expectString(value.sessionId, "recovery.sessionId", statusPath);
-  }
-  expectBoolean(value.pendingOutcome, "recovery.pendingOutcome", statusPath);
-  expectString(value.at, "recovery.at", statusPath);
 }

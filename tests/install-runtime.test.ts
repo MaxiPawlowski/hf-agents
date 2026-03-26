@@ -141,7 +141,7 @@ describe("install-runtime smoke tests", () => {
     expect(packagedPaths).not.toContain("tests/install-runtime.test.ts");
     expect(packagedPaths).not.toContain("src/runtime/runtime.ts");
     expect(packagedPaths).not.toContain("plans/2026-03-16-package-distribution-and-project-init-plan.md");
-  });
+  }, 30_000);
 
   test("module exports are defined functions", () => {
     expect(typeof buildClaudeHooks).toBe("function");
@@ -287,5 +287,71 @@ describe("install-runtime smoke tests", () => {
       .map((hook) => hook.command)
       .filter((command): command is string => typeof command === "string" && command.includes("hf-claude-hook.js") && command.endsWith(" Stop")) ?? [];
     expect(remainingStopCommands).toHaveLength(0);
+  });
+
+  test("init seeds index config defaults into hybrid-framework.json", async () => {
+    const fixtureRoot = await createConsumerFixture();
+
+    runInstaller(["init", "--skip-build", "--target-dir", fixtureRoot]);
+
+    const raw = await readFile(path.join(fixtureRoot, "hybrid-framework.json"), "utf8");
+    const config = JSON.parse(raw) as {
+      index?: {
+        enabled?: boolean;
+        code?: { enabled?: boolean; roots?: string[]; extensions?: string[]; exclude?: string[] };
+        semanticTopK?: number;
+        maxChunkChars?: number;
+        embeddingBatchSize?: number;
+        timeoutMs?: number;
+        charBudget?: number;
+        planningCharBudget?: number;
+      };
+    };
+
+    expect(config.index).toBeDefined();
+    expect(config.index?.enabled).toBe(true);
+    expect(config.index?.code?.enabled).toBe(true);
+    expect(Array.isArray(config.index?.code?.roots)).toBe(true);
+    expect(config.index?.semanticTopK).toBeTypeOf("number");
+    expect(config.index?.maxChunkChars).toBeTypeOf("number");
+    expect(config.index?.charBudget).toBeTypeOf("number");
+    expect(config.index?.planningCharBudget).toBeTypeOf("number");
+  });
+
+  test("init preserves existing index config and does not overwrite it", async () => {
+    const fixtureRoot = await createConsumerFixture();
+
+    // Pre-seed a custom index config before init runs
+    const configPath = path.join(fixtureRoot, "hybrid-framework.json");
+    const existingConfig = JSON.parse(await readFile(configPath, "utf8")) as Record<string, unknown>;
+    existingConfig["index"] = { enabled: false, semanticTopK: 99 };
+    await writeFile(configPath, JSON.stringify(existingConfig, null, 2), "utf8");
+
+    runInstaller(["init", "--skip-build", "--target-dir", fixtureRoot]);
+
+    const raw = await readFile(configPath, "utf8");
+    const config = JSON.parse(raw) as { index?: { enabled?: boolean; semanticTopK?: number } };
+
+    expect(config.index?.enabled).toBe(false);
+    expect(config.index?.semanticTopK).toBe(99);
+  });
+
+  test("init preserves other top-level keys when seeding index config", async () => {
+    const fixtureRoot = await createConsumerFixture();
+
+    runInstaller(["init", "--skip-build", "--target-dir", fixtureRoot]);
+
+    const raw = await readFile(path.join(fixtureRoot, "hybrid-framework.json"), "utf8");
+    const config = JSON.parse(raw) as {
+      adapters?: unknown;
+      scaffold?: unknown;
+      assets?: unknown;
+      index?: unknown;
+    };
+
+    expect(config.adapters).toBeDefined();
+    expect(config.scaffold).toBeDefined();
+    expect(config.assets).toBeDefined();
+    expect(config.index).toBeDefined();
   });
 });

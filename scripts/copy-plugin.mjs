@@ -12,7 +12,14 @@ import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const distPlugin = resolve(__dirname, "..", "dist", "src", "opencode", "plugin.js");
+const distPlugin = resolve(
+  __dirname,
+  "..",
+  "dist",
+  "src",
+  "opencode",
+  "plugin.js",
+);
 
 // Convert to file:// URL so the import works cross-platform.
 const distURL = new URL(`file:///${distPlugin.replace(/\\/g, "/")}`).href;

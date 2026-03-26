@@ -281,6 +281,33 @@ function resolveScaffoldSelection(options, config) {
   };
 }
 
+const DEFAULT_INDEX_CONFIG = {
+  enabled: true,
+  code: {
+    enabled: true,
+    roots: ["src"],
+    extensions: [".ts"],
+    exclude: ["node_modules/", "dist/"]
+  },
+  semanticTopK: 5,
+  maxChunkChars: 2000,
+  embeddingBatchSize: 100,
+  timeoutMs: 15000,
+  charBudget: 3000,
+  planningCharBudget: 1500
+};
+
+function seedIndexConfig(config) {
+  const existing = config.value;
+  if (existing.index) {
+    return;
+  }
+
+  const merged = { ...existing, index: DEFAULT_INDEX_CONFIG };
+  writeJson(config.path, merged);
+  log(`Seeded index config in ${path.basename(config.path)}`);
+}
+
 function buildPackageRelativePath(targetDir, packageName, segments) {
   if (isSelfInstall(targetDir)) {
     return segments.join("/");
@@ -867,6 +894,7 @@ export function main() {
   }
 
   if (options.command === "init") {
+    seedIndexConfig(config);
     scaffoldProject(options.targetDir, scaffold);
     executeInstall("install", options, packageName, adapters, manifest);
   }

@@ -1,10 +1,13 @@
 import path from "node:path";
 import { promises as fs } from "node:fs";
 
+import { hfLog } from "./logger.js";
 import type { MilestoneContext, ParsedPlan, PlanConfig, PlanMilestone, ReviewPolicy } from "./types.js";
 
 const CHECKBOX_PATTERN = /^- \[( |x)\] (.+)$/;
 const METADATA_LINE_PATTERN = /^  - (\S+?):\s*(.+)$/;
+const KNOWN_METADATA_KEYS = new Set(["scope", "conventions", "notes", "review"]);
+const KNOWN_EVIDENCE_KEYS = new Set(["files", "verification", "review_result", "loop", "completed", "per-item", "skill"]);
 const DEFAULT_MAX_TOTAL_TURNS = 50;
 const DEFAULT_AUTO_CONTINUE = true;
 
@@ -87,7 +90,9 @@ function parseMetadataLines(
         // Legacy evidence values are ignored; new evidence uses review_result: key
         break;
       default:
-        // Ignore evidence keys and unknown keys
+        if (!KNOWN_EVIDENCE_KEYS.has(key)) {
+          hfLog({ tag: "plan-doc", msg: `unknown metadata key "${key}" — typo?`, data: { key, value } });
+        }
         break;
     }
   }

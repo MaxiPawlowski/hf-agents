@@ -55,8 +55,10 @@
     "hf:uninstall": "node scripts/install-runtime.mjs uninstall",
     "pack:check": "npm pack --dry-run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:lifecycle": "vitest run tests/install-runtime.test.ts tests/adapters.test.ts",
-    "test": "vitest run",
+    "test": "vitest run --exclude tests/e2e/**/*.test.ts",
+    "test:e2e": "vitest run --config vitest.config.e2e.ts",
+    "test:bench": "cross-env HF_RUN_BENCHMARKS=1 vitest run --config vitest.config.e2e.ts",
+    "test:slow": "cross-env HF_RUN_SLOW=1 vitest run --exclude tests/e2e/**/*.test.ts",
     "verify:e2e": "node scripts/verify-e2e.mjs"
   },
   "dependencies": {
@@ -64,6 +66,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.14",
+    "cross-env": "^10.1.0",
     "typescript": "^5.8.2",
     "vitest": "^3.0.8"
   }

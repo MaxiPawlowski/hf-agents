@@ -7,7 +7,8 @@ import { describe, expect, test } from "vitest";
 import { runDoctor } from "../src/runtime/doctor.js";
 import { parsePlan } from "../src/runtime/plan-doc.js";
 import { getRuntimePaths, getVaultPaths, readStatus, readVaultContext } from "../src/runtime/persistence.js";
-import { HybridLoopRuntime, resolveManagedPlanPath } from "../src/runtime/runtime.js";
+import { HybridLoopRuntime, computeDecision, resolveManagedPlanPath } from "../src/runtime/runtime.js";
+import type { DecisionInput } from "../src/runtime/runtime.js";
 import {
   TURN_OUTCOME_TRAILER_FORMAT,
   buildTurnOutcomeIngestionEvent,
@@ -35,138 +36,8 @@ function outcome(state: TurnOutcome["state"], overrides?: Partial<TurnOutcome>):
   };
 }
 
-describe("parsePlan enriched milestones", () => {
-  test("parses context metadata from indented lines", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "hf-parse-"));
-    const planPath = await createPlan(root, [
-      "# Plan: Test",
-      "",
-      "## Milestones",
-      "- [ ] 1. Add validation - reject empty inputs",
-      "  - scope: `src/api/users.ts`, `tests/api/users.test.ts`",
-      "  - conventions: zod validation (ref: `src/api/auth.ts`)",
-      "  - notes: endpoint uses express router pattern",
-      "  - review: auto"
-    ].join("\n"));
-
-    const plan = await parsePlan(planPath);
-    const m = plan.milestones[0]!;
-
-    expect(m.title).toBe("Add validation - reject empty inputs");
-    expect(m.context?.scope).toEqual(["src/api/users.ts", "tests/api/users.test.ts"]);
-    expect(m.context?.conventions).toBe("zod validation (ref: `src/api/auth.ts`)");
-    expect(m.context?.notes).toBe("endpoint uses express router pattern");
-    expect(m.reviewPolicy).toBe("auto");
-  });
-
-  test("parses user intent from a dedicated section", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "hf-parse-"));
-    const planPath = await createPlan(root, [
-      "---",
-      "status: planning",
-      "---",
-      "# Plan: Test",
-      "",
-      "## User Intent",
-      "Review all files and apply the validation standard.",
-      "",
-      "## Milestones",
-      "- [ ] 1. Review src/api/users.ts - apply the validation standard",
-      "  - review: auto"
-    ].join("\n"));
-
-    const plan = await parsePlan(planPath);
-    const m = plan.milestones[0]!;
-
-    expect(plan.status).toBe("planning");
-    expect(plan.userIntent).toContain("Review all files and apply the validation standard.");
-    expect(plan.approved).toBe(false);
-    expect(m.reviewPolicy).toBe("auto");
-  });
-
-  test("ignores evidence lines and does not treat them as context", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "hf-parse-"));
-    const planPath = await createPlan(root, [
-      "# Plan: Test",
-      "",
-      "## Milestones",
-      "- [x] 1. Add validation - reject empty inputs",
-      "  - scope: `src/api/users.ts`",
-      "  - review: auto",
-      "  - files: `src/api/users.ts`",
-      "  - verification: `npm test` passed",
-      "  - review_result: approved by hf-reviewer - looks good"
-    ].join("\n"));
-
-    const plan = await parsePlan(planPath);
-    const m = plan.milestones[0]!;
-
-    expect(m.context?.scope).toEqual(["src/api/users.ts"]);
-    expect(m.reviewPolicy).toBe("auto");
-    // Evidence review_result line should not overwrite policy
-    expect(m.reviewPolicy).not.toBe("approved by hf-reviewer - looks good");
-  });
-
-  test("old plan format without metadata still parses identically", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "hf-parse-"));
-    const planPath = await createPlan(root, [
-      "# Plan: Test",
-      "",
-      "## Milestones",
-      "- [ ] 1. Add runtime core",
-      "- [ ] 2. Add hooks"
-    ].join("\n"));
-
-    const plan = await parsePlan(planPath);
-
-    expect(plan.milestones).toHaveLength(2);
-    expect(plan.milestones[0]!.context).toBeUndefined();
-    expect(plan.milestones[0]!.reviewPolicy).toBeUndefined();
-    expect(plan.milestones[1]!.context).toBeUndefined();
-  });
-
-  test("handles mixed enriched and plain milestones", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "hf-parse-"));
-    const planPath = await createPlan(root, [
-      "# Plan: Test",
-      "",
-      "## Milestones",
-      "- [ ] 1. Add validation - reject empty inputs",
-      "  - scope: `src/api/users.ts`",
-      "  - review: auto",
-      "- [ ] 2. Add hooks",
-      "- [ ] 3. Refactor auth - extract shared util",
-      "  - scope: `src/middleware/auth.ts`",
-      "  - conventions: middleware pattern from `src/middleware/cors.ts`",
-      "  - review: required"
-    ].join("\n"));
-
-    const plan = await parsePlan(planPath);
-
-    expect(plan.milestones).toHaveLength(3);
-    expect(plan.milestones[0]!.reviewPolicy).toBe("auto");
-    expect(plan.milestones[1]!.context).toBeUndefined();
-    expect(plan.milestones[1]!.reviewPolicy).toBeUndefined();
-    expect(plan.milestones[2]!.context?.scope).toEqual(["src/middleware/auth.ts"]);
-    expect(plan.milestones[2]!.reviewPolicy).toBe("required");
-  });
-
-  test("treats loop-style metadata as non-canonical evidence", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "hf-parse-"));
-    const planPath = await createPlan(root, [
-      "# Plan: Test",
-      "",
-      "## Milestones",
-      "- [x] 1. Simplify files - lint clean",
-      "  - loop: `src/modules/**/*.ts` (12 items)",
-      "  - completed: 12/12 items"
-    ].join("\n"));
-
-    const plan = await parsePlan(planPath);
-    expect(plan.milestones[0]!.context).toBeUndefined();
-    expect(plan.milestones[0]!.reviewPolicy).toBeUndefined();
-  });
-});
+// NOTE: Core parsePlan tests live in plan-doc.test.ts. Only edge cases
+// specific to the runtime's plan handling belong here.
 
 describe("HybridLoopRuntime", () => {
   test("resolves the latest plan when started from the repo root", async () => {
@@ -745,5 +616,268 @@ describe("HybridLoopRuntime", () => {
     await writeFile(runtimePaths.statusPath, "{\"version\":1,\"planPath\":123}\n", "utf8");
 
     await expect(readStatus(runtimePaths)).rejects.toThrow("Invalid runtime status");
+  });
+
+  test("hydrate() reads IndexConfig from hybrid-framework.json", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-runtime-"));
+    const planPath = await createPlan(root, [
+      "# Plan: Test",
+      "",
+      "## Milestones",
+      "- [ ] 1. Add runtime core"
+    ].join("\n"));
+
+    await writeFile(path.join(root, "hybrid-framework.json"), JSON.stringify({
+      index: { enabled: true, semanticTopK: 42, charBudget: 1234 }
+    }, null, 2), "utf8");
+
+    const runtime = new HybridLoopRuntime();
+    await runtime.hydrate(planPath);
+
+    const cfg = runtime.getIndexConfig();
+    expect(cfg).not.toBeNull();
+    expect(cfg?.semanticTopK).toBe(42);
+    expect(cfg?.charBudget).toBe(1234);
+  });
+
+  test("hydratePlanless() reads IndexConfig from hybrid-framework.json in cwd", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-runtime-"));
+
+    await writeFile(path.join(root, "hybrid-framework.json"), JSON.stringify({
+      index: { enabled: true, semanticTopK: 7, planningCharBudget: 500 }
+    }, null, 2), "utf8");
+
+    const runtime = new HybridLoopRuntime();
+    await runtime.hydratePlanless(root);
+
+    const cfg = runtime.getIndexConfig();
+    expect(cfg).not.toBeNull();
+    expect(cfg?.semanticTopK).toBe(7);
+    expect(cfg?.planningCharBudget).toBe(500);
+  });
+
+  test("hydrate() falls back to defaults when hybrid-framework.json has no index key", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-runtime-"));
+    const planPath = await createPlan(root, [
+      "# Plan: Test",
+      "",
+      "## Milestones",
+      "- [ ] 1. Add runtime core"
+    ].join("\n"));
+
+    // No hybrid-framework.json — defaults should apply
+    const runtime = new HybridLoopRuntime();
+    await runtime.hydrate(planPath);
+
+    const cfg = runtime.getIndexConfig();
+    expect(cfg).not.toBeNull();
+    expect(cfg?.enabled).toBe(true);
+    expect(cfg?.semanticTopK).toBe(5);
+    expect(cfg?.charBudget).toBe(3000);
+  });
+
+  test("hydrate() respects index.enabled: false in config", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-runtime-"));
+    const planPath = await createPlan(root, [
+      "# Plan: Test",
+      "",
+      "## Milestones",
+      "- [ ] 1. Add runtime core"
+    ].join("\n"));
+
+    await writeFile(path.join(root, "hybrid-framework.json"), JSON.stringify({
+      index: { enabled: false }
+    }, null, 2), "utf8");
+
+    const runtime = new HybridLoopRuntime();
+    await runtime.hydrate(planPath);
+
+    expect(runtime.getIndexConfig()?.enabled).toBe(false);
+  });
+});
+
+describe("computeDecision", () => {
+  function makeInput(overrides: Partial<DecisionInput> = {}): DecisionInput {
+    return {
+      approved: true,
+      completed: false,
+      currentMilestone: { index: 1, checked: false, text: "1. Add runtime core", title: "Add runtime core" },
+      milestoneCount: 2,
+      loopState: "running",
+      counters: {
+        totalAttempts: 0,
+        totalTurns: 0,
+        maxTotalTurns: 50,
+        noProgress: 0,
+        repeatedBlocker: 0,
+        verificationFailures: 0,
+        turnsSinceLastOutcome: 0
+      },
+      lastOutcome: null,
+      ...overrides
+    };
+  }
+
+  // --- Planning phase ---
+  test("planning: continues when draft needs approval", () => {
+    const result = computeDecision(makeInput({ approved: false }));
+    expect(result.action).toBe("continue");
+  });
+
+  test("planning: max_turns when limit reached", () => {
+    const result = computeDecision(makeInput({
+      approved: false,
+      counters: { ...makeInput().counters, totalAttempts: 50, maxTotalTurns: 50 }
+    }));
+    expect(result.action).toBe("max_turns");
+  });
+
+  test("planning: escalates after 3 repeated blockers", () => {
+    const result = computeDecision(makeInput({
+      approved: false,
+      counters: { ...makeInput().counters, repeatedBlocker: 3 }
+    }));
+    expect(result.action).toBe("escalate");
+  });
+
+  test("planning: pauses after 3 no-progress turns", () => {
+    const result = computeDecision(makeInput({
+      approved: false,
+      counters: { ...makeInput().counters, noProgress: 3 }
+    }));
+    expect(result.action).toBe("pause");
+  });
+
+  test("planning: allow_stop when plan approved via milestone_complete", () => {
+    const result = computeDecision(makeInput({
+      approved: false,
+      lastOutcome: outcome("milestone_complete")
+    }));
+    expect(result.action).toBe("allow_stop");
+  });
+
+  test("planning: continues on blocker below threshold", () => {
+    const result = computeDecision(makeInput({
+      approved: false,
+      lastOutcome: outcome("blocked", { blocker: { message: "x" } })
+    }));
+    expect(result.action).toBe("continue");
+  });
+
+  // --- Execution phase ---
+  test("execution: complete when plan is done", () => {
+    const result = computeDecision(makeInput({ completed: true }));
+    expect(result.action).toBe("complete");
+  });
+
+  test("execution: complete when loopState is complete", () => {
+    const result = computeDecision(makeInput({ loopState: "complete" }));
+    expect(result.action).toBe("complete");
+  });
+
+  test("execution: continue when all milestones checked but not complete", () => {
+    const result = computeDecision(makeInput({ currentMilestone: null, completed: false }));
+    expect(result.action).toBe("continue");
+    expect(result.reason).toContain("final verification");
+  });
+
+  test("execution: max_turns when limit reached", () => {
+    const result = computeDecision(makeInput({
+      counters: { ...makeInput().counters, totalAttempts: 50, maxTotalTurns: 50 }
+    }));
+    expect(result.action).toBe("max_turns");
+  });
+
+  test("execution: escalates after 3 repeated blockers", () => {
+    const result = computeDecision(makeInput({
+      counters: { ...makeInput().counters, repeatedBlocker: 3 }
+    }));
+    expect(result.action).toBe("escalate");
+  });
+
+  test("execution: pauses after 2 verification failures", () => {
+    const result = computeDecision(makeInput({
+      counters: { ...makeInput().counters, verificationFailures: 2 }
+    }));
+    expect(result.action).toBe("pause");
+    expect(result.reason).toContain("Verification failed");
+  });
+
+  test("execution: pauses after 3 no-progress turns", () => {
+    const result = computeDecision(makeInput({
+      counters: { ...makeInput().counters, noProgress: 3 }
+    }));
+    expect(result.action).toBe("pause");
+    expect(result.reason).toContain("No progress");
+  });
+
+  test("execution: allow_stop on milestone_complete", () => {
+    const result = computeDecision(makeInput({
+      lastOutcome: outcome("milestone_complete")
+    }));
+    expect(result.action).toBe("allow_stop");
+  });
+
+  test("execution: continues on blocker below threshold", () => {
+    const result = computeDecision(makeInput({
+      lastOutcome: outcome("blocked", { blocker: { message: "x" } })
+    }));
+    expect(result.action).toBe("continue");
+  });
+
+  test("execution: continues when healthy", () => {
+    const result = computeDecision(makeInput());
+    expect(result.action).toBe("continue");
+    expect(result.reason).toContain("healthy");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// hydratePlanless
+// ---------------------------------------------------------------------------
+
+describe("hydratePlanless", () => {
+  test("creates a planless runtime with default status", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-planless-"));
+    const runtime = new HybridLoopRuntime();
+    const status = await runtime.hydratePlanless(root);
+
+    expect(status.planSlug).toBe("_planless");
+    expect(status.phase).toBe("execution");
+    expect(status.loopState).toBe("idle");
+    expect(status.counters.totalAttempts).toBe(0);
+    expect(status.counters.maxTotalTurns).toBe(50);
+    expect(status.autoContinue).toBe(false);
+    expect(runtime.isPlanless()).toBe(true);
+    expect(runtime.getPlan()).toBeNull();
+  });
+
+  test("persists and reloads planless status", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-planless-"));
+    const runtime1 = new HybridLoopRuntime();
+    const status1 = await runtime1.hydratePlanless(root);
+
+    // Record an event to mutate state
+    await runtime1.recordEvent({
+      vendor: "runtime",
+      type: "opencode.session.idle",
+      timestamp: new Date().toISOString(),
+    });
+
+    // New runtime instance should load persisted status
+    const runtime2 = new HybridLoopRuntime();
+    const status2 = await runtime2.hydratePlanless(root);
+
+    expect(status2.loopState).toBe(status1.loopState === "idle" ? "idle" : "running");
+  });
+
+  test("decideNext returns allow_stop for planless mode", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-planless-"));
+    const runtime = new HybridLoopRuntime();
+    await runtime.hydratePlanless(root);
+    const decision = await runtime.decideNext();
+
+    expect(decision.action).toBe("allow_stop");
+    expect(decision.reason).toContain("No active plan");
   });
 });

@@ -1,11 +1,53 @@
 import { TURN_OUTCOME_TRAILER_FORMAT } from "./turn-outcome-trailer.js";
-import { embed } from "./vault-embeddings.js";
-import { query } from "./vault-store.js";
-import type { PlanMilestone, ParsedPlan, RuntimeStatus, VaultContext, VaultDocument, VaultIndex, VaultSearchResult } from "./types.js";
+import {
+  REPEATED_BLOCKER_THRESHOLD,
+  VERIFICATION_FAILURE_THRESHOLD,
+  NO_PROGRESS_THRESHOLD,
+  type PlanMilestone,
+  type ParsedPlan,
+  type RuntimeStatus,
+  type VaultContext,
+  type VaultDocument,
+  type VaultSearchResult,
+} from "./types.js";
 
-const DEFAULT_VAULT_CHAR_BUDGET = 3000;
-const PLANNING_VAULT_CHAR_BUDGET = 1500;
-const DEFAULT_SEMANTIC_TOP_K = 5;
+export const DEFAULT_VAULT_CHAR_BUDGET = 3000;
+export const PLANNING_VAULT_CHAR_BUDGET = 1500;
+const TRUNCATION_SUFFIX = "[vault content truncated]";
+
+/**
+ * Append content blocks to `lines` while tracking a character budget.
+ * Returns true if all blocks fit; false if truncation occurred.
+ */
+function appendWithBudget(
+  lines: string[],
+  blocks: string[][],
+  charBudget: number,
+  used: number,
+): void {
+  for (const block of blocks) {
+    const blockText = block.join("\n");
+    // +1 accounts for the "\n" separator when joining with previous content
+    const cost = blockText.length + 1;
+
+    if (used + cost > charBudget) {
+      const remaining = charBudget - used;
+      if (remaining <= 0) {
+        break;
+      }
+      const truncated = blockText.slice(0, Math.max(0, remaining - TRUNCATION_SUFFIX.length - 2)).trimEnd();
+      if (truncated) {
+        lines.push(...truncated.split("\n"));
+        lines.push(TRUNCATION_SUFFIX);
+        lines.push("");
+      }
+      break;
+    }
+
+    lines.push(...block);
+    used += cost;
+  }
+}
 
 function formatMilestoneContext(milestone: PlanMilestone): string[] {
   const lines: string[] = [];
@@ -61,11 +103,11 @@ function formatRuntimeState(status: RuntimeStatus): string[] {
 
   const lines = [`## Runtime state: ${status.loopState}`];
 
-  if (status.counters.repeatedBlocker >= 3) {
+  if (status.counters.repeatedBlocker >= REPEATED_BLOCKER_THRESHOLD) {
     lines.push("Runtime ownership: the same blocker has repeated three times without progress.");
-  } else if (status.counters.verificationFailures >= 2) {
+  } else if (status.counters.verificationFailures >= VERIFICATION_FAILURE_THRESHOLD) {
     lines.push("Runtime ownership: verification has failed twice and needs attention before continuing.");
-  } else if (status.counters.noProgress >= 3) {
+  } else if (status.counters.noProgress >= NO_PROGRESS_THRESHOLD) {
     lines.push("Runtime ownership: three turns completed without progress.");
   } else if (status.counters.totalAttempts >= status.counters.maxTotalTurns) {
     lines.push("Runtime ownership: the hard attempt limit has been reached.");
@@ -74,62 +116,6 @@ function formatRuntimeState(status: RuntimeStatus): string[] {
   lines.push("React to this runtime state instead of inventing local retry counters.");
   lines.push("");
   return lines;
-}
-
-function formatVaultDocument(document: VaultDocument): string[] {
-  return [`### ${document.title}`, document.content, ""];
-}
-
-function formatVaultContext(vault: VaultContext | null, charBudget = DEFAULT_VAULT_CHAR_BUDGET): string[] {
-  if (!vault) {
-    return [];
-  }
-
-  const documents = [...vault.plan, ...vault.shared];
-  if (documents.length === 0) {
-    return [];
-  }
-
-  const lines = ["## Vault context"];
-  let used = lines.join("\n").length + 2;
-
-  for (const document of documents) {
-    const block = formatVaultDocument(document);
-    const blockText = block.join("\n");
-
-    if (used + blockText.length > charBudget) {
-      const remaining = charBudget - used;
-      if (remaining <= 0) {
-        break;
-      }
-
-      const truncated = blockText.slice(0, Math.max(0, remaining - 18)).trimEnd();
-      if (truncated) {
-        lines.push(...truncated.split("\n"));
-        lines.push("[vault content truncated]");
-        lines.push("");
-      }
-      break;
-    }
-
-    lines.push(...block);
-    used += blockText.length;
-  }
-
-  return lines.length > 1 ? lines : [];
-}
-
-/**
- * Embed the query text and retrieve the top-K most relevant vault chunks.
- * Call this before `buildResumePrompt` so the prompt builder stays synchronous.
- */
-export async function retrieveVaultChunks(
-  index: VaultIndex,
-  queryText: string,
-  topK: number = DEFAULT_SEMANTIC_TOP_K
-): Promise<VaultSearchResult[]> {
-  const queryVector = await embed(queryText);
-  return query(index, queryVector, topK);
 }
 
 /**
@@ -144,41 +130,54 @@ export function formatSemanticVaultContext(
     return [];
   }
 
-  const lines = ["## Vault context"];
-  let used = lines.join("\n").length + 2;
+  const hasCodeResults = results.some((result) => result.metadata.kind === "code");
+  const lines = [hasCodeResults ? "## Knowledge context" : "## Vault context"];
+  const headerCost = lines[0]!.length + 1;
 
-  for (const result of results) {
-    const block = [`### ${result.metadata.sectionTitle}`, result.text, ""];
-    const blockText = block.join("\n");
+  const blocks = results.map((result) => {
+    const sectionTitle = result.metadata.kind === "code"
+      ? `### [code] ${result.metadata.sectionTitle}`
+      : `### ${result.metadata.sectionTitle}`;
+    return [sectionTitle, result.text, ""];
+  });
 
-    if (used + blockText.length > charBudget) {
-      const remaining = charBudget - used;
-      if (remaining <= 0) {
-        break;
-      }
-
-      const truncated = blockText.slice(0, Math.max(0, remaining - 18)).trimEnd();
-      if (truncated) {
-        lines.push(...truncated.split("\n"));
-        lines.push("[vault content truncated]");
-        lines.push("");
-      }
-      break;
-    }
-
-    lines.push(...block);
-    used += blockText.length;
-  }
+  appendWithBudget(lines, blocks, charBudget, headerCost);
 
   return lines.length > 1 ? lines : [];
+}
+
+function formatVaultContext(vault: VaultContext | null, charBudget = DEFAULT_VAULT_CHAR_BUDGET): string[] {
+  if (!vault) {
+    return [];
+  }
+
+  const documents = [...vault.plan, ...vault.shared];
+  if (documents.length === 0) {
+    return [];
+  }
+
+  const asResults: VaultSearchResult[] = documents.map((doc) => ({
+    score: 1,
+    text: doc.content,
+    metadata: { sourcePath: doc.path, sectionTitle: doc.title, documentTitle: doc.title },
+  }));
+  return formatSemanticVaultContext(asResults, charBudget);
+}
+
+export interface PromptBudgets {
+  charBudget?: number | undefined;
+  planningCharBudget?: number | undefined;
 }
 
 export function buildResumePrompt(
   plan: ParsedPlan,
   status: RuntimeStatus,
   vault: VaultContext | null = null,
-  vaultSearchResults: VaultSearchResult[] | null = null
+  vaultSearchResults: VaultSearchResult[] | null = null,
+  budgets: PromptBudgets = {}
 ): string {
+  const charBudget = budgets.charBudget ?? DEFAULT_VAULT_CHAR_BUDGET;
+  const planningBudget = budgets.planningCharBudget ?? PLANNING_VAULT_CHAR_BUDGET;
   const currentMilestone = plan.currentMilestone;
 
   if (!currentMilestone && plan.completed) {
@@ -231,8 +230,8 @@ export function buildResumePrompt(
     }
 
     const planningVaultLines = vaultSearchResults && vaultSearchResults.length > 0
-      ? formatSemanticVaultContext(vaultSearchResults, PLANNING_VAULT_CHAR_BUDGET)
-      : formatVaultContext(vault, PLANNING_VAULT_CHAR_BUDGET);
+      ? formatSemanticVaultContext(vaultSearchResults, planningBudget)
+      : formatVaultContext(vault, planningBudget);
     if (planningVaultLines.length > 0) {
       lines.push(...planningVaultLines);
     }
@@ -289,8 +288,8 @@ export function buildResumePrompt(
   ];
 
   const vaultLines = vaultSearchResults && vaultSearchResults.length > 0
-    ? formatSemanticVaultContext(vaultSearchResults)
-    : formatVaultContext(vault);
+    ? formatSemanticVaultContext(vaultSearchResults, charBudget)
+    : formatVaultContext(vault, charBudget);
   if (vaultLines.length > 0) {
     lines.push(...vaultLines);
   }

@@ -63,6 +63,20 @@ function makeSearchResults(count: number = 2): VaultSearchResult[] {
   return results;
 }
 
+function makeCodeSearchResult(overrides?: Partial<VaultSearchResult>): VaultSearchResult {
+  return {
+    score: 0.95,
+    text: "function runTask() { return true; }",
+    metadata: {
+      sourcePath: "src/runtime/example.ts",
+      sectionTitle: "runTask",
+      documentTitle: "example.ts",
+      kind: "code"
+    },
+    ...overrides
+  };
+}
+
 function makeVault(): VaultContext {
   return {
     plan: [{ path: "vault/plans/test/discoveries.md", title: "Plan discoveries", content: "Brute-force plan finding" }],
@@ -101,6 +115,26 @@ describe("formatSemanticVaultContext", () => {
 
     expect(text.length).toBeLessThanOrEqual(200);
     expect(text).toContain("[vault content truncated]");
+  });
+
+  test("prefixes code result section titles with [code]", () => {
+    const lines = formatSemanticVaultContext([makeCodeSearchResult()]);
+
+    expect(lines[0]).toBe("## Knowledge context");
+    expect(lines).toContain("### [code] runTask");
+  });
+
+  test("uses knowledge context header for mixed vault and code results", () => {
+    const [vaultResult] = makeSearchResults(1);
+    const lines = formatSemanticVaultContext([vaultResult!, makeCodeSearchResult()]);
+
+    expect(lines[0]).toBe("## Knowledge context");
+  });
+
+  test("keeps vault context header for vault-only results", () => {
+    const lines = formatSemanticVaultContext(makeSearchResults(1));
+
+    expect(lines[0]).toBe("## Vault context");
   });
 });
 

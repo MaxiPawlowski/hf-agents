@@ -125,6 +125,49 @@ Vault rules:
 - Keep shared vault content lightweight and durable. Put task-specific notes under `vault/plans/<slug>/`.
 - Vault content is embedded locally using `@huggingface/transformers` (`all-MiniLM-L6-v2`) and retrieved semantically by current milestone description. When the index is unavailable, the runtime falls back to brute-force character-budget inclusion.
 
+### Vault Semantic Index
+
+The runtime builds and maintains a local vector index at `.hf/` in the repo root:
+
+| File | Contents |
+|---|---|
+| `.hf/index.json` | Item metadata, file hashes, and schema version |
+| `.hf/index.bin` | Raw binary `Float32Array` of 384-dim normalized vectors |
+
+Index lifecycle:
+
+- Built by `buildUnifiedIndex()` in `src/runtime/unified-index-pipeline.ts`.
+- Scans vault markdown and optional TypeScript source roots.
+- Computes SHA-256 hashes per file; only changed or added files are re-chunked and re-embedded.
+- Removed files are purged automatically; unchanged files keep their vectors.
+- Embedding is batched in groups of 100 texts via `embedBatch()` in `src/runtime/vault-embeddings.ts`.
+- `warmupEmbeddingModel()` starts model loading early (during session hydrate) so the model is warm before the first query.
+
+Chunking strategy:
+
+| Source | Split boundary | Merge threshold |
+|---|---|---|
+| Vault markdown | `##` and `###` headers | Sections with < 20 body chars are merged with the next section |
+| TypeScript source | Export and top-level declaration boundaries | Chunks with < 20 chars are merged with the next chunk |
+
+Each chunk carries `sourcePath`, `sectionTitle`, `documentTitle`, and `kind` (`vault` or `code`) as metadata.
+
+Querying supports MongoDB-style metadata filters:
+
+```typescript
+// Return only vault chunks
+queryItems(index, vectors, queryVector, topK, { kind: { $eq: "vault" } });
+
+// Return chunks from a specific source or tagged runtime
+queryItems(index, vectors, queryVector, topK, {
+  $or: [{ sourcePath: "vault/shared/architecture.md" }, { tag: { $in: ["runtime"] } }],
+});
+```
+
+Supported filter operators: `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$nin`, `$and`, `$or`.
+
+See `docs/vault.md` for the full technical reference and testing strategy.
+
 Counters:
 
 - `loop_attempts` - every stop/idle that reaches the hard limit check

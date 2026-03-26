@@ -41,6 +41,21 @@ The plan must be specific enough that a builder can execute one milestone at a t
 6. Word milestones so the current scope is obvious, the done state is testable, and a builder can report progress or blocked status cleanly.
 7. Record residual risks and open questions that remain outside milestone scope. Each risk should cite a specific file or area and name what could go wrong.
 
+## Incremental Writing Strategy
+
+Never write the full plan doc in a single Write tool call — large plans timeout when the LLM generates the entire document from context at once.
+
+**Step 1 — Skeleton**: Write the plan file with frontmatter, all section headers, milestone title lines (`- [ ] N. Title - brief summary`), and placeholder text for each section. No descriptions, acceptance criteria, or metadata yet.
+
+**Step 2 — Fill sections**: Use Edit to expand each section individually:
+1. `## User Intent`
+2. `## Overview`
+3. `## Research Summary`
+4. Each milestone's body (description, acceptance criteria, metadata) — one Edit per milestone
+5. `## Risks & Open Questions`
+
+Each Edit call is small and completes without timeout. The parser handles partial plans gracefully since it only requires `## Milestones` with checkbox lines.
+
 ## Milestone Quality Rules
 
 - The plan doc is the canonical planning artifact. Do not rely on runtime sidecars or hidden state to make the plan intelligible.

@@ -16,11 +16,10 @@ let resolvedLogPath: string | null = null;
 let enabled: boolean | null = null;
 
 function isEnabled(): boolean {
-  return true;
-  // if (enabled === null) {
-  //   enabled = process.env.HF_DEBUG === "1" || process.env.HF_DEBUG === "true";
-  // }
-  // return enabled;
+  if (enabled === null) {
+    enabled = process.env.HF_DEBUG === "1" || process.env.HF_DEBUG === "true";
+  }
+  return enabled;
 }
 
 function getLogPath(): string {

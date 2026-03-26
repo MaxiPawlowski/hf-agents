@@ -1,5 +1,12 @@
 export type RuntimeVendor = "opencode" | "claude" | "runtime";
 
+/** Consecutive same-blocker turns before escalation. */
+export const REPEATED_BLOCKER_THRESHOLD = 3;
+/** Consecutive verification failures before pause. */
+export const VERIFICATION_FAILURE_THRESHOLD = 2;
+/** Consecutive turns without progress before pause. */
+export const NO_PROGRESS_THRESHOLD = 3;
+
 export type TurnState =
   | "progress"
   | "blocked"
@@ -107,6 +114,7 @@ export interface RuntimeStatus {
   lastOutcome?: TurnOutcome | null;
   lastTurnEvaluatedAt?: string;
   autoContinue: boolean;
+  lastIndexError?: string;
   updatedAt: string;
 }
 
@@ -176,26 +184,32 @@ export interface VaultChunk {
     sourcePath: string;
     sectionTitle: string;
     documentTitle: string;
+    kind?: "vault" | "code";
   };
-}
-
-export interface VaultIndexEntry {
-  id: string;
-  vector: number[];
-  text: string;
-  metadata: VaultChunk["metadata"];
-}
-
-export interface VaultIndex {
-  entries: VaultIndexEntry[];
-  contentHash: string;
-  timestamp: string;
 }
 
 export interface VaultSearchResult {
   score: number;
   text: string;
   metadata: VaultChunk["metadata"];
+}
+
+export interface IndexCodeConfig {
+  enabled: boolean;
+  roots: string[];
+  extensions: string[];
+  exclude: string[];
+}
+
+export interface IndexConfig {
+  enabled: boolean;
+  code: IndexCodeConfig;
+  semanticTopK: number;
+  maxChunkChars: number;
+  embeddingBatchSize: number;
+  timeoutMs: number;
+  charBudget: number;
+  planningCharBudget: number;
 }
 
 export interface LoopRuntime {

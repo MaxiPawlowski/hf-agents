@@ -11,3 +11,4 @@ dist/
 .claude/settings.local.json
 *.tgz
 vault/.vault-index.json
+.hf/
