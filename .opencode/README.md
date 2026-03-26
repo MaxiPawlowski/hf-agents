@@ -24,6 +24,8 @@ See `../README.md` for the canonical framework surface and `../plans/README.md` 
 
 ## Consumer Project Behavior
 
+The plugin is installed per-project only. No global OpenCode plugin directory (`~/.config/opencode/plugins/`) is used or supported — the vault system is project-scoped and a global plugin has no way to locate the correct vault. Always install via `hf-init` or `hf-install` inside each target project.
+
 When a consumer project runs `hf-install` or `hf-init`, the package generates `.opencode/` in the target project with:
 
 - `.opencode/plugins/hybrid-runtime.js` as the managed loader that re-exports the compiled runtime plugin

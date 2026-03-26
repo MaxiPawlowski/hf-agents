@@ -43,8 +43,9 @@ Evidence belongs in the plan doc itself so a later builder, reviewer, or runtime
 ### Marking a milestone complete
 1. Change the milestone checkbox from `- [ ]` to `- [x]`.
 2. Append evidence as indented bullets directly under that milestone line, after any existing metadata lines (`scope`, `conventions`, `notes`, `review`).
-3. If this is the last milestone, append final verification evidence in that same indented evidence block before changing plan status.
-4. Keep evidence concise and reviewable.
+3. When verification involved running commands, include the command, its exit code, and a concise summary of the output — not just `passed` or `completed`.
+4. If this is the last milestone, append final verification evidence in that same indented evidence block before changing plan status.
+5. Keep evidence concise and reviewable.
 
 Standard milestone example:
 ```md
@@ -53,7 +54,7 @@ Standard milestone example:
   - conventions: zod schemas
   - review: auto
   - files: `src/validation.ts`, `tests/validation.test.ts`
-  - verification: `npm test -- validation` passed (auto-approved)
+  - verification: `npm test -- validation` exit 0 — 12 tests passed, 0 failed (stdout: "Test Suites: 1 passed...")
 ```
 
 ### Marking the plan complete
@@ -72,8 +73,9 @@ Standard milestone example:
 
 - Confirm the milestone checkbox state matches the recorded milestone outcome.
 - Confirm new evidence is attached under the completed milestone line, not in a separate tracker.
+- Confirm verification evidence includes meaningful output details when commands were run, not just bare pass/fail labels.
 - Confirm final verification evidence, when required for plan completion, is attached under the last completed milestone line before `status: complete` is set.
-- Confirm plan frontmatter moves to `status: complete` only when all milestone checkboxes are checked and that final evidence is present.
+- Confirm plan frontmatter moves to `status: complete` only when all milestone checkboxes are checked and final evidence is present.
 
 ## Failure Behavior
 

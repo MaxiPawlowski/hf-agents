@@ -171,6 +171,31 @@
           "single-word acceptance criteria like 'works' or 'tests pass'"
         ]
       }
+    },
+    {
+      "id": "plan-synthesis-requires-verify-block-for-executable-artifacts",
+      "focus": [
+        "executable-artifact milestones",
+        "verification planning"
+      ],
+      "input": {
+        "intent": "Add a parser fix plus targeted test coverage for a runtime code path.",
+        "research_signals": [
+          "The milestone changes executable code",
+          "A targeted test command exists for parser behavior",
+          "Final completion will depend on runnable verification evidence"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "Verify: block on executable-artifact milestones",
+          "verification intent that implies running the code, not just reading it"
+        ],
+        "must_not": [
+          "leave verification implied without a Verify: block",
+          "treat a code-change milestone like a read-only artifact"
+        ]
+      }
     }
   ]
 }

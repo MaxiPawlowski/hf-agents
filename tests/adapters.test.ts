@@ -68,6 +68,26 @@ async function createEnrichedPlan(root: string, overrides?: { checkFirst?: boole
   return planPath;
 }
 
+async function createPlanningPlan(root: string): Promise<string> {
+  const plansDir = path.join(root, "plans");
+  await mkdir(plansDir, { recursive: true });
+  const planPath = path.join(plansDir, "2026-03-07-planning-adapter-plan.md");
+  await writeFile(planPath, [
+    "---",
+    "status: planning",
+    "---",
+    "",
+    "# Plan: Planning Adapter",
+    "",
+    "## User Intent",
+    "Only start building after the user approves the reviewed plan.",
+    "",
+    "## Milestones",
+    "- [ ] 1. Start the approved implementation"
+  ].join("\n"), "utf8");
+  return planPath;
+}
+
 describe("adapter integration", () => {
   test("generated OpenCode plugin loader resolves the packaged consumer path", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-adapter-loader-"));
@@ -391,6 +411,61 @@ describe("adapter integration", () => {
     expect(prompts[0]).not.toContain("## Warning:");
     expect(events).toContain("turn_outcome.accepted");
     expect(events).not.toContain("opencode.session.idle");
+  });
+
+  test("OpenCode idle does not auto-prompt the builder after planner approval", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-adapter-"));
+    const planPath = await createPlanningPlan(root);
+    const prompts: string[] = [];
+    const hooks = createHybridRuntimeHooks({
+      cwd: root,
+      session: { id: "approval-gate" },
+      client: {
+        prompt: async (message) => {
+          prompts.push(message);
+          return null;
+        }
+      }
+    });
+    const sessionIdle = hooks["session.idle"];
+    if (!sessionIdle) {
+      throw new Error("expected session.idle hook");
+    }
+
+    await writeFile(planPath, [
+      "---",
+      "status: in-progress",
+      "---",
+      "",
+      "# Plan: Planning Adapter",
+      "",
+      "## User Intent",
+      "Only start building after the user approves the reviewed plan.",
+      "",
+      "## Milestones",
+      "- [ ] 1. Start the approved implementation"
+    ].join("\n"), "utf8");
+
+    const decision = await sessionIdle({
+      sessionID: "approval-gate",
+      message: [
+        "Planner review passed.",
+        "",
+        "turn_outcome:",
+        "```json",
+        JSON.stringify({
+          state: "milestone_complete",
+          summary: "The plan was approved and is ready for human sign-off.",
+          files_changed: [planPath],
+          tests_run: [],
+          next_action: "Wait for the user to approve starting hf-builder."
+        }, null, 2),
+        "```"
+      ].join("\n")
+    });
+
+    expect(decision).toMatchObject({ action: "allow_stop" });
+    expect(prompts).toHaveLength(0);
   });
 
   test("OpenCode omits passive lifecycle hooks from the lean event surface", async () => {

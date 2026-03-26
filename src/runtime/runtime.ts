@@ -81,9 +81,16 @@ function defaultStatus(plan: ParsedPlan): RuntimeStatus {
     },
     sessions: {},
     subagents: [],
+    awaitingBuilderApproval: false,
     autoContinue: plan.config.autoContinue,
     updatedAt: nowIso()
   };
+}
+
+function isExplicitBuilderApprovalEvent(eventType: string): boolean {
+  return eventType === "claude.SessionStart"
+    || eventType === "claude.UserPromptSubmit"
+    || eventType === "opencode.session.created";
 }
 
 function blockerSignature(outcome: TurnOutcome): string | null {
@@ -256,6 +263,7 @@ export class HybridLoopRuntime implements LoopRuntime {
         maxTotalTurns: plan.config.maxTotalTurns
       },
       subagents: baseStatus.subagents ?? [],
+      awaitingBuilderApproval: plan.approved ? baseStatus.awaitingBuilderApproval ?? false : false,
       autoContinue: plan.config.autoContinue,
       updatedAt: nowIso()
     };
@@ -307,6 +315,7 @@ export class HybridLoopRuntime implements LoopRuntime {
       },
       sessions: {},
       subagents: [],
+      awaitingBuilderApproval: false,
       autoContinue: false,
       updatedAt: nowIso()
     };
@@ -346,6 +355,11 @@ export class HybridLoopRuntime implements LoopRuntime {
       };
       this.promptDirty = true;
     }
+    if (status.awaitingBuilderApproval && isExplicitBuilderApprovalEvent(event.type)) {
+      status.awaitingBuilderApproval = false;
+      status.lastOutcome = null;
+      this.promptDirty = true;
+    }
     status.updatedAt = nowIso();
     if (status.loopState === "idle") {
       status.loopState = "running";
@@ -364,6 +378,7 @@ export class HybridLoopRuntime implements LoopRuntime {
   public async evaluateTurn(outcome: TurnOutcome): Promise<RuntimeStatus> {
     const done = hfLogTimed({ tag: "runtime", msg: "evaluateTurn", data: { state: outcome.state } });
     const status = this.requireStatus();
+    const previousPhase = status.phase;
     const plan = await reParsePlanIfChanged(this.requirePlan());
     this.plan = plan;
     // Invalidate vault — will be reloaded lazily in decideNext().
@@ -374,6 +389,11 @@ export class HybridLoopRuntime implements LoopRuntime {
     status.planMtimeMs = plan.mtimeMs;
     status.phase = plan.approved ? "execution" : "planning";
     status.currentMilestone = plan.currentMilestone;
+    status.awaitingBuilderApproval = previousPhase === "planning" && plan.approved && !plan.completed
+      ? true
+      : plan.approved
+        ? status.awaitingBuilderApproval ?? false
+        : false;
     status.counters.totalAttempts += 1;
     status.counters.totalTurns += 1;
     status.counters.turnsSinceLastOutcome = 0;
@@ -525,6 +545,14 @@ export class HybridLoopRuntime implements LoopRuntime {
       planningCharBudget: this.indexConfig?.planningCharBudget,
     });
 
+    if (status.awaitingBuilderApproval) {
+      return {
+        action: "allow_stop",
+        reason: "The plan is approved. Wait for explicit human approval before starting `hf-builder`.",
+        resume_prompt
+      };
+    }
+
     const decision = computeDecision({
       approved: plan.approved,
       completed: plan.completed,
@@ -605,10 +633,10 @@ export class HybridLoopRuntime implements LoopRuntime {
           ...(vaultPaths && this.vault ? { vaultPaths, vaultContext: this.vault } : {}),
           codeConfig: cfg?.code.enabled !== false
             ? {
-                roots: cfg?.code.roots ?? ["src"],
-                extensions: cfg?.code.extensions,
-                exclude: cfg?.code.exclude,
-              }
+              roots: cfg?.code.roots ?? ["src"],
+              extensions: cfg?.code.extensions,
+              exclude: cfg?.code.exclude,
+            }
             : undefined,
           embeddingBatchSize: cfg?.embeddingBatchSize,
           maxChunkChars: cfg?.maxChunkChars,

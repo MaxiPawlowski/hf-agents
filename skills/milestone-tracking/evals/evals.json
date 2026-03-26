@@ -101,6 +101,30 @@
           "insert evidence before the metadata lines"
         ]
       }
+    },
+    {
+      "id": "milestone-tracking-records-command-output-details",
+      "focus": [
+        "verification evidence detail",
+        "command output recording"
+      ],
+      "input": {
+        "plan_state": [
+          "The current milestone verification involved running tests and linting",
+          "Both commands completed and their outputs are available",
+          "The builder is appending milestone evidence to the plan doc"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "record verification evidence with meaningful output details",
+          "include command and exit code for each verification step"
+        ],
+        "must_not": [
+          "collapse command verification into a generic 'tests passed' note",
+          "omit output details for commands that were run"
+        ]
+      }
     }
   ]
 }

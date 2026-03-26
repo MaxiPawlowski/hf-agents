@@ -113,6 +113,7 @@ export interface RuntimeStatus {
   recommendedNextAction?: string;
   lastOutcome?: TurnOutcome | null;
   lastTurnEvaluatedAt?: string;
+  awaitingBuilderApproval?: boolean;
   autoContinue: boolean;
   lastIndexError?: string;
   updatedAt: string;

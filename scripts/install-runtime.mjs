@@ -42,7 +42,7 @@ function printHelp() {
   log("  hf-uninstall Remove generated framework artifacts from a target project.");
   log("");
   log("Options:");
-  log("  --target-dir <path>  Target project root. Defaults to the current repo.");
+  log("  --target-dir <path>  Target project root. Defaults to cwd when installed as a package, or the package repo root when developing locally.");
   log("  --tool <all|claude|opencode>  Adapter selection for install/sync/uninstall.");
   log("  --config <path>      Optional path to hybrid-framework.json in the target project.");
   log("  --platform <windows|linux>  Claude command rendering override.");
@@ -74,7 +74,7 @@ function parseArgs(argv) {
     configPath: null,
     skipBuild: false,
     platform: process.platform === "win32" ? "windows" : "linux",
-    targetDir: sourceRoot,
+    targetDir: isInstalledPackage() ? process.cwd() : sourceRoot,
     help: false
   };
 
@@ -266,6 +266,10 @@ function getPackageName() {
 
 function isSelfInstall(targetDir) {
   return path.resolve(targetDir) === sourceRoot;
+}
+
+function isInstalledPackage() {
+  return sourceRoot.split(path.sep).includes("node_modules");
 }
 
 function resolveScaffoldSelection(options, config) {
@@ -873,7 +877,12 @@ export function main() {
     return;
   }
 
-  if ((options.command === "install" || options.command === "init") && !options.skipBuild && (adapters.claude || adapters.opencode)) {
+  if (
+    (options.command === "install" || options.command === "init") &&
+    !options.skipBuild &&
+    !isInstalledPackage() &&
+    (adapters.claude || adapters.opencode)
+  ) {
     run("npm", ["install"]);
     run("npm", ["run", "build"]);
   }

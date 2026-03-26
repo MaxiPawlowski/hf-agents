@@ -162,6 +162,61 @@ describe("HybridLoopRuntime", () => {
     expect(prompt).toContain("hf-plan-reviewer");
   });
 
+  test("planner-to-builder transition waits for explicit human approval", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-runtime-"));
+    const planPath = await createPlan(root, [
+      "---",
+      "status: planning",
+      "---",
+      "",
+      "# Plan: Test",
+      "",
+      "## User Intent",
+      "Build the approved plan only after user confirmation.",
+      "",
+      "## Milestones",
+      "- [ ] 1. Add runtime core"
+    ].join("\n"));
+
+    const runtime = new HybridLoopRuntime();
+    await runtime.hydrate(planPath);
+
+    await writeFile(planPath, [
+      "---",
+      "status: in-progress",
+      "---",
+      "",
+      "# Plan: Test",
+      "",
+      "## User Intent",
+      "Build the approved plan only after user confirmation.",
+      "",
+      "## Milestones",
+      "- [ ] 1. Add runtime core"
+    ].join("\n"), "utf8");
+
+    const statusAfterApproval = await runtime.evaluateTurn(outcome("milestone_complete", {
+      next_action: "Wait for the user to approve starting implementation."
+    }));
+    const blockedDecision = await runtime.decideNext();
+
+    expect(statusAfterApproval.awaitingBuilderApproval).toBe(true);
+    expect(blockedDecision.action).toBe("allow_stop");
+    expect(blockedDecision.reason).toContain("human approval");
+
+    await runtime.recordEvent({
+      vendor: "opencode",
+      type: "opencode.session.created",
+      timestamp: new Date().toISOString(),
+      sessionId: "manual-builder-start"
+    });
+
+    const resumedDecision = await runtime.decideNext();
+
+    expect(runtime.getStatus().awaitingBuilderApproval).toBe(false);
+    expect(resumedDecision.action).toBe("continue");
+  });
+
   test("pauses after three no-progress blocked turns", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-runtime-"));
     const planPath = await createPlan(root, [

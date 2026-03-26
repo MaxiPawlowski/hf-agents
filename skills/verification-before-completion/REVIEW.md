@@ -10,10 +10,13 @@ Use these checks when editing `skills/verification-before-completion/SKILL.md` o
 
 ## Regression Checks
 
-- Scope-fit gate: does the prompt still require an explicit scope map before a `ready` decision?
-- Freshness gate: does it reject reused or pre-change evidence when the completion claim needs current proof?
-- Completion gating: does it still require final verification evidence to be ready for attachment under the last completed milestone before plan completion?
-- Gap reporting: when not ready, does it report concrete verification gaps and the smallest unblock step?
+- does the prompt still require an explicit scope map before a `ready` decision?
+- does the prompt still reject reused or pre-change evidence when the completion claim needs current proof?
+- does the prompt still require final verification evidence to be ready for attachment under the last completed milestone before plan completion?
+- does the prompt still report concrete verification gaps and the smallest unblock step when not ready?
+- does the prompt still enforce the verification tier taxonomy when choosing verification expectations?
+- does the prompt still prohibit downgrading the required verification tier?
+- does the prompt still require a completion summary before `status: complete`?
 
 ## Adding Coverage
 
@@ -22,3 +25,5 @@ Add new cases in `skills/verification-before-completion/evals/evals.json` when p
 - what counts as fresh evidence
 - when docs-only inspection is enough
 - when completion must stay blocked
+- verification tier taxonomy or tier-selection rules
+- completion summary expectations

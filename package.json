@@ -46,7 +46,6 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "postbuild": "node scripts/copy-plugin.mjs",
     "prepare": "npm run build",
     "postinstall": "node scripts/postinstall.mjs",
     "hf:install": "node scripts/install-runtime.mjs install",
@@ -57,6 +56,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --exclude tests/e2e/**/*.test.ts",
     "test:e2e": "vitest run --config vitest.config.e2e.ts",
+    "test:e2e:claude": "vitest run --config vitest.config.e2e.ts --reporter=verbose tests/e2e/runtime-claude-e2e.test.ts",
+    "test:e2e:vault-claude": "cross-env HF_RUN_SLOW=1 vitest run --config vitest.config.e2e.ts --reporter=verbose tests/e2e/vault-claude-e2e.test.ts",
     "test:bench": "cross-env HF_RUN_BENCHMARKS=1 vitest run --config vitest.config.e2e.ts",
     "test:slow": "cross-env HF_RUN_SLOW=1 vitest run --exclude tests/e2e/**/*.test.ts",
     "verify:e2e": "node scripts/verify-e2e.mjs"

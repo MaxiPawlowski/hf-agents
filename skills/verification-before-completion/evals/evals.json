@@ -55,6 +55,82 @@
           "allow plan completion without final verification evidence ready to attach"
         ]
       }
+    },
+    {
+      "id": "verification-before-completion-code-change-requires-command-tier",
+      "focus": [
+        "artifact taxonomy",
+        "verification tier selection"
+      ],
+      "input": {
+        "change_type": "code change milestone",
+        "scope": "Ship a parser fix that changes runtime behavior.",
+        "evidence_available": [
+          "Static file inspection of the edited source",
+          "No command execution evidence yet"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "command-execution tier verification is required for the code-change milestone",
+          "inspection alone is insufficient for completion readiness"
+        ],
+        "must_not": [
+          "treat code changes as satisfied by static read-only evidence",
+          "downgrade the milestone to an inspection-only verification tier"
+        ]
+      }
+    },
+    {
+      "id": "verification-before-completion-blocked-command-stays-blocked",
+      "focus": [
+        "escalation",
+        "blocked verification"
+      ],
+      "input": {
+        "change_type": "code change with required command verification",
+        "scope": "Finish a milestone whose Verify steps imply running tests.",
+        "evidence_available": [
+          "The required command cannot run because a prerequisite is unavailable",
+          "Static inspection suggests the code looks correct"
+        ]
+      },
+      "expected": {
+        "completion_decision": "blocked",
+        "must_include": [
+          "the specific command-step blocker",
+          "explicit escalation instead of a silent downgrade"
+        ],
+        "must_not": [
+          "replace blocked command verification with read-only inspection evidence",
+          "return ready when the required command step did not run"
+        ]
+      }
+    },
+    {
+      "id": "verification-before-completion-summary-includes-evidence",
+      "focus": [
+        "completion summary",
+        "evidence detail"
+      ],
+      "input": {
+        "change_type": "code change with final verification complete",
+        "scope": "Summarize milestone completion after verification.",
+        "evidence_available": [
+          "Tests ran and passed",
+          "Lint check passed"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "completion summary with verification steps performed",
+          "evidence details for each verification step"
+        ],
+        "must_not": [
+          "summarize verification without listing what was checked",
+          "omit evidence details from the completion summary"
+        ]
+      }
     }
   ]
 }

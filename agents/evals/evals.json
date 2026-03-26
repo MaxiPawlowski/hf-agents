@@ -223,6 +223,72 @@
           "require hf-coder to re-explore files already identified in scope"
         ]
       }
+    },
+    {
+      "id": "builder-reads-verify-and-determines-method",
+      "prompt": "agents/hf-builder.md",
+      "focus": [
+        "verify block reading",
+        "verification method selection"
+      ],
+      "input": {
+        "milestone_state": "review: auto milestone is implemented",
+        "verification_notes": "Verify:\n- run the parser tests\n- lint the parser source"
+      },
+      "expected": {
+        "must_include": [
+          "read the Verify: block",
+          "determine and execute the appropriate verification"
+        ],
+        "must_not": [
+          "ignore Verify: steps",
+          "substitute static inspection when the intent implies execution"
+        ]
+      }
+    },
+    {
+      "id": "builder-escalates-when-verification-blocked",
+      "prompt": "agents/hf-builder.md",
+      "focus": [
+        "blocked verification",
+        "escalation"
+      ],
+      "input": {
+        "milestone_state": "Verify steps imply running tests",
+        "verification_state": "the required tool is unavailable"
+      },
+      "expected": {
+        "must_include": [
+          "surface the verification blocker",
+          "escalate instead of marking the milestone complete"
+        ],
+        "must_not": [
+          "silently skip failed verification",
+          "report completion without verification evidence"
+        ]
+      }
+    },
+    {
+      "id": "builder-presents-completion-summary-before-complete",
+      "prompt": "agents/hf-builder.md",
+      "focus": [
+        "completion summary",
+        "status complete discipline"
+      ],
+      "input": {
+        "milestone_state": "final milestone verification succeeded",
+        "verification_state": "verification evidence is ready to report"
+      },
+      "expected": {
+        "must_include": [
+          "present a completion summary citing verification evidence",
+          "show the summary before status: complete"
+        ],
+        "must_not": [
+          "jump directly to status: complete without the summary",
+          "hide verification results behind a bare success claim"
+        ]
+      }
     }
   ]
 }

@@ -147,6 +147,32 @@
           "ignore the provided scope files and re-explore from scratch"
         ]
       }
+    },
+    {
+      "id": "reviewer-rejects-missing-execution-evidence",
+      "prompt": "subagents/hf-reviewer.md",
+      "focus": [
+        "approval gate",
+        "execution evidence"
+      ],
+      "input": {
+        "scope": "The milestone Verify steps imply running tests before approval.",
+        "delivered_changes": [
+          "Code diff is present",
+          "No execution evidence or output was provided"
+        ]
+      },
+      "expected": {
+        "approved": "no",
+        "must_include": [
+          "execution evidence is missing",
+          "one concrete next action to run and attach verification output"
+        ],
+        "must_not": [
+          "approve without execution evidence when the verify intent implies running code",
+          "treat file inspection as sufficient for code-change verification"
+        ]
+      }
     }
   ]
 }

@@ -214,14 +214,16 @@ This repo serves two different audiences:
 - Package maintainers work in this repository and edit the canonical framework assets at the repo root.
 - Consumer projects install the package, run explicit lifecycle commands, and treat generated adapter folders as managed output.
 
+**Project-level installation only.** The OpenCode plugin and Claude hooks are installed per-project. No global installation path is supported — the vault system is project-scoped (`vault/plans/<slug>/`, `vault/shared/`), so a globally-installed plugin has no way to locate the correct vault. Always run `hf-init` or `hf-install` inside each target project.
+
 Package installation and project initialization are separate steps.
 
 1. Install the package into a target project: `npm install <package-name-or-tarball>`
 2. Run an explicit lifecycle command from the target project:
-   - `npm exec hf-install -- --target-dir .`
-   - `npm exec hf-init -- --target-dir .`
-   - `npm exec hf-sync -- --target-dir .`
-   - `npm exec hf-uninstall -- --target-dir .`
+   - `npm exec hf-install`
+   - `npm exec hf-init`
+   - `npm exec hf-sync`
+   - `npm exec hf-uninstall`
 
 `postinstall` still runs after `npm install`, but it is informational only in consumer projects. It does not wire adapters, scaffold folders, or remove anything implicitly. Its job is to point operators at the explicit lifecycle commands.
 
@@ -230,26 +232,26 @@ Package installation and project initialization are separate steps.
 Use this flow inside the target project that will consume the framework:
 
 ```bash
-npm install hybrid-framework
-npm pkg set scripts.hf:init="hf-init --target-dir ."
-npm run hf:init
+npm install hybrid-framework   # or: npm install /path/to/hybrid-framework-<version>.tgz
+npm exec hf-init
 ```
 
 That sequence keeps installation explicit:
 
 - `npm install` adds the package only.
-- `npm run hf:init` scaffolds `plans/` and `vault/`, then wires the enabled adapters.
-- Later reruns use `npm run hf:init`, `npm exec hf-sync -- --target-dir .`, or local wrapper scripts instead of relying on package-manager side effects.
+- `npm exec hf-init` scaffolds `plans/` and `vault/`, then wires the enabled adapters. Defaults to the current working directory; pass `--target-dir <path>` to target a different directory.
+- The build step is skipped automatically when running from an installed package; no `--skip-build` flag is needed.
+- Later reruns use `npm exec hf-sync` or local wrapper scripts instead of relying on package-manager side effects.
 
 Consumer projects can also keep the full lifecycle as local scripts:
 
 ```json
 {
   "scripts": {
-    "hf:install": "hf-install --target-dir .",
-    "hf:init": "hf-init --target-dir .",
-    "hf:sync": "hf-sync --target-dir .",
-    "hf:uninstall": "hf-uninstall --target-dir ."
+    "hf:install": "hf-install",
+    "hf:init": "hf-init",
+    "hf:sync": "hf-sync",
+    "hf:uninstall": "hf-uninstall"
   }
 }
 ```

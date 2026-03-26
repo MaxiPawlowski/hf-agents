@@ -285,6 +285,10 @@ function optionalString(obj: Record<string, unknown>, key: string, prefix: strin
   if (obj[key] !== undefined) expectString(obj[key], `${prefix}.${key}`, p);
 }
 
+function optionalBoolean(obj: Record<string, unknown>, key: string, prefix: string, p: string): void {
+  if (obj[key] !== undefined) expectBoolean(obj[key], `${prefix}.${key}`, p);
+}
+
 function validateRuntimeStatus(value: unknown, statusPath: string): asserts value is RuntimeStatus {
   const p = statusPath;
   expectObject(value, "root", p);
@@ -327,6 +331,7 @@ function validateRuntimeStatus(value: unknown, statusPath: string): asserts valu
   for (const key of ["lastProgressAt", "recommendedNextAction", "lastTurnEvaluatedAt"] as const) {
     optionalString(value, key, "", p);
   }
+  optionalBoolean(value, "awaitingBuilderApproval", "", p);
 
   // lastBlocker
   if (value.lastBlocker !== undefined) {

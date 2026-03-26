@@ -11,7 +11,16 @@ max_iterations: 3
 
 # Verification Before Completion
 
-Iron law: never declare completion without fresh evidence tied to the exact scope being closed.
+Iron law: never declare completion without fresh evidence tied to the exact scope being closed. If the required verification cannot run, escalate to the user — do not substitute a weaker method and claim verification passed.
+
+## Verification Tiers
+
+Select the highest applicable tier for each changed artifact:
+
+- **static-read** — config, docs, prompts, frontmatter. Re-read the file after the last edit and confirm it matches the acceptance criterion.
+- **command-execution** — code, scripts, test files, build configs. Run the narrowest command that can falsify the claim and report exit code and key output. Reading source is not sufficient.
+- **browser-check** — UI components, CSS, HTML. Inspect the rendered DOM or capture a screenshot. A passing build alone does not verify visual correctness.
+- **manual-attestation** — third-party integrations, environment-dependent behavior. Escalate to the user with what needs human confirmation and why.
 
 ## Overview
 
@@ -34,9 +43,10 @@ The plan doc remains the canonical record of milestone state. Runtime artifacts 
 
 1. Scope-fit gate: map the original request or milestone acceptance criterion to the delivered behavior.
 2. Constraint gate: confirm the workflow respected explicit limits such as no unapproved git actions, no scope expansion, and any required builder/runtime constraints.
-3. Evidence gate: gather the narrowest relevant fresh evidence for the change, such as status checks, targeted tests, build output, screenshots, or artifact inspection.
-4. Recording gate: make sure the final verification evidence that supports plan completion can be recorded under the last completed milestone in the plan doc.
-5. Gap gate: call out anything unverified, any known trade-off, and whether it blocks completion.
+3. Evidence gate: classify each changed artifact by its verification tier and gather the required evidence. If the required tier cannot run, escalate rather than falling back to a weaker method.
+4. Recording gate: make sure the final verification evidence can be recorded under the last completed milestone in the plan doc.
+5. Completion summary: assemble a user-facing summary before any `status: complete` transition — what was verified, how, and what remains unverified or pending human confirmation.
+6. Gap gate: call out anything unverified, any known trade-off, and whether it blocks completion.
 
 ## Verification
 
@@ -46,7 +56,7 @@ The plan doc remains the canonical record of milestone state. Runtime artifacts 
 - Confirm the completion claim matches both the milestone acceptance criterion and any explicit user constraints.
 - Confirm final verification evidence is ready to attach under the last completed milestone before any `status: complete` transition.
 
-Choose checks that fit the change. For docs-only work, file inspection may be enough. For code changes, use the smallest command set that can actually falsify the completion claim.
+Choose the verification method that fits the artifact tier. If the required tier cannot be executed, escalate — do not silently downgrade.
 
 ## Failure Behavior
 
@@ -70,6 +80,6 @@ Return:
 
 - scope_map: how the delivered work maps to the requested scope
 - evidence: commands, inspections, or captures used for verification and their results
+- completion_summary: user-facing summary of what was verified, how, and what remains unverified or pending
 - gaps: anything still unverified or intentionally out of scope
-- residual_risks: remaining risks that do not block completion, if any
 - completion_decision: `ready` or `blocked`

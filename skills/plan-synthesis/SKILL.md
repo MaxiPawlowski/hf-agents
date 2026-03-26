@@ -38,8 +38,9 @@ The plan must be specific enough that a builder can execute one milestone at a t
 3. Write the research summary with specific file-level findings, not just file names — include patterns discovered, conventions in use, dependencies that affect milestone ordering, and the key design decisions that shaped milestone boundaries.
 4. Break the work into as many milestones as needed for full coverage. Each milestone must be independently executable, independently reviewable, and paired with concrete acceptance criteria.
 5. For each milestone, write a description paragraph explaining what it does, why it's needed, and any design context that helps the builder and coder. Follow with multi-condition acceptance criteria for non-trivial milestones.
-6. Word milestones so the current scope is obvious, the done state is testable, and a builder can report progress or blocked status cleanly.
-7. Record residual risks and open questions that remain outside milestone scope. Each risk should cite a specific file or area and name what could go wrong.
+6. For milestones with `review: required` or `review: auto`, add a `Verify:` block describing what needs to be verified. Each step should state the verification intent clearly enough that a builder or reviewer can determine the right approach — e.g., "run the parser tests", "confirm the export exists in `src/validation.ts`", "build completes without errors". Do not write exact commands; the builder decides how to verify. `review: skip` milestones may omit `Verify:`.
+7. Word milestones so the current scope is obvious, the done state is testable, and a builder can report progress or blocked status cleanly.
+8. Record residual risks and open questions that remain outside milestone scope. Each risk should cite a specific file or area and name what could go wrong.
 
 ## Incremental Writing Strategy
 
@@ -63,6 +64,7 @@ Each Edit call is small and completes without timeout. The parser handles partia
 - Each milestone title line carries a brief summary: `- [ ] N. Title - brief summary`. The title line alone should make the milestone's purpose clear.
 - After the title line, include a **description paragraph** (1-3 sentences) explaining what the milestone does, why it's needed, and any important design context the builder should know. This paragraph is not parsed by the runtime but is visible to the builder and coder through the raw plan text.
 - After the description, include **acceptance criteria** as a labeled sub-list for non-trivial milestones. Each criterion should be independently verifiable — specific enough that two different reviewers would agree on pass/fail.
+- Add a `Verify:` sub-list after `Acceptance:` for every milestone with `review: required` or `review: auto`. Each step describes the verification intent — what to check and why — so the builder or reviewer can determine the appropriate method. `review: skip` milestones may omit `Verify:`.
 - Each milestone must carry enough context for the coder to start implementing without re-exploring the repo. Use indented metadata lines (`scope`, `conventions`, `notes`) to attach the planner's discoveries directly to the milestone that needs them.
 - Avoid vague continuation language such as "keep wiring", "finish leftovers", or "polish" without a checkable end state.
 - Milestones should not assume undocumented tool behavior or placeholder rendering.
@@ -79,8 +81,10 @@ Scale detail to match complexity:
 Each milestone may declare a `review` policy as an indented metadata line:
 
 - `review: required` — full coder then reviewer cycle. Use for milestones with architectural changes, complex logic, or security-sensitive code. This is the default when no review policy is specified.
-- `review: auto` — builder runs the narrowest verification directly (test command, build check) after the coder finishes. No reviewer dispatch. Use for straightforward changes where automated checks are sufficient.
+- `review: auto` — builder runs verification directly after the coder finishes. No reviewer dispatch. Use for straightforward changes where automated checks are sufficient.
 - `review: skip` — mark complete immediately after coder output. No verification. Use only for trivial changes like documentation updates, config key additions, or comment edits.
+
+`Verify:` blocks are required for `review: required` and `review: auto` milestones. They may be omitted for `review: skip` milestones.
 
 ### Exhaustive Enumeration
 
@@ -93,6 +97,8 @@ When the request implies exhaustive coverage, such as “review all files and ap
 - Confirm the doc contains a `## User Intent` section.
 - Confirm the doc contains `## Milestones` with unchecked milestone lines.
 - Confirm every milestone has a clear acceptance criterion and can be completed without hidden assumptions.
+- Confirm each `review: required` or `review: auto` milestone includes a `Verify:` block with at least one verification intent.
+- Confirm each `Verify:` step describes what to check clearly enough that a builder can determine the right verification method.
 
 ## Failure Behavior
 
@@ -148,6 +154,10 @@ explicitly excluded from scope and why.>
   - <first testable condition>
   - <second testable condition>
   - <third testable condition, if needed>
+  Verify:
+  - run the validation tests
+  - confirm `src/validation.ts` exports a `validateInput` function
+  - build completes without errors
   - scope: <target files from local context, with backtick-quoted paths>
   - conventions: <patterns to follow, with refs to example files>
   - notes: <additional guidance that helps the coder, optional>
@@ -158,6 +168,8 @@ explicitly excluded from scope and why.>
   one explicit milestone per file until the discovered scope is fully covered.>
   Acceptance:
   - <testable condition>
+  Verify:
+  - <what to check — clear enough for the builder to determine the method>
   - scope: <target files from local context, with backtick-quoted paths>
   - review: required | auto | skip
 
@@ -175,6 +187,9 @@ Context keys carry planner knowledge into execution:
 
 Policy keys control execution flow:
 - `review`: `required` (default), `auto`, or `skip`. See Review Policy above.
+
+Verification keys:
+- `Verify:`: a labeled block at the same indentation level as `Acceptance:`. Required for `review: required` and `review: auto`; optional for `review: skip`. Each step describes the verification intent — the builder or reviewer determines the exact method.
 
 Evidence keys are appended by the builder on completion (not written by the planner):
 - `files`: paths modified during implementation.

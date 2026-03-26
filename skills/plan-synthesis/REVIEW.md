@@ -13,18 +13,20 @@ Use these checks when editing `skills/plan-synthesis/SKILL.md`, changing plan fo
 
 ## Regression Checks
 
-- Gate discipline: does the prompt still block on plan-shaping unknowns instead of silently defaulting them?
-- Milestone quality: would each milestone support one focused coder-reviewer loop?
-- Plan format: does the output still require `status: in-progress`, `## Milestones`, and explicit acceptance criteria?
-- Contract clarity: can a builder report progress or blocked state without inventing missing context?
-- Context distribution: does each milestone carry `scope` and `conventions` metadata from local-context findings, rather than leaving them only in the Research Summary?
-- Review policy: does each milestone declare `review: required`, `auto`, or `skip` based on risk and complexity?
-- Backward compatibility: do milestones without metadata lines still match the valid format?
-- Plan richness: does the Overview explain approach rationale and exclusions, not just restate the intent?
-- Research depth: does the Research Summary contain specific file-level findings and key decisions, not just file names?
-- Milestone descriptions: does each non-trivial milestone include a description paragraph explaining what and why, beyond just the title line?
-- Acceptance criteria quality: does each non-trivial milestone have testable, multi-condition acceptance criteria?
-- Proportionality: does the plan scale its detail level to match complexity (richer for complex, concise for simple)?
+- does the prompt still block on plan-shaping unknowns instead of silently defaulting them?
+- would each milestone still support one focused coder-reviewer loop?
+- does the output still require `status: in-progress`, `## Milestones`, and explicit acceptance criteria?
+- can a builder still report progress or blocked state without inventing missing context?
+- does each milestone still carry `scope` and `conventions` metadata from local-context findings, rather than leaving them only in the Research Summary?
+- does each milestone still declare `review: required`, `auto`, or `skip` based on risk and complexity?
+- do milestones without metadata lines still match the valid format?
+- does the Overview still explain approach rationale and exclusions, not just restate the intent?
+- does the Research Summary still contain specific file-level findings and key decisions, not just file names?
+- does each non-trivial milestone still include a description paragraph explaining what and why, beyond just the title line?
+- does each non-trivial milestone still have testable, multi-condition acceptance criteria?
+- does the plan still scale its detail level to match complexity (richer for complex, concise for simple)?
+- does the plan template still require a `Verify:` block for milestones with `review: required` or `review: auto`?
+- do `Verify:` steps describe verification intent rather than prescribing exact commands?
 
 ## Adding Coverage
 
@@ -39,3 +41,4 @@ Add new cases in `skills/plan-synthesis/evals/evals.json` when prompt edits chan
 - plan richness, overview depth, or research summary structure
 - milestone description and acceptance criteria expectations
 - proportionality guidance for simple vs complex plans
+- `Verify:` block presence and intent-based format
