@@ -1,14 +1,33 @@
 import {
+  hydrateRuntimeWithTimeout,
   ingestTurnOutcome,
   isDestructiveCommand,
-  mapDecisionToClaudeStopResponse,
   recordCompactionArchive,
   recordSubagentLifecycle
 } from "../adapters/lifecycle.js";
-import { HybridLoopRuntime, isManagedPlanUnavailable, resolveManagedPlanPath } from "../runtime/runtime.js";
+import { HybridLoopRuntime } from "../runtime/runtime.js";
 import { detectTurnOutcomeInPayload } from "../runtime/turn-outcome-ingestion.js";
 import { hfLog, hfLogTimed } from "../runtime/logger.js";
-import type { RuntimeEvent } from "../runtime/types.js";
+import type { ContinueDecision, RuntimeEvent } from "../runtime/types.js";
+
+export function mapDecisionToClaudeStopResponse(decision: ContinueDecision): Record<string, unknown> {
+  switch (decision.action) {
+    case "continue":
+      return {
+        decision: "block",
+        reason: `${decision.reason} Continue with: ${decision.resume_prompt ?? "follow the current milestone"}`
+      };
+    case "allow_stop":
+    case "pause":
+    case "escalate":
+    case "complete":
+    case "max_turns":
+      return {
+        decision: "allow",
+        reason: decision.reason
+      };
+  }
+}
 
 const HOOK_TIMEOUT_MS = 4_000;
 
@@ -66,27 +85,15 @@ export async function handleClaudeHook(
     return { decision: "allow" };
   }
 
-  const runtime = new HybridLoopRuntime();
-  let planPath: string | null = null;
+  let runtime: HybridLoopRuntime;
   try {
-    planPath = await resolveManagedPlanPath(cwd, explicitPlanPath);
-    hfLog({ tag: "claude-hook", msg: "resolved plan", data: { planPath } });
-  } catch (error) {
-    if (!isManagedPlanUnavailable(error)) {
-      throw error;
-    }
-    hfLog({ tag: "claude-hook", msg: "no managed plan, using planless" });
-  }
-
-  let timer: ReturnType<typeof setTimeout>;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error("Hook hydration timed out")), HOOK_TIMEOUT_MS);
-  });
-  try {
-    const hydration = planPath
-      ? runtime.hydrate(planPath)
-      : runtime.hydratePlanless(cwd);
-    await Promise.race([hydration, timeout]);
+    runtime = await hydrateRuntimeWithTimeout({
+      cwd,
+      timeoutMs: HOOK_TIMEOUT_MS,
+      timeoutMessage: "Hook hydration timed out",
+      tag: "claude-hook",
+      ...(explicitPlanPath ? { explicitPlanPath } : {})
+    });
   } catch (error) {
     if (!(error instanceof Error && error.message === "Hook hydration timed out")) {
       throw error;
@@ -103,8 +110,6 @@ export async function handleClaudeHook(
     }
 
     return { decision: "allow" };
-  } finally {
-    clearTimeout(timer!);
   }
   if (eventName !== "Stop") {
     await runtime.recordEvent(toRuntimeEvent(eventName, input));

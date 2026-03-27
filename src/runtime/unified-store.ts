@@ -30,23 +30,6 @@ export function dotProduct(a: number[], b: number[]): number {
   return sum;
 }
 
-type FieldFilter = {
-  $eq?: MetadataValue;
-  $ne?: MetadataValue;
-  $gt?: MetadataValue;
-  $gte?: MetadataValue;
-  $lt?: MetadataValue;
-  $lte?: MetadataValue;
-  $in?: MetadataValue[];
-  $nin?: MetadataValue[];
-};
-
-export interface MetadataFilter {
-  $and?: MetadataFilter[];
-  $or?: MetadataFilter[];
-  [key: string]: MetadataValue | FieldFilter | MetadataFilter[] | undefined;
-}
-
 export interface IndexItem {
   id: string;
   text: string;
@@ -99,72 +82,6 @@ function writeVector(target: Float32Array, index: number, vector: number[]): voi
 function readVector(vectors: Float32Array, index: number): number[] {
   const offset = index * EMBEDDING_DIM;
   return Array.from(vectors.slice(offset, offset + EMBEDDING_DIM));
-}
-
-function isFieldFilter(value: MetadataValue | FieldFilter | MetadataFilter[] | undefined): value is FieldFilter {
-  return value !== undefined && typeof value === "object" && !Array.isArray(value);
-}
-
-function matchesFieldFilter(fieldValue: MetadataValue | undefined, filter: FieldFilter): boolean {
-  if (filter.$eq !== undefined && fieldValue !== filter.$eq) {
-    return false;
-  }
-  if (filter.$ne !== undefined && fieldValue === filter.$ne) {
-    return false;
-  }
-  if (filter.$gt !== undefined && !(fieldValue !== undefined && fieldValue > filter.$gt)) {
-    return false;
-  }
-  if (filter.$gte !== undefined && !(fieldValue !== undefined && fieldValue >= filter.$gte)) {
-    return false;
-  }
-  if (filter.$lt !== undefined && !(fieldValue !== undefined && fieldValue < filter.$lt)) {
-    return false;
-  }
-  if (filter.$lte !== undefined && !(fieldValue !== undefined && fieldValue <= filter.$lte)) {
-    return false;
-  }
-  if (filter.$in !== undefined && !filter.$in.includes(fieldValue as MetadataValue)) {
-    return false;
-  }
-  if (filter.$nin !== undefined && filter.$nin.includes(fieldValue as MetadataValue)) {
-    return false;
-  }
-  return true;
-}
-
-function matchesFilter(item: IndexItem, filter?: MetadataFilter): boolean {
-  if (!filter) {
-    return true;
-  }
-
-  if (filter.$and && !filter.$and.every((clause) => matchesFilter(item, clause))) {
-    return false;
-  }
-
-  if (filter.$or && !filter.$or.some((clause) => matchesFilter(item, clause))) {
-    return false;
-  }
-
-  for (const [key, condition] of Object.entries(filter)) {
-    if (key === "$and" || key === "$or") {
-      continue;
-    }
-
-    const fieldValue = item.metadata[key];
-    if (isFieldFilter(condition)) {
-      if (!matchesFieldFilter(fieldValue, condition)) {
-        return false;
-      }
-      continue;
-    }
-
-    if (fieldValue !== condition) {
-      return false;
-    }
-  }
-
-  return true;
 }
 
 function isUnifiedIndex(value: unknown): value is UnifiedIndex {
@@ -392,14 +309,12 @@ export function queryItems(
   vectors: Float32Array,
   queryVector: number[],
   topK: number,
-  filter?: MetadataFilter,
 ): QueryItemResult[] {
   const normalizedQuery = normalize(queryVector);
   const scored: QueryItemResult[] = [];
 
   for (let i = 0; i < index.items.length; i++) {
     const item = index.items[i]!;
-    if (!matchesFilter(item, filter)) continue;
     scored.push({
       id: item.id,
       text: item.text,

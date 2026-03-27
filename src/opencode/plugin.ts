@@ -1,11 +1,11 @@
 import {
-  applyOpenCodeDecision,
+  hydrateRuntimeWithTimeout,
   ingestTurnOutcome,
   isDestructiveCommand,
   recordCompactionArchive,
   recordSubagentLifecycle
 } from "../adapters/lifecycle.js";
-import { HybridLoopRuntime, isManagedPlanUnavailable, resolveManagedPlanPath } from "../runtime/runtime.js";
+import { HybridLoopRuntime } from "../runtime/runtime.js";
 import { detectTurnOutcomeInPayload } from "../runtime/turn-outcome-ingestion.js";
 import { hfLog, hfLogTimed } from "../runtime/logger.js";
 import type { ContinueDecision, RuntimeEvent } from "../runtime/types.js";
@@ -74,33 +74,14 @@ function withHookDeadline<T>(promise: Promise<T>, fallback: T): Promise<T> {
 
 async function hydrateRuntime(context: OpenCodePluginContext): Promise<HybridLoopRuntime> {
   const done = hfLogTimed({ tag: "plugin", msg: "hydrateRuntime" });
-  const runtime = new HybridLoopRuntime();
   const cwd = context.cwd ?? process.cwd();
 
-  let planPath: string | null = null;
-  try {
-    planPath = await resolveManagedPlanPath(cwd);
-    hfLog({ tag: "plugin", msg: "resolved plan", data: { planPath } });
-  } catch (error) {
-    if (!isManagedPlanUnavailable(error)) {
-      throw error;
-    }
-    hfLog({ tag: "plugin", msg: "no managed plan, using planless" });
-  }
-
-  let timer: ReturnType<typeof setTimeout>;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error("Runtime hydration timed out")), HYDRATION_TIMEOUT_MS);
+  const runtime = await hydrateRuntimeWithTimeout({
+    cwd,
+    timeoutMs: HYDRATION_TIMEOUT_MS,
+    timeoutMessage: "Runtime hydration timed out",
+    tag: "plugin"
   });
-
-  try {
-    const hydration = planPath
-      ? runtime.hydrate(planPath)
-      : runtime.hydratePlanless(cwd);
-    await Promise.race([hydration, timeout]);
-  } finally {
-    clearTimeout(timer!);
-  }
 
   done({ planless: runtime.isPlanless() });
   return runtime;
@@ -159,6 +140,20 @@ async function promptContinuation(
       parts: [{ type: "text", text: decision.resume_prompt }]
     });
   }
+}
+
+async function applyOpenCodeDecision(
+  decision: ContinueDecision,
+  params: {
+    autoContinue: boolean;
+    deliverPrompt?: (prompt: string) => Promise<void>;
+  }
+): Promise<ContinueDecision> {
+  if (decision.action === "continue" && params.autoContinue && decision.resume_prompt && params.deliverPrompt) {
+    await params.deliverPrompt(decision.resume_prompt);
+  }
+
+  return decision;
 }
 
 export function createHybridRuntimeHooks(context: OpenCodePluginContext): Record<string, OpenCodeHook> {

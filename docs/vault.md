@@ -146,35 +146,12 @@ function queryItems(
   vectors: Float32Array,
   queryVector: number[],    // will be normalized internally
   topK: number,
-  filter?: MetadataFilter,
 ): QueryItemResult[]
 ```
 
 - Normalizes the query vector before scoring.
 - Uses dot product on unit vectors (equivalent to cosine similarity).
-- Filters items by `MetadataFilter` before scoring.
 - Returns up to `topK` results sorted by descending score.
-
-### Metadata Filters
-
-```typescript
-// Exact match (shorthand)
-{ kind: "vault" }
-
-// Operator form
-{ kind: { $eq: "vault" } }
-{ kind: { $ne: "code" } }
-{ rank: { $gt: 1 } }
-{ rank: { $gte: 2, $lte: 5 } }
-{ tag: { $in: ["runtime", "plan"] } }
-{ tag: { $nin: ["tests"] } }
-
-// Logical combinators
-{ $and: [{ kind: "code" }, { active: true }] }
-{ $or: [{ tag: "tests" }, { rank: { $eq: 1 } }] }
-```
-
-Field values are `string | number | boolean`.
 
 ---
 
@@ -193,7 +170,6 @@ Tests the storage layer in isolation — no filesystem mocking, uses real temp d
 | `upsertItem replaces an existing item and vector` | Idempotent update of both metadata and vector |
 | `deleteItems removes matching ids and compacts vectors` | Compaction keeps correct positional mapping for remaining items |
 | `queryItems returns top-K results in score order` | Cosine ranking with topK limit |
-| `queryItems supports metadata filter operators` | All operators: `$eq`, `$ne`, `$in`, `$and`, `$or`, etc. |
 | `loadUnifiedIndex returns null for missing or corrupt files` | Graceful `null` on ENOENT and JSON parse errors |
 | `loadUnifiedIndex returns null for version mismatch` | Schema version guard triggers rebuild |
 

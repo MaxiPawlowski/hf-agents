@@ -1,28 +1,35 @@
 import path from "node:path";
-import { promises as fs } from "node:fs";
+import { existsSync, promises as fs, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import type { IndexCodeConfig, IndexConfig, ParsedPlan, RuntimeEvent, RuntimeStatus, VaultContext, VaultDocument, VaultPaths } from "./types.js";
 import { validateTurnOutcome } from "./turn-outcome-trailer.js";
+import { isRecord } from "./utils.js";
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function resolvePackageRoot(startDir: string): string {
+  let currentDir = startDir;
+
+  while (true) {
+    if (existsSync(path.join(currentDir, "package.json"))) {
+      return currentDir;
+    }
+
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      throw new Error(`Unable to resolve package root from ${startDir}`);
+    }
+    currentDir = parentDir;
+  }
 }
 
-export const DEFAULT_INDEX_CONFIG: IndexConfig = {
-  enabled: true,
-  code: {
-    enabled: true,
-    roots: ["src"],
-    extensions: [".ts"],
-    exclude: ["node_modules/", "dist/"],
-  },
-  semanticTopK: 5,
-  maxChunkChars: 2000,
-  embeddingBatchSize: 100,
-  timeoutMs: 15000,
-  charBudget: 3000,
-  planningCharBudget: 1500,
-};
+function loadDefaultIndexConfig(): IndexConfig {
+  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+  const packageRoot = resolvePackageRoot(moduleDir);
+  const configPath = path.join(packageRoot, "schemas", "index-defaults.json");
+  return JSON.parse(readFileSync(configPath, "utf8")) as IndexConfig;
+}
+
+export const DEFAULT_INDEX_CONFIG: IndexConfig = loadDefaultIndexConfig();
 
 function mergeCodeConfig(defaults: IndexCodeConfig, raw: unknown): IndexCodeConfig {
   if (!isRecord(raw)) return defaults;

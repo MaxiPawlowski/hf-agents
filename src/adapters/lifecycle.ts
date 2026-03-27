@@ -1,6 +1,7 @@
-import type { HybridLoopRuntime } from "../runtime/runtime.js";
+import { HybridLoopRuntime, isManagedPlanUnavailable, resolveManagedPlanPath } from "../runtime/runtime.js";
 import { buildTurnOutcomeIngestionEvent, type TurnOutcomeTrailerParseResult } from "../runtime/turn-outcome-trailer.js";
 import type { ContinueDecision, RuntimeVendor } from "../runtime/types.js";
+import { hfLog } from "../runtime/logger.js";
 
 export const DESTRUCTIVE_COMMAND_PATTERN = /git reset --hard|git checkout --|rm -rf/i;
 
@@ -89,35 +90,38 @@ export async function ingestTurnOutcome(
   };
 }
 
-export function mapDecisionToClaudeStopResponse(decision: ContinueDecision): Record<string, unknown> {
-  switch (decision.action) {
-    case "continue":
-      return {
-        decision: "block",
-        reason: `${decision.reason} Continue with: ${decision.resume_prompt ?? "follow the current milestone"}`
-      };
-    case "allow_stop":
-    case "pause":
-    case "escalate":
-    case "complete":
-    case "max_turns":
-      return {
-        decision: "allow",
-        reason: decision.reason
-      };
-  }
-}
-
-export async function applyOpenCodeDecision(
-  decision: ContinueDecision,
-  params: {
-    autoContinue: boolean;
-    deliverPrompt?: (prompt: string) => Promise<void>;
-  }
-): Promise<ContinueDecision> {
-  if (decision.action === "continue" && params.autoContinue && decision.resume_prompt && params.deliverPrompt) {
-    await params.deliverPrompt(decision.resume_prompt);
+export async function hydrateRuntimeWithTimeout(opts: {
+  cwd: string;
+  timeoutMs: number;
+  timeoutMessage: string;
+  tag: string;
+  explicitPlanPath?: string;
+}): Promise<HybridLoopRuntime> {
+  const runtime = new HybridLoopRuntime();
+  let planPath: string | null = null;
+  try {
+    planPath = await resolveManagedPlanPath(opts.cwd, opts.explicitPlanPath);
+    hfLog({ tag: opts.tag, msg: "resolved plan", data: { planPath } });
+  } catch (error) {
+    if (!isManagedPlanUnavailable(error)) {
+      throw error;
+    }
+    hfLog({ tag: opts.tag, msg: "no managed plan, using planless" });
   }
 
-  return decision;
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(opts.timeoutMessage)), opts.timeoutMs);
+  });
+
+  try {
+    const hydration = planPath
+      ? runtime.hydrate(planPath)
+      : runtime.hydratePlanless(opts.cwd);
+    await Promise.race([hydration, timeout]);
+  } finally {
+    clearTimeout(timer!);
+  }
+
+  return runtime;
 }

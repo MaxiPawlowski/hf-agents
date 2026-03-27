@@ -142,57 +142,6 @@ describe("unified-store", () => {
     expect(results[0]!.score).toBeGreaterThan(results[1]!.score);
   });
 
-  test("queryItems supports metadata filter operators", () => {
-    let state = insertItem(
-      makeIndex(),
-      new Float32Array(),
-      makeItem("vault-a", { kind: "vault", tag: "plan", rank: 1, active: true }),
-      makeVector([1, 0]),
-    );
-    state = insertItem(
-      state.index,
-      state.vectors,
-      makeItem("code-a", { kind: "code", tag: "runtime", rank: 2, active: true }),
-      makeVector([0, 1]),
-    );
-    state = insertItem(
-      state.index,
-      state.vectors,
-      makeItem("code-b", { kind: "code", tag: "tests", rank: 3, active: false }),
-      makeVector([0, 1]),
-    );
-
-    expect(
-      queryItems(state.index, state.vectors, makeVector([0, 1]), 10, {
-        kind: { $eq: "code" },
-      }).map((result) => result.id),
-    ).toEqual(["code-a", "code-b"]);
-
-    expect(
-      queryItems(state.index, state.vectors, makeVector([0, 1]), 10, {
-        kind: { $ne: "vault" },
-      }).map((result) => result.id),
-    ).toEqual(["code-a", "code-b"]);
-
-    expect(
-      queryItems(state.index, state.vectors, makeVector([0, 1]), 10, {
-        tag: { $in: ["runtime", "plan"] },
-      }).map((result) => result.id),
-    ).toEqual(["code-a", "vault-a"]);
-
-    expect(
-      queryItems(state.index, state.vectors, makeVector([0, 1]), 10, {
-        $and: [{ kind: "code" }, { active: true }],
-      }).map((result) => result.id),
-    ).toEqual(["code-a"]);
-
-    expect(
-      queryItems(state.index, state.vectors, makeVector([0, 1]), 10, {
-        $or: [{ tag: "tests" }, { rank: { $eq: 1 } }],
-      }).map((result) => result.id),
-    ).toEqual(["code-b", "vault-a"]);
-  });
-
   test("loadUnifiedIndex returns null for missing or corrupt files", async () => {
     const missingDir = await fs.mkdtemp(path.join(os.tmpdir(), "unified-store-missing-"));
     const corruptDir = await fs.mkdtemp(path.join(os.tmpdir(), "unified-store-corrupt-"));
@@ -273,40 +222,6 @@ describe("unified-store", () => {
 
     expect(result.index.items).toHaveLength(1);
     expect(result.vectors).toBe(vectors); // same reference
-  });
-
-  test("queryItems: $or with multiple clauses returns union", () => {
-    let state = insertItem(makeIndex(), new Float32Array(), makeItem("a", { kind: "vault" }), makeVector([1, 0]));
-    state = insertItem(state.index, state.vectors, makeItem("b", { kind: "code" }), makeVector([0, 1]));
-    state = insertItem(state.index, state.vectors, makeItem("c", { kind: "other" }), makeVector([1, 1]));
-
-    const results = queryItems(state.index, state.vectors, makeVector([1, 1]), 10, {
-      $or: [{ kind: "vault" }, { kind: "code" }],
-    });
-
-    expect(results.map((r) => r.id).sort()).toEqual(["a", "b"]);
-  });
-
-  test("queryItems: nested $and + $or filters", () => {
-    let state = insertItem(makeIndex(), new Float32Array(), makeItem("a", { kind: "vault", rank: 1 }), makeVector([1, 0]));
-    state = insertItem(state.index, state.vectors, makeItem("b", { kind: "code", rank: 1 }), makeVector([0, 1]));
-    state = insertItem(state.index, state.vectors, makeItem("c", { kind: "code", rank: 2 }), makeVector([1, 1]));
-
-    const results = queryItems(state.index, state.vectors, makeVector([1, 1]), 10, {
-      $and: [
-        { $or: [{ kind: "vault" }, { kind: "code" }] },
-        { rank: { $gte: 2 } },
-      ],
-    });
-
-    expect(results.map((r) => r.id)).toEqual(["c"]);
-  });
-
-  test("queryItems: empty $or returns nothing, empty $and returns everything", () => {
-    let state = insertItem(makeIndex(), new Float32Array(), makeItem("a"), makeVector([1, 0]));
-
-    expect(queryItems(state.index, state.vectors, makeVector([1, 0]), 10, { $or: [] })).toHaveLength(0);
-    expect(queryItems(state.index, state.vectors, makeVector([1, 0]), 10, { $and: [] })).toHaveLength(1);
   });
 
   test("loadUnifiedIndex returns null when JSON/binary item count mismatches", async () => {

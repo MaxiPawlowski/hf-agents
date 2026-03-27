@@ -12,7 +12,7 @@ async function reParsePlanIfChanged(current: ParsedPlan): Promise<ParsedPlan> {
   if (stats.mtimeMs === current.mtimeMs) return current;
   return parsePlan(current.path);
 }
-import { appendEvent, ensureRuntimeDir, ensurePlanlessRuntimeDir, getRepoRoot, getVaultPaths, loadIndexConfig, readStatus, readVaultContext, writeResumePrompt, writeStatus } from "./persistence.js";
+import { DEFAULT_INDEX_CONFIG, appendEvent, ensureRuntimeDir, ensurePlanlessRuntimeDir, getRepoRoot, getVaultPaths, loadIndexConfig, readStatus, readVaultContext, writeResumePrompt, writeStatus } from "./persistence.js";
 import { buildResumePrompt } from "./prompt.js";
 import { buildUnifiedIndex } from "./unified-index-pipeline.js";
 import { queryItems, type UnifiedIndex as StoredUnifiedIndex } from "./unified-store.js";
@@ -36,8 +36,6 @@ import {
 } from "./types.js";
 
 export { REPEATED_BLOCKER_THRESHOLD, VERIFICATION_FAILURE_THRESHOLD, NO_PROGRESS_THRESHOLD };
-/** Default timeout for index build and vault search (ms). */
-const DEFAULT_INDEX_TIMEOUT_MS = 15_000;
 /** Default max turns for planless mode. */
 const DEFAULT_PLANLESS_MAX_TURNS = 50;
 
@@ -642,7 +640,7 @@ export class HybridLoopRuntime implements LoopRuntime {
           embeddingBatchSize: cfg?.embeddingBatchSize,
           maxChunkChars: cfg?.maxChunkChars,
         }),
-        cfg?.timeoutMs ?? DEFAULT_INDEX_TIMEOUT_MS,
+        cfg?.timeoutMs ?? DEFAULT_INDEX_CONFIG.timeoutMs,
         null
       );
     } catch (error) {
@@ -660,7 +658,7 @@ export class HybridLoopRuntime implements LoopRuntime {
       try {
         this.vaultSearchResults = await withTimeout(
           this.retrieveUnifiedChunks(plan.currentMilestone.text),
-          cfg?.timeoutMs ?? DEFAULT_INDEX_TIMEOUT_MS,
+          cfg?.timeoutMs ?? DEFAULT_INDEX_CONFIG.timeoutMs,
           null
         );
       } catch (error) {

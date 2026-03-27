@@ -50,6 +50,58 @@
           "indefinite widening of the search scope"
         ]
       }
+    },
+    {
+      "id": "local-context-output-shape",
+      "focus": [
+        "output quality",
+        "required output fields",
+        "credible stop_point"
+      ],
+      "input": {
+        "local_search_targets": [
+          "runtime milestone parsing conventions",
+          "test file naming patterns"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "context_files listing the files that were inspected",
+          "patterns_found describing conventions or structures discovered",
+          "missing_context field present even when empty or none",
+          "stop_point explaining why additional reading would have low value"
+        ],
+        "must_not": [
+          "return output that omits any of the four required fields",
+          "return a stop_point that is vague or does not explain the stopping rationale",
+          "list files in context_files without a corresponding why explanation"
+        ]
+      }
+    },
+    {
+      "id": "local-context-stops-after-scope-evidence",
+      "focus": [
+        "scope control",
+        "bounded search termination",
+        "evidence-backed stopping"
+      ],
+      "input": {
+        "local_search_targets": [
+          "how plan milestones are structured",
+          "where skill prompts are stored"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "stop_point that states conventions and landing zones are now evidence-backed",
+          "a minimal file set directly tied to the two targets"
+        ],
+        "must_not": [
+          "continue reading files after both targets are grounded in concrete paths",
+          "expand scope to unrelated directories once the search targets are resolved",
+          "return more than the minimum set of files needed to answer the planning question"
+        ]
+      }
     }
   ]
 }

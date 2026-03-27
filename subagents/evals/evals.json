@@ -173,6 +173,103 @@
           "treat file inspection as sufficient for code-change verification"
         ]
       }
+    },
+    {
+      "id": "reviewer-rejects-broad-rewrite-guidance",
+      "prompt": "subagents/hf-reviewer.md",
+      "focus": [
+        "single-action rejection",
+        "concrete next action",
+        "rejection payload shape"
+      ],
+      "input": {
+        "scope": "The milestone adds a targeted helper function for parsing milestone metadata.",
+        "delivered_changes": [
+          "A helper function was added but it reimplements logic already present in an adjacent module",
+          "No tests were attached"
+        ]
+      },
+      "expected": {
+        "approved": "no",
+        "must_include": [
+          "one concrete next action identifying the specific file or function to fix",
+          "next_action_owner set to exactly one actor",
+          "loop_feedback pointing to the specific duplication or gap"
+        ],
+        "must_not": [
+          "broad rewrite guidance such as improve code quality or refactor the module",
+          "multiple competing next actions that leave the coder uncertain what to do first",
+          "vague feedback like the implementation needs work"
+        ]
+      }
+    },
+    {
+      "id": "reviewer-rejects-avoidable-complexity",
+      "prompt": "subagents/hf-reviewer.md",
+      "focus": [
+        "complexity rejection",
+        "technical optimality",
+        "simpler direct implementation"
+      ],
+      "input": {
+        "scope": "The milestone adds a single config value lookup to an existing settings module.",
+        "delivered_changes": [
+          "A new abstraction layer with three new classes was introduced to wrap a single key lookup",
+          "The same result could have been achieved by adding one property to the existing settings object"
+        ]
+      },
+      "expected": {
+        "approved": "no",
+        "must_include": [
+          "avoidable complexity identified as a blocking quality failure",
+          "reference to the simpler direct implementation that would satisfy the acceptance criteria",
+          "one concrete next action to replace the over-built solution"
+        ],
+        "must_not": [
+          "approve a solution with unnecessary abstraction when a simpler path was available",
+          "treat complexity as a style note rather than a blocking finding"
+        ]
+      }
+    },
+    {
+      "id": "plan-reviewer-checks-verification-readiness",
+      "prompt": "subagents/hf-plan-reviewer.md",
+      "focus": [
+        "verification-readiness check",
+        "technical-approach proportionality",
+        "executable-artifact milestones"
+      ],
+      "input": {
+        "draft_plan": {
+          "milestones": [
+            {
+              "title": "Add request validation middleware",
+              "review": "required",
+              "description": "Integrate zod schema validation into the API request pipeline.",
+              "note": "No Verify: block is present on this milestone"
+            },
+            {
+              "title": "Wire middleware into all route handlers",
+              "review": "auto",
+              "description": "Import and apply the new middleware in five route files using a complex decorator pattern when direct import would suffice.",
+              "note": "Verify: block is present but the technical approach introduces unnecessary indirection"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "approved": "no",
+        "must_include": [
+          "missing Verify: block flagged on the first milestone that changes executable code",
+          "avoidable complexity or disproportionate technical approach flagged on the second milestone",
+          "revision_request bounded to the specific milestones that need correction"
+        ],
+        "must_not": [
+          "approve a plan where a review-required executable-artifact milestone lacks a Verify: block",
+          "approve a plan where the technical approach introduces unnecessary indirection when a simpler path is available",
+          "return a revision_request that rewrites milestones the plan reviewer was not asked to change"
+        ]
+      }
     }
   ]
 }

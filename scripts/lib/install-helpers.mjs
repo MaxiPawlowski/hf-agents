@@ -7,6 +7,7 @@ import process from "node:process";
 const scriptPath = fileURLToPath(import.meta.url);
 const sourceRoot = path.resolve(path.dirname(scriptPath), "..", "..");
 const packageJsonPath = path.join(sourceRoot, "package.json");
+const defaultIndexConfigPath = path.join(sourceRoot, "schemas", "index-defaults.json");
 const lifecycleCommands = ["install", "init", "sync", "uninstall"];
 const configFileName = "hybrid-framework.json";
 const manifestRelativePath = path.join(".hybrid-framework", "generated-state.json");
@@ -305,21 +306,7 @@ function resolveScaffoldSelection(options, config) {
   };
 }
 
-const DEFAULT_INDEX_CONFIG = {
-  enabled: true,
-  code: {
-    enabled: true,
-    roots: ["src"],
-    extensions: [".ts"],
-    exclude: ["node_modules/", "dist/"]
-  },
-  semanticTopK: 5,
-  maxChunkChars: 2000,
-  embeddingBatchSize: 100,
-  timeoutMs: 15000,
-  charBudget: 3000,
-  planningCharBudget: 1500
-};
+const DEFAULT_INDEX_CONFIG = readJson(defaultIndexConfigPath, null);
 
 function seedIndexConfig(config) {
   const existing = config.value;

@@ -24,15 +24,15 @@ See `../README.md` for the canonical framework surface and `../plans/README.md` 
 
 ## Consumer Project Behavior
 
-The plugin is installed per-project only. No global OpenCode plugin directory (`~/.config/opencode/plugins/`) is used or supported — the vault system is project-scoped and a global plugin has no way to locate the correct vault. Always install via `hf-init`, `hf-install`, `hf-init-opencode`, or `hf-install-opencode` inside each target project.
+For the general consumer install and lifecycle contract, see [`docs/consumer-install.md`](../docs/consumer-install.md).
 
-When a consumer project runs `hf-install`, `hf-init`, `hf-install-opencode`, or `hf-init-opencode`, the package generates `.opencode/` in the target project with:
+When a consumer project runs the OpenCode install or init lifecycle, the package generates `.opencode/` in the target project with:
 
 - `.opencode/plugins/hybrid-runtime.js` as the managed loader that re-exports the compiled runtime plugin
 - `.opencode/registry.json` as the managed asset registry that maps OpenCode-facing entries back to canonical framework assets
 - `.opencode/agents/` and `.opencode/skills/` when OpenCode asset sync is enabled
 
-Re-running `hf-sync` or `hf-sync-opencode` refreshes those generated files from the installed package without touching the consumer project's `plans/` or `vault/` docs.
+Re-running the OpenCode sync lifecycle refreshes those generated files from the installed package without touching the consumer project's `plans/` or `vault/` docs.
 
 ### OpenCode-only lifecycle commands
 
@@ -45,7 +45,7 @@ Use the dedicated OpenCode commands when a consumer project only needs OpenCode 
 | Refresh managed OpenCode output | `hf-sync-opencode` | `hf-sync --tool opencode` |
 | Remove managed OpenCode output | `hf-uninstall-opencode` | `hf-uninstall --tool opencode` |
 
-The combined `hf-install`, `hf-init`, `hf-sync`, and `hf-uninstall` commands remain valid when the project wants both adapters. The OpenCode-only aliases exist so an OpenCode-only consumer never needs to think about Claude.
+The combined commands remain valid when the project wants both adapters. The OpenCode-only aliases exist so an OpenCode-only consumer never needs to think about Claude.
 
 Sync rules are driven by the consumer project's `hybrid-framework.json`:
 
