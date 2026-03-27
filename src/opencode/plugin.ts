@@ -164,6 +164,24 @@ async function promptContinuation(
 export function createHybridRuntimeHooks(context: OpenCodePluginContext): Record<string, OpenCodeHook> {
   let runtimePromise: Promise<HybridLoopRuntime | null> | null = null;
 
+  // --- ESC-interrupt and agent-gate flags ---
+  // Set by "message.updated" and consumed by session.idle / gated hooks.
+  //
+  // Expected event shape (from @opencode-ai/sdk EventMessageUpdated):
+  //   event.type === "message.updated"
+  //   event.properties.info: Message (UserMessage | AssistantMessage)
+  //
+  // AssistantMessage shape (relevant fields):
+  //   { role: "assistant", agent: string, error?: { name: "MessageAbortedError", ... } | ... }
+  //
+  // UserMessage shape (relevant fields):
+  //   { role: "user", agent: string }
+  //
+  // Interrupt signal: role === "assistant" && error?.name === "MessageAbortedError"
+  // Agent-gate signal: agent.startsWith("hf-")
+  let interrupted = false;
+  let activeAgentIsHf = false;
+
   const getRuntime = async (): Promise<HybridLoopRuntime | null> => {
     if (!runtimePromise) {
       hfLog({ tag: "plugin", msg: "getRuntime: first call, starting hydration" });
@@ -184,6 +202,25 @@ export function createHybridRuntimeHooks(context: OpenCodePluginContext): Record
   };
 
   return {
+    "message.updated": async (input?: HookInput) => {
+      hfLog({ tag: "plugin", msg: "hook: message.updated" });
+      const info = (input as { info?: Record<string, unknown> } | undefined)?.info;
+      if (!info) {
+        hfLog({ tag: "plugin", msg: "message.updated: missing info field — skipping flag update" });
+        return null;
+      }
+      const agent = typeof info.agent === "string" ? info.agent : "";
+      activeAgentIsHf = agent.startsWith("hf-");
+      if (info.role === "assistant") {
+        const error = info.error as { name?: string } | undefined;
+        if (error?.name === "MessageAbortedError") {
+          interrupted = true;
+          hfLog({ tag: "plugin", msg: "message.updated: MessageAbortedError detected — interrupt flagged" });
+        }
+      }
+      hfLog({ tag: "plugin", msg: "message.updated: flags updated", data: { activeAgentIsHf, interrupted } });
+      return null;
+    },
     "tool.execute.before": async (input?: HookInput, output?: HookInput) => {
       hfLog({ tag: "plugin", msg: "hook: tool.execute.before" });
       const command = extractCommand(input, output);
@@ -225,6 +262,11 @@ export function createHybridRuntimeHooks(context: OpenCodePluginContext): Record
     "session.compacted": async (input?: HookInput, output?: HookInput) => {
       return withHookDeadline((async () => {
         const done = hfLogTimed({ tag: "plugin", msg: "hook: session.compacted" });
+        if (!activeAgentIsHf) {
+          hfLog({ tag: "plugin", msg: "session.compacted: non-hf agent — skipping" });
+          done({ skipped: true });
+          return {};
+        }
         const runtime = await getRuntime();
         if (!runtime) {
           hfLog({ tag: "plugin", msg: "session.compacted: no runtime" });
@@ -240,6 +282,22 @@ export function createHybridRuntimeHooks(context: OpenCodePluginContext): Record
     "session.idle": async (input?: HookInput, output?: HookInput) => {
       return withHookDeadline((async () => {
         const done = hfLogTimed({ tag: "plugin", msg: "hook: session.idle" });
+
+        // Guard 1: ESC interrupt — user aborted generation, never auto-continue.
+        if (interrupted) {
+          interrupted = false;
+          hfLog({ tag: "plugin", msg: "session.idle: interrupted — skipping auto-continue" });
+          done({ skipped: "interrupted" });
+          return { action: "allow_stop", reason: "User interrupted generation (ESC). Skipping auto-continue." };
+        }
+
+        // Guard 2: agent gate — only run runtime logic for hf-* agents.
+        if (!activeAgentIsHf) {
+          hfLog({ tag: "plugin", msg: "session.idle: non-hf agent — skipping" });
+          done({ skipped: "non-hf" });
+          return null;
+        }
+
         const runtime = await getRuntime();
         if (!runtime) {
           hfLog({ tag: "plugin", msg: "session.idle: no runtime" });
@@ -267,6 +325,10 @@ export function createHybridRuntimeHooks(context: OpenCodePluginContext): Record
     },
     "subagent.started": async (input?: HookInput, output?: HookInput) => {
       return withHookDeadline((async () => {
+        if (!activeAgentIsHf) {
+          hfLog({ tag: "plugin", msg: "subagent.started: non-hf agent — skipping" });
+          return null;
+        }
         const runtime = await getRuntime();
         if (!runtime) {
           return null;
@@ -284,6 +346,10 @@ export function createHybridRuntimeHooks(context: OpenCodePluginContext): Record
     },
     "subagent.completed": async (input?: HookInput, output?: HookInput) => {
       return withHookDeadline((async () => {
+        if (!activeAgentIsHf) {
+          hfLog({ tag: "plugin", msg: "subagent.completed: non-hf agent — skipping" });
+          return null;
+        }
         const runtime = await getRuntime();
         if (!runtime) {
           return null;
@@ -356,6 +422,14 @@ function toOpenCodeHooks(
         const props = (event.properties ?? {}) as HookInput;
 
         switch (event.type) {
+          case "message.updated": {
+            // props.info is the Message object (UserMessage | AssistantMessage).
+            // The internal handler reads agent + error fields to update closure flags.
+            const info = event.properties?.info;
+            await internalHooks["message.updated"]?.({ info });
+            break;
+          }
+
           case "session.created":
             await internalHooks["session.created"]?.(props);
             break;

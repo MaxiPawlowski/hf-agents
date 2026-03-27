@@ -517,7 +517,8 @@ export class HybridLoopRuntime implements LoopRuntime {
       }
       return {
         action: "allow_stop",
-        reason: "No active plan. The runtime is providing guardrails only."
+        reason: "No active plan. The runtime is providing guardrails only.",
+        resume_prompt: "No task is currently active. Wait for an explicit task before taking action."
       };
     }
 

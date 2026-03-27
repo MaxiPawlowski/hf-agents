@@ -6,7 +6,6 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
   assertSuccessfulExit,
   cleanupFixtureWithRetry,
-  collectEventText,
   createFixtureProject,
   normalizePath,
   probeOpenCodeAuth,
@@ -130,16 +129,33 @@ describe("opencode runtime e2e", () => {
     // Query the model about vault content (1 LLM call)
     const runResult = await runOpenCodeWithLogs(
       fixtureDir,
-      "Use the vault notes if available. In one sentence, explain the authentication guidance with one concrete mechanism from the project context.",
+      "Use the vault notes if available. Do not use tools. In one sentence, explain the authentication guidance with one concrete mechanism from the project context.",
       { timeoutMs: RUN_TIMEOUT_MS }
     );
 
     assertSuccessfulExit(runResult.exitCode, "opencode run semantic query", runResult.stdout, runResult.stderr);
     expect(runResult.events.length).toBeGreaterThan(0);
 
-    // Verify vault content surfaced in response
-    const eventText = collectEventText(runResult.events).toLowerCase();
-    expect(eventText).toContain("token rotation");
+    const resumePromptPath = path.join(fixtureDir, "plans", "runtime", "test", "resume-prompt.txt");
+    await waitForFile(resumePromptPath, INDEX_WAIT_TIMEOUT_MS);
+
+    // Verify vault content surfaced in the runtime-injected resume prompt.
+    // This is the adapter-facing payload that session.created/session.idle pass
+    // through to OpenCode, so checking it is more stable than depending on the
+    // model to quote the retrieved vault text verbatim.
+    const resumePromptText = (await fs.readFile(resumePromptPath, "utf8")).toLowerCase();
+    const vaultTerms = [
+      "refresh token",
+      "token rotation",
+      "session renewal",
+      "revoked session",
+      "replayed credential",
+      "privileged session"
+    ];
+    const matchedTerm = vaultTerms.find((term) => resumePromptText.includes(term))
+      ?? (resumePromptText.includes("rotate") && resumePromptText.includes("token") ? "rotate+token" : undefined);
+
+    expect(matchedTerm, `Expected vault content in resume prompt. Prompt excerpt: ${resumePromptText.slice(0, 500)}`).toBeDefined();
   }, RUN_TIMEOUT_MS);
 });
 

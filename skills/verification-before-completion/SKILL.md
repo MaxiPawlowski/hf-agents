@@ -7,6 +7,7 @@ description: >
 autonomy: autonomous
 context_budget: 8000 / 2000
 max_iterations: 3
+disable-model-invocation: true
 ---
 
 # Verification Before Completion

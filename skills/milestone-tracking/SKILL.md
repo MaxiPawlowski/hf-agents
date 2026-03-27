@@ -6,6 +6,7 @@ description: >
   directly under the completed milestone entry, including final verification evidence under
   the last completed milestone before setting `status: complete`.
 autonomy: supervised
+disable-model-invocation: true
 context_budget: 4000 / 1000
 max_iterations: 1
 ---

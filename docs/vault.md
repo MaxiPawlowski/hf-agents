@@ -8,6 +8,31 @@ The vault is an optional markdown context layer that the runtime indexes locally
 
 When `vault/` is present, the runtime builds a vector index of vault documents and (optionally) TypeScript source files. At query time it embeds the current milestone description and returns the top-K most relevant chunks, which are injected as supplemental context for the active agent. When `vault/` is absent or the index cannot be loaded, the runtime falls back to brute-force character-budget inclusion and continues unaffected.
 
+The plan doc remains the executable contract: milestones, acceptance, evidence, and completion state stay in `plans/`. Runtime state remains in `plans/runtime/<slug>/`; the runtime never depends on `vault/` for correctness.
+
+---
+
+## Vault Layout And Rules
+
+Vault context lives under `vault/`:
+
+| Path | Purpose |
+|---|---|
+| `vault/plans/<slug>/context.md` | Active-plan discoveries, constraints, and cross-cutting notes that do not belong in milestone metadata |
+| `vault/plans/<slug>/discoveries.md` | Execution-time findings, blocker resolutions, and implementation notes that may matter across milestones |
+| `vault/plans/<slug>/decisions.md` | In-flight plan-specific decisions and rationale |
+| `vault/plans/<slug>/references.md` | Short references, commands, and pointers worth preserving for the active plan |
+| `vault/shared/architecture.md` | Durable architecture notes reusable across plans |
+| `vault/shared/patterns.md` | Established implementation patterns and conventions |
+| `vault/shared/decisions.md` | Cross-plan decisions and lessons learned |
+
+Rules:
+
+- `vault/` is optional. When it is absent, execution and prompt generation continue exactly as before.
+- Agents create and update vault content; the runtime only reads it and never auto-creates vault directories.
+- `hf-vault-bootstrap` is the packaged skill for first-pass vault authoring; it gathers kickoff context through dialogue and writes only approved vault files.
+- Keep shared vault content lightweight and durable. Put task-specific notes under `vault/plans/<slug>/`.
+
 ---
 
 ## Module Map
@@ -208,7 +233,7 @@ Tests the full stack through the OpenCode plugin in a real fixture project. Requ
 
 **Flow**:
 1. Warmup run: `"Warm the plugin and reply with the single word warmed."` — confirms the plugin loaded and the index was built.
-2. Wait for `vault/.vault-index.json` to appear on disk (up to 15 s).
+2. Wait for `.hf/index.json` to appear on disk (up to 15 s).
 3. Query run: `"Use the vault notes if available. In one sentence, explain the authentication guidance..."` — triggers semantic retrieval.
 
 **Assertions**:

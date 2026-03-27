@@ -6,6 +6,7 @@ description: >
   decisions, then stop.
 autonomy: supervised
 context_budget: 8000 / 2000
+disable-model-invocation: true
 max_iterations: 2
 ---
 

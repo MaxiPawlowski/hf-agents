@@ -5,6 +5,7 @@ description: >
   canonical plan doc. Synthesize findings into a milestone-based plan with explicit
   acceptance criteria and language that builders can execute without guessing.
 autonomy: supervised
+disable-model-invocation: true
 context_budget: 14000 / 5000
 max_iterations: 2
 ---

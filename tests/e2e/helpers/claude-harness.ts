@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -8,7 +9,20 @@ import { cleanupFixture, cleanupFixtureWithRetry, seedUnifiedIndexFixture } from
 
 export { cleanupFixtureWithRetry };
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..");
+function findRepoRoot(): string {
+  let dir = path.dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 10; i += 1) {
+    if (existsSync(path.join(dir, "package.json"))) {
+      return dir;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  throw new Error("Could not find repo root (no package.json found in ancestors).");
+}
+
+const repoRoot = findRepoRoot();
 const distHookPath = path.join(repoRoot, "dist", "src", "bin", "hf-claude-hook.js");
 
 const DEFAULT_TIMEOUT_MS = 120_000;
@@ -26,13 +40,55 @@ const SUBPROCESS_ENV_BLOCKLIST = [
 export interface ClaudeRunOptions {
   timeoutMs?: number;
   env?: NodeJS.ProcessEnv;
+  clearRuntimeArtifacts?: boolean;
+}
+
+export type ClaudeOutputFormat = "json" | "text";
+
+export interface ClaudeRuntimeSidecar {
+  planSlug: string;
+  runtimeDir: string;
+  eventsPath: string;
+  resumePromptPath: string;
+  statusPath: string;
+  events: Record<string, unknown>[];
+  eventTypes: string[];
+  resumePrompt: string | null;
+  status: Record<string, unknown> | null;
+}
+
+export interface ClaudeRuntimeArtifacts {
+  runtimeRoot: string;
+  sidecars: ClaudeRuntimeSidecar[];
+  planless: ClaudeRuntimeSidecar | null;
 }
 
 export interface ClaudeResult {
+  args: string[];
+  outputFormat: ClaudeOutputFormat;
   stdout: string;
   stderr: string;
   exitCode: number;
+  producedResponse: boolean;
+  responseText: string | null;
   parsed?: ClaudeJsonOutput;
+  runtime: ClaudeRuntimeArtifacts;
+}
+
+export interface ClaudeInvocationResult {
+  label: string;
+  args: string[];
+  outputFormat: ClaudeOutputFormat;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  producedResponse: boolean;
+  responseText: string | null;
+  parsed?: ClaudeJsonOutput;
+  runtime: ClaudeRuntimeArtifacts;
+  events: Record<string, unknown>[];
+  eventTypes: string[];
+  resumePrompt: string | null;
 }
 
 export interface ClaudeJsonOutput {
@@ -51,8 +107,15 @@ export interface ClaudeAuthProbeResult {
   result?: ClaudeResult;
 }
 
+export interface ClaudeHookResult {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  parsed?: Record<string, unknown>;
+}
+
 /**
- * Creates a minimal fixture project with only .claude/settings.json (hooks).
+ * Creates a minimal fixture project with Claude hook settings.
  * For tests that don't need plan/vault files (planless mode).
  */
 export async function createMinimalClaudeFixture(): Promise<string> {
@@ -62,7 +125,7 @@ export async function createMinimalClaudeFixture(): Promise<string> {
 }
 
 /**
- * Creates a full fixture project with plan + vault files + .claude/settings.json.
+ * Creates a full fixture project with plan + vault files + Claude hook settings.
  * For tests that need plan-aware runtime (vault context injection).
  */
 export async function createClaudeCodeFixtureProject(): Promise<string> {
@@ -97,9 +160,14 @@ async function writeClaudeSettings(fixtureDir: string): Promise<void> {
     }
   };
 
-  const settingsPath = path.join(fixtureDir, ".claude", "settings.json");
-  await fs.mkdir(path.dirname(settingsPath), { recursive: true });
-  await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), "utf8");
+  const claudeDir = path.join(fixtureDir, ".claude");
+  const serialized = JSON.stringify(settings, null, 2);
+
+  await fs.mkdir(claudeDir, { recursive: true });
+  await Promise.all([
+    fs.writeFile(path.join(claudeDir, "settings.json"), serialized, "utf8"),
+    fs.writeFile(path.join(claudeDir, "settings.local.json"), serialized, "utf8")
+  ]);
 }
 
 export async function runClaudeCode(
@@ -107,18 +175,94 @@ export async function runClaudeCode(
   message: string,
   options: ClaudeRunOptions = {}
 ): Promise<ClaudeResult> {
+  // Primary Claude e2e execution path: use this for parity tests that must prove a
+  // real Claude generation run produced both final-response output and runtime sidecar
+  // evidence. This is broader than direct hook-binary invocation.
   const model = process.env.HF_TEST_MODEL_CLAUDE ?? "claude-haiku-4-5-20251001";
-  const raw = await runCommand(
-    ["-p", message, "--output-format", "json", "--model", model, "--dangerously-skip-permissions"],
+  const args = [
+    "-p",
+    message,
+    "--output-format",
+    "json",
+    "--model",
+    model,
+    "--dangerously-skip-permissions"
+  ];
+
+  const result = await runClaudeExecution(
+    fixtureDir,
+    args,
+    "json",
     options,
-    fixtureDir
+    { clearRuntimeArtifacts: options.clearRuntimeArtifacts ?? true }
   );
 
-  let parsed: ClaudeJsonOutput | undefined;
+  return {
+    args,
+    outputFormat: "json",
+    ...result
+  };
+}
+
+export async function runClaudeCli(
+  fixtureDir: string,
+  args: string[],
+  options: ClaudeRunOptions = {}
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  return runCommand(args, options, fixtureDir);
+}
+
+export async function runClaudeInvocationDiagnostic(
+  fixtureDir: string,
+  label: string,
+  args: string[],
+  options: ClaudeRunOptions = {}
+): Promise<ClaudeInvocationResult> {
+  // Narrower than runClaudeCode(): use for diagnosing which Claude CLI invocation shapes
+  // preserve project hook settings and side effects. This is hook-path evidence, not the
+  // main final-response parity helper.
+  const outputFormat = extractOutputFormat(args);
+  const result = await runClaudeExecution(
+    fixtureDir,
+    args,
+    outputFormat,
+    options,
+    { clearRuntimeArtifacts: true }
+  );
+  const planless = result.runtime.planless;
+
+  return {
+    label,
+    args,
+    outputFormat,
+    ...result,
+    events: planless?.events ?? [],
+    eventTypes: planless?.eventTypes ?? [],
+    resumePrompt: planless?.resumePrompt ?? null
+  };
+}
+
+export async function runClaudeHook(
+  fixtureDir: string,
+  eventName: string,
+  input: Record<string, unknown> = {},
+  options: ClaudeRunOptions = {}
+): Promise<ClaudeHookResult> {
+  // Lowest-level diagnostic helper: directly invokes the hook binary without a real Claude
+  // model generation run. Useful for isolated hook correctness checks, but insufficient on
+  // its own to claim Claude end-to-end parity.
+  const raw = await runNodeCommand(
+    [distHookPath, eventName],
+    options,
+    fixtureDir,
+    JSON.stringify(input)
+  );
+
+  let parsed: Record<string, unknown> | undefined;
   try {
     const trimmed = raw.stdout.trim();
     if (trimmed) {
-      parsed = JSON.parse(trimmed) as ClaudeJsonOutput;
+      parsed = JSON.parse(trimmed) as Record<string, unknown>;
     }
   } catch {
     // Non-fatal — caller inspects raw stdout on parse failure
@@ -185,6 +329,175 @@ export async function readEventsJsonl(eventsPath: string): Promise<Record<string
     }
   }
   return events;
+}
+
+async function clearClaudeRuntimeArtifacts(fixtureDir: string): Promise<void> {
+  const runtimeRoot = path.join(fixtureDir, "plans", "runtime");
+
+  try {
+    const entries = await fs.readdir(runtimeRoot, { withFileTypes: true });
+    await Promise.all(entries
+      .filter((entry) => entry.isDirectory())
+      .flatMap((entry) => {
+        const runtimeDir = path.join(runtimeRoot, entry.name);
+        return [
+          fs.rm(path.join(runtimeDir, "events.jsonl"), { force: true }),
+          fs.rm(path.join(runtimeDir, "resume-prompt.txt"), { force: true }),
+          fs.rm(path.join(runtimeDir, "status.json"), { force: true })
+        ];
+      }));
+  } catch {
+    await Promise.all([
+      fs.rm(planlessEventsPath(fixtureDir), { force: true }),
+      fs.rm(planlessResumePromptPath(fixtureDir), { force: true }),
+      fs.rm(planlessStatusPath(fixtureDir), { force: true })
+    ]);
+  }
+}
+
+function planlessEventsPath(fixtureDir: string): string {
+  return path.join(fixtureDir, "plans", "runtime", "_planless", "events.jsonl");
+}
+
+function planlessResumePromptPath(fixtureDir: string): string {
+  return path.join(fixtureDir, "plans", "runtime", "_planless", "resume-prompt.txt");
+}
+
+function planlessStatusPath(fixtureDir: string): string {
+  return path.join(fixtureDir, "plans", "runtime", "_planless", "status.json");
+}
+
+async function readOptionalText(filePath: string): Promise<string | null> {
+  try {
+    return await fs.readFile(filePath, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+async function readOptionalJson(filePath: string): Promise<Record<string, unknown> | null> {
+  const raw = await readOptionalText(filePath);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+interface ClaudeExecutionOptions {
+  clearRuntimeArtifacts?: boolean;
+}
+
+async function runClaudeExecution(
+  fixtureDir: string,
+  args: string[],
+  outputFormat: ClaudeOutputFormat,
+  options: ClaudeRunOptions,
+  executionOptions: ClaudeExecutionOptions = {}
+): Promise<Omit<ClaudeResult, "args" | "outputFormat">> {
+  if (executionOptions.clearRuntimeArtifacts) {
+    await clearClaudeRuntimeArtifacts(fixtureDir);
+  }
+
+  const raw = await runClaudeCli(fixtureDir, args, options);
+  const parsed = parseClaudeJsonOutput(raw.stdout);
+  const responseText = getClaudeResponseText(raw.stdout, outputFormat, parsed);
+
+  return {
+    ...raw,
+    producedResponse: typeof responseText === "string" && responseText.trim().length > 0,
+    responseText,
+    ...(parsed !== undefined ? { parsed } : {}),
+    runtime: await readClaudeRuntimeArtifacts(fixtureDir)
+  };
+}
+
+function parseClaudeJsonOutput(stdout: string): ClaudeJsonOutput | undefined {
+  try {
+    const trimmed = stdout.trim();
+    if (trimmed) {
+      return JSON.parse(trimmed) as ClaudeJsonOutput;
+    }
+  } catch {
+    // Non-fatal — caller inspects raw stdout on parse failure
+  }
+
+  return undefined;
+}
+
+function getClaudeResponseText(
+  stdout: string,
+  outputFormat: ClaudeOutputFormat,
+  parsed?: ClaudeJsonOutput
+): string | null {
+  if (outputFormat === "json") {
+    return typeof parsed?.result === "string" && parsed.result.trim().length > 0 ? parsed.result : null;
+  }
+
+  const trimmed = stdout.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+async function readClaudeRuntimeArtifacts(fixtureDir: string): Promise<ClaudeRuntimeArtifacts> {
+  const runtimeRoot = path.join(fixtureDir, "plans", "runtime");
+  let entries: string[] = [];
+
+  try {
+    entries = (await fs.readdir(runtimeRoot, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
+  } catch {
+    // Runtime root absent is valid before hooks write sidecars.
+  }
+
+  const sidecars = await Promise.all(entries.map(async (planSlug) => {
+    const runtimeDir = path.join(runtimeRoot, planSlug);
+    const eventsPath = path.join(runtimeDir, "events.jsonl");
+    const resumePromptPath = path.join(runtimeDir, "resume-prompt.txt");
+    const statusPath = path.join(runtimeDir, "status.json");
+    const events = await readEventsJsonl(eventsPath);
+
+    return {
+      planSlug,
+      runtimeDir,
+      eventsPath,
+      resumePromptPath,
+      statusPath,
+      events,
+      eventTypes: events
+        .map((event) => event.type)
+        .filter((type): type is string => typeof type === "string"),
+      resumePrompt: await readOptionalText(resumePromptPath),
+      status: await readOptionalJson(statusPath)
+    } satisfies ClaudeRuntimeSidecar;
+  }));
+
+  return {
+    runtimeRoot,
+    sidecars,
+    planless: sidecars.find((sidecar) => sidecar.planSlug === "_planless") ?? null
+  };
+}
+
+function extractOutputFormat(args: string[]): ClaudeOutputFormat {
+  const index = args.indexOf("--output-format");
+  if (index >= 0) {
+    const value = args[index + 1];
+    if (value === "text") {
+      return "text";
+    }
+  }
+
+  return "json";
 }
 
 // Candidate locations for the claude binary on Windows, searched in order.
@@ -276,6 +589,62 @@ async function runCommand(
         resolve({ stdout, stderr, exitCode: code ?? 1 });
       }
     });
+  });
+}
+
+async function runNodeCommand(
+  args: string[],
+  options: ClaudeRunOptions,
+  cwd: string,
+  stdin = ""
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, args, {
+      cwd,
+      env: cleanSubprocessEnv(options.env),
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+
+    const timeout = setTimeout(() => {
+      child.kill();
+      setTimeout(() => child.kill("SIGKILL"), 5_000).unref();
+      if (!settled) {
+        settled = true;
+        reject(new Error(`Node command timed out after ${timeoutMs}ms: ${args.join(" ")}`));
+      }
+    }, timeoutMs);
+
+    child.stdout.on("data", (chunk: Buffer | string) => {
+      stdout += chunk.toString();
+    });
+
+    child.stderr.on("data", (chunk: Buffer | string) => {
+      stderr += chunk.toString();
+    });
+
+    child.once("error", (error) => {
+      clearTimeout(timeout);
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
+    });
+
+    child.once("close", (code) => {
+      clearTimeout(timeout);
+      if (!settled) {
+        settled = true;
+        resolve({ stdout, stderr, exitCode: code ?? 1 });
+      }
+    });
+
+    child.stdin.end(stdin);
   });
 }
 

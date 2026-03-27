@@ -19,6 +19,9 @@ import { getRuntimePaths } from "../src/runtime/persistence.js";
 import { HybridLoopRuntime } from "../src/runtime/runtime.js";
 import type { TurnOutcome } from "../src/runtime/types.js";
 
+/** Simulate an hf-agent message.updated event to set activeAgentIsHf = true */
+const HF_AGENT_MESSAGE = { info: { role: "assistant" as const, agent: "hf-builder" } };
+
 async function createPlan(root: string): Promise<string> {
   const plansDir = path.join(root, "plans");
   await mkdir(plansDir, { recursive: true });
@@ -307,11 +310,14 @@ describe("adapter integration", () => {
     ).rejects.toThrow("Hybrid runtime guardrail blocked a destructive command.");
 
     // Session hooks return planless status
-    await expect(sessionCreated({ sessionID: "session-no-plan" })).resolves.toEqual({});
+    await expect(sessionCreated({ sessionID: "session-no-plan" })).resolves.toMatchObject({
+      additionalContext: expect.stringContaining("Wait for an explicit task")
+    });
     const status = await sessionStatus();
     expect(status).toMatchObject({ planless: true, planSlug: "_planless" });
 
     // Idle returns allow_stop decision instead of null
+    await hooks["message.updated"]!(HF_AGENT_MESSAGE);
     const idleResult = await sessionIdle({ sessionID: "session-no-plan" });
     expect(idleResult).toMatchObject({ action: "allow_stop", reason: expect.stringContaining("No active plan") });
   });
@@ -346,6 +352,7 @@ describe("adapter integration", () => {
       throw new Error("expected session.idle hook");
     }
 
+    await hooks["message.updated"]!(HF_AGENT_MESSAGE);
     const decision = await sessionIdle(
       { sessionID: "session-2" }
     );
@@ -380,6 +387,7 @@ describe("adapter integration", () => {
 
     expect(hooks["session.updated"]).toBeUndefined();
 
+    await hooks["message.updated"]!(HF_AGENT_MESSAGE);
     await sessionIdle({
       sessionID: "session-3",
       message: [
@@ -446,6 +454,7 @@ describe("adapter integration", () => {
       "- [ ] 1. Start the approved implementation"
     ].join("\n"), "utf8");
 
+    await hooks["message.updated"]!(HF_AGENT_MESSAGE);
     const decision = await sessionIdle({
       sessionID: "approval-gate",
       message: [
@@ -612,6 +621,7 @@ describe("enriched milestone adapter integration", () => {
       throw new Error("expected session.idle hook");
     }
 
+    await hooks["message.updated"]!(HF_AGENT_MESSAGE);
     const decision = await sessionIdle({ sessionID: "enriched-idle" });
 
     expect(decision).toMatchObject({ action: "continue" });
@@ -654,6 +664,7 @@ describe("enriched milestone adapter integration", () => {
       throw new Error("expected session.idle hook");
     }
 
+    await hooks["message.updated"]!(HF_AGENT_MESSAGE);
     const decision = await sessionIdle({ sessionID: "enriched-loop" });
 
     expect(decision).toMatchObject({ action: "continue" });
@@ -664,5 +675,103 @@ describe("enriched milestone adapter integration", () => {
     expect(firstPrompt).toContain("Review src/modules/example.ts");
     expect(firstPrompt).toContain("scope: `src/modules/example.ts`");
     expect(firstPrompt).not.toContain("loop:");
+  });
+});
+
+describe("ESC-interrupt and agent-gating", () => {
+  test("session.idle returns allow_stop after ESC interrupt (MessageAbortedError)", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-interrupt-"));
+    await createPlan(root);
+    const hooks = createHybridRuntimeHooks({ cwd: root, session: { id: "interrupt-test" } });
+
+    // Activate hf agent, then simulate ESC abort
+    await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+    await hooks["message.updated"]!({
+      info: { role: "assistant", agent: "hf-builder", error: { name: "MessageAbortedError", data: { message: "User interrupted generation" } } }
+    });
+
+    const result = await hooks["session.idle"]!({ sessionID: "interrupt-test" });
+    expect(result).toMatchObject({
+      action: "allow_stop",
+      reason: expect.stringContaining("interrupted")
+    });
+  });
+
+  test("interrupted flag is consumed — second session.idle proceeds normally", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-interrupt-consumed-"));
+    await createPlan(root);
+    const prompts: string[] = [];
+    const hooks = createHybridRuntimeHooks({
+      cwd: root,
+      session: { id: "consume-test" },
+      client: {
+        prompt: async (message) => { prompts.push(message); return null; }
+      }
+    });
+
+    // Activate hf agent, trigger interrupt
+    await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+    await hooks["message.updated"]!({
+      info: { role: "assistant", agent: "hf-builder", error: { name: "MessageAbortedError", data: { message: "User interrupted generation" } } }
+    });
+
+    // First idle consumes the interrupt
+    const first = await hooks["session.idle"]!({ sessionID: "consume-test" });
+    expect(first).toMatchObject({ action: "allow_stop" });
+
+    // Second idle should enter the normal path (not the interrupt path)
+    const second = await hooks["session.idle"]!({ sessionID: "consume-test" });
+    // The normal hf-agent path with a plan: it does ingestion and continues
+    expect(second).toMatchObject({ action: "continue" });
+  });
+
+  test("session.idle returns null with no prior message.updated", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-no-agent-"));
+    await createPlan(root);
+    const hooks = createHybridRuntimeHooks({ cwd: root, session: { id: "no-agent-test" } });
+
+    // No message.updated call — activeAgentIsHf defaults to false
+    const result = await hooks["session.idle"]!({ sessionID: "no-agent-test" });
+    expect(result).toBeNull();
+  });
+
+  test("session.idle returns null with a non-hf agent", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-non-hf-agent-"));
+    await createPlan(root);
+    const hooks = createHybridRuntimeHooks({ cwd: root, session: { id: "non-hf-test" } });
+
+    // Set a non-hf agent
+    await hooks["message.updated"]!({ info: { role: "assistant", agent: "some-other-agent" } });
+
+    const result = await hooks["session.idle"]!({ sessionID: "non-hf-test" });
+    expect(result).toBeNull();
+  });
+
+  test("tool.execute.before blocks destructive commands even with no hf agent active", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-universal-guard-"));
+    const hooks = createHybridRuntimeHooks({ cwd: root, session: { id: "universal-guard" } });
+
+    // No message.updated — activeAgentIsHf is false
+    await expect(
+      hooks["tool.execute.before"]!({ command: "rm -rf /" })
+    ).rejects.toThrow("Hybrid runtime guardrail blocked a destructive command.");
+
+    // Set non-hf agent explicitly
+    await hooks["message.updated"]!({ info: { role: "assistant", agent: "some-other-agent" } });
+    await expect(
+      hooks["tool.execute.before"]!({ command: "git reset --hard HEAD~1" })
+    ).rejects.toThrow("Hybrid runtime guardrail blocked a destructive command.");
+  });
+
+  test("session.created works regardless of agent state", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-session-created-"));
+    await createPlan(root);
+    const hooks = createHybridRuntimeHooks({ cwd: root, session: { id: "created-test" } });
+
+    // No message.updated — activeAgentIsHf is false, but session.created is not gated
+    const result = await hooks["session.created"]!({ sessionID: "created-test" }) as { additionalContext?: string };
+    expect(result).toBeDefined();
+    // session.created should still return additionalContext (resume prompt)
+    expect(result.additionalContext).toBeDefined();
   });
 });

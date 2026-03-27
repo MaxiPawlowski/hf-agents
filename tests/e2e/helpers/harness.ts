@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -12,7 +13,27 @@ import {
 } from "./fixtures.js";
 
 const DEFAULT_TIMEOUT_MS = 120_000;
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..");
+
+/**
+ * Walk up from the current file until we find the repo root (directory
+ * containing `package.json`).  This works whether the code executes from
+ * the TypeScript source (`tests/e2e/helpers/`, 3 levels) or the compiled
+ * output (`dist/tests/e2e/helpers/`, 4 levels).
+ */
+function findRepoRoot(): string {
+  let dir = path.dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 10; i++) {
+    if (existsSync(path.join(dir, "package.json"))) {
+      return dir;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  throw new Error("Could not find repo root (no package.json found in ancestors).");
+}
+
+const repoRoot = findRepoRoot();
 const distPluginPath = path.join(repoRoot, "dist", "src", "opencode", "plugin.js");
 
 const SUBPROCESS_ENV_BLOCKLIST = [

@@ -10,21 +10,25 @@ import { buildClaudeHooks, buildOpenCodePluginSource, main } from "../scripts/in
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
 
-function runInstaller(args: string[], targetDir?: string) {
-  const result = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "install-runtime.mjs"), ...args], {
+function runScript(scriptName: string, args: string[]) {
+  const result = spawnSync(process.execPath, [path.join(repoRoot, "scripts", scriptName), ...args], {
     cwd: repoRoot,
     encoding: "utf8"
   });
 
   if (result.status !== 0) {
     throw new Error([
-      `install-runtime failed: ${args.join(" ")}`,
+      `${scriptName} failed: ${args.join(" ")}`,
       result.stdout,
       result.stderr
     ].filter(Boolean).join("\n\n"));
   }
 
   return result;
+}
+
+function runInstaller(args: string[]) {
+  return runScript("install-runtime.mjs", args);
 }
 
 function runPackDryRun() {
@@ -53,6 +57,10 @@ function runPackDryRun() {
 
 async function expectPath(filePath: string) {
   await expect(stat(filePath)).resolves.toBeDefined();
+}
+
+async function expectMissingPath(filePath: string) {
+  await expect(stat(filePath)).rejects.toMatchObject({ code: "ENOENT" });
 }
 
 async function createConsumerFixture() {
@@ -135,6 +143,11 @@ describe("install-runtime smoke tests", () => {
 
     expect(entryCount).toBeGreaterThan(0);
     expect(packagedPaths).toContain("scripts/install-runtime.mjs");
+    expect(packagedPaths).toContain("scripts/install-claude.mjs");
+    expect(packagedPaths).toContain("scripts/install-opencode.mjs");
+    expect(packagedPaths).toContain("scripts/lib/install-helpers.mjs");
+    expect(packagedPaths).toContain("scripts/lib/install-claude.mjs");
+    expect(packagedPaths).toContain("scripts/lib/install-opencode.mjs");
     expect(packagedPaths).toContain("scripts/sync-opencode-assets.mjs");
     expect(packagedPaths).toContain("dist/src/bin/hf-runtime.js");
     expect(packagedPaths).toContain("vault/templates/plan-context.md");
@@ -205,6 +218,103 @@ describe("install-runtime smoke tests", () => {
     expect(source).toContain("node_modules/hybrid-framework/dist/src/opencode/plugin.js");
     expect(source).toMatch(/^export \{/);
     expect(source).toMatch(/\n$/);
+  });
+
+  test("dedicated Claude install wires only Claude-managed artifacts", async () => {
+    const fixtureRoot = await createConsumerFixture();
+    const claudeSettingsPath = path.join(fixtureRoot, ".claude", "settings.local.json");
+
+    runScript("install-claude.mjs", ["install", "--skip-build", "--target-dir", fixtureRoot]);
+
+    await expectPath(path.join(fixtureRoot, ".hybrid-framework", "generated-state.json"));
+    await expectPath(path.join(fixtureRoot, ".claude", "agents", "hf-builder.md"));
+    await expectPath(path.join(fixtureRoot, ".claude", "skills", "local-context", "SKILL.md"));
+    await expectMissingPath(path.join(fixtureRoot, ".opencode", "plugins", "hybrid-runtime.js"));
+    await expectMissingPath(path.join(fixtureRoot, ".opencode", "registry.json"));
+    await expectMissingPath(path.join(fixtureRoot, ".opencode", "agents", "hf-builder.md"));
+    await expectMissingPath(path.join(fixtureRoot, "plans"));
+    await expectMissingPath(path.join(fixtureRoot, "vault"));
+
+    const settings = JSON.parse(await readFile(claudeSettingsPath, "utf8")) as {
+      hooks?: Record<string, Array<{ hooks?: Array<{ command?: string }> }>>;
+    };
+    const installedStopCommands = settings.hooks?.Stop
+      ?.flatMap((group) => group.hooks ?? [])
+      .map((hook) => hook.command)
+      .filter((command): command is string => typeof command === "string" && command.includes("hf-claude-hook.js") && command.endsWith(" Stop")) ?? [];
+    expect(installedStopCommands).toHaveLength(1);
+  });
+
+  test("dedicated Claude init, sync, and uninstall stay isolated from OpenCode", async () => {
+    const fixtureRoot = await createConsumerFixture();
+    const claudeAgentPath = path.join(fixtureRoot, ".claude", "agents", "hf-builder.md");
+
+    runScript("install-claude.mjs", ["init", "--skip-build", "--target-dir", fixtureRoot]);
+
+    await expectPath(path.join(fixtureRoot, "plans", "README.md"));
+    await expectPath(path.join(fixtureRoot, "vault", "README.md"));
+    await expectPath(claudeAgentPath);
+    await expectMissingPath(path.join(fixtureRoot, ".opencode", "plugins", "hybrid-runtime.js"));
+    await expectMissingPath(path.join(fixtureRoot, ".opencode", "agents", "hf-builder.md"));
+
+    await writeFile(claudeAgentPath, "tampered claude agent\n", "utf8");
+    runScript("install-claude.mjs", ["sync", "--target-dir", fixtureRoot]);
+
+    expect(await readFile(claudeAgentPath, "utf8")).toBe(await readFile(path.join(repoRoot, "agents", "hf-builder.md"), "utf8"));
+    await expectMissingPath(path.join(fixtureRoot, ".opencode", "plugins", "hybrid-runtime.js"));
+
+    runScript("install-claude.mjs", ["uninstall", "--target-dir", fixtureRoot]);
+
+    await expectMissingPath(path.join(fixtureRoot, ".hybrid-framework", "generated-state.json"));
+    await expectMissingPath(claudeAgentPath);
+    await expectMissingPath(path.join(fixtureRoot, ".claude", "skills", "local-context", "SKILL.md"));
+    await expectMissingPath(path.join(fixtureRoot, ".opencode", "plugins", "hybrid-runtime.js"));
+  });
+
+  test("dedicated OpenCode install wires only OpenCode-managed artifacts", async () => {
+    const fixtureRoot = await createConsumerFixture();
+    const claudeSettingsPath = path.join(fixtureRoot, ".claude", "settings.local.json");
+    const originalClaudeSettings = await readFile(claudeSettingsPath, "utf8");
+
+    runScript("install-opencode.mjs", ["install", "--skip-build", "--target-dir", fixtureRoot]);
+
+    await expectPath(path.join(fixtureRoot, ".hybrid-framework", "generated-state.json"));
+    await expectPath(path.join(fixtureRoot, ".opencode", "plugins", "hybrid-runtime.js"));
+    await expectPath(path.join(fixtureRoot, ".opencode", "agents", "hf-builder.md"));
+    await expectPath(path.join(fixtureRoot, ".opencode", "skills", "local-context", "SKILL.md"));
+    await expectMissingPath(path.join(fixtureRoot, ".claude", "agents", "hf-builder.md"));
+    await expectMissingPath(path.join(fixtureRoot, ".claude", "skills", "local-context", "SKILL.md"));
+    await expectMissingPath(path.join(fixtureRoot, "plans"));
+    await expectMissingPath(path.join(fixtureRoot, "vault"));
+    expect(await readFile(claudeSettingsPath, "utf8")).toBe(originalClaudeSettings);
+  });
+
+  test("dedicated OpenCode init, sync, and uninstall stay isolated from Claude", async () => {
+    const fixtureRoot = await createConsumerFixture();
+    const opencodeAgentPath = path.join(fixtureRoot, ".opencode", "agents", "hf-builder.md");
+    const claudeSettingsPath = path.join(fixtureRoot, ".claude", "settings.local.json");
+    const originalClaudeSettings = await readFile(claudeSettingsPath, "utf8");
+
+    runScript("install-opencode.mjs", ["init", "--skip-build", "--target-dir", fixtureRoot]);
+
+    await expectPath(path.join(fixtureRoot, "plans", "README.md"));
+    await expectPath(path.join(fixtureRoot, "vault", "README.md"));
+    await expectPath(opencodeAgentPath);
+    await expectMissingPath(path.join(fixtureRoot, ".claude", "agents", "hf-builder.md"));
+    expect(await readFile(claudeSettingsPath, "utf8")).toBe(originalClaudeSettings);
+
+    await writeFile(opencodeAgentPath, "tampered opencode agent\n", "utf8");
+    runScript("install-opencode.mjs", ["sync", "--target-dir", fixtureRoot]);
+
+    expect(await readFile(opencodeAgentPath, "utf8")).toBe(await readFile(path.join(repoRoot, "agents", "hf-builder.md"), "utf8"));
+    expect(await readFile(claudeSettingsPath, "utf8")).toBe(originalClaudeSettings);
+
+    runScript("install-opencode.mjs", ["uninstall", "--target-dir", fixtureRoot]);
+
+    await expectMissingPath(path.join(fixtureRoot, ".hybrid-framework", "generated-state.json"));
+    await expectMissingPath(opencodeAgentPath);
+    await expectMissingPath(path.join(fixtureRoot, ".opencode", "plugins", "hybrid-runtime.js"));
+    expect(await readFile(claudeSettingsPath, "utf8")).toBe(originalClaudeSettings);
   });
 
   test("init, sync, and uninstall manage a consumer fixture safely and idempotently", async () => {

@@ -934,5 +934,7 @@ describe("hydratePlanless", () => {
 
     expect(decision.action).toBe("allow_stop");
     expect(decision.reason).toContain("No active plan");
+    expect(decision.resume_prompt).toBeTruthy();
+    expect(decision.resume_prompt).toContain("Wait for an explicit task");
   });
 });

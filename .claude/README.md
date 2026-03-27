@@ -21,15 +21,28 @@ See `../README.md` for the canonical framework surface and `../plans/README.md` 
 
 ## Consumer Project Behavior
 
-When a consumer project runs `hf-install` or `hf-init`, the package manages `.claude/` in the target project by:
+When a consumer project runs `hf-install`, `hf-init`, `hf-install-claude`, or `hf-init-claude`, the package manages `.claude/` in the target project by:
 
 - merging the framework hook groups into `.claude/settings.local.json`
 - preserving unrelated user-owned Claude settings
 - optionally generating `.claude/agents/` and `.claude/skills/` when `assets.claude.copy` requests adapter-local markdown mirrors
 
-Re-running `hf-sync` refreshes the managed Claude surface from the installed package without re-scaffolding `plans/` or `vault/`.
+Re-running `hf-sync` or `hf-sync-claude` refreshes the managed Claude surface from the installed package without re-scaffolding `plans/` or `vault/`.
 
 `scripts/install-runtime.mjs --tool claude` merges those hook groups into `settings.local.json`; it does not overwrite unrelated local settings.
+
+### Claude-only lifecycle commands
+
+Use the dedicated Claude commands when a consumer project only needs Claude and should not install OpenCode at all:
+
+| Purpose | Dedicated Claude command | Combined equivalent |
+|---|---|---|
+| Install Claude wiring into an existing project | `hf-install-claude` | `hf-install --tool claude` |
+| Scaffold `plans/` + `vault/`, then install Claude wiring | `hf-init-claude` | `hf-init --tool claude` |
+| Refresh managed Claude output | `hf-sync-claude` | `hf-sync --tool claude` |
+| Remove managed Claude output | `hf-uninstall-claude` | `hf-uninstall --tool claude` |
+
+The combined `hf-install`, `hf-init`, `hf-sync`, and `hf-uninstall` commands remain valid when the project wants both adapters. The Claude-only aliases exist so a Claude-only consumer never needs to think about OpenCode.
 
 Claude does not have a default generated prompt surface the way OpenCode does. The only always-managed Claude file is the hook wiring in `settings.local.json`.
 
@@ -44,8 +57,8 @@ Those Claude markdown mirrors are generated references for the consumer project;
 In consumer projects, treat `.claude/` as generated output:
 
 - customize behavior through `hybrid-framework.json`
-- run `hf-sync` after changing adapter asset settings or upgrading the package
-- run `hf-uninstall` to remove managed Claude wiring cleanly while preserving unrelated local settings
+- run `hf-sync-claude` (or `hf-sync --tool claude`) after changing adapter asset settings or upgrading the package
+- run `hf-uninstall-claude` (or `hf-uninstall --tool claude`) to remove managed Claude wiring cleanly while preserving unrelated local settings
 
 The tracked example covers the currently supported Claude hook events:
 
