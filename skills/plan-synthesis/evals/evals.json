@@ -196,6 +196,56 @@
           "treat a code-change milestone like a read-only artifact"
         ]
       }
+    },
+    {
+      "id": "plan-synthesis-reads-vault-discoveries",
+      "focus": [
+        "vault-aware synthesis",
+        "vault discovery input",
+        "reduced conversation dependency"
+      ],
+      "input": {
+        "intent": "Refactor the notification system to support multiple channels.",
+        "research_signals": [
+          "Vault discoveries contain: notification handler at src/handlers/notify.ts uses email only",
+          "Vault discoveries contain: channel config at src/config/channels.ts exists but is unused",
+          "Conversation context is minimal — most findings are in vault"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "read vault/plans/<plan-slug>/discoveries.md before synthesizing milestones",
+          "use vault-persisted findings as primary research input",
+          "milestones reference specific vault findings in their scope and notes"
+        ],
+        "must_not": [
+          "ignore vault discoveries and rely solely on conversation context",
+          "require all research findings to be present in the conversation"
+        ]
+      }
+    },
+    {
+      "id": "plan-synthesis-vault-reads-between-fills",
+      "focus": [
+        "incremental vault reads",
+        "section-scoped vault input"
+      ],
+      "input": {
+        "intent": "Add caching layer to database queries.",
+        "research_signals": [
+          "Vault contains separate discovery entries for query patterns, cache config, and test fixtures"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "vault discoveries read before filling each plan section",
+          "milestone scope metadata maps to specific vault discovery entries"
+        ],
+        "must_not": [
+          "read all vault content at once and hold it in conversation",
+          "write milestones without referencing corresponding vault findings"
+        ]
+      }
     }
   ]
 }

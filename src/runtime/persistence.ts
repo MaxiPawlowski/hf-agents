@@ -63,6 +63,7 @@ export async function loadIndexConfig(repoRoot: string): Promise<IndexConfig> {
       timeoutMs: safeNumber(idx.timeoutMs, DEFAULT_INDEX_CONFIG.timeoutMs),
       charBudget: safeNumber(idx.charBudget, DEFAULT_INDEX_CONFIG.charBudget),
       planningCharBudget: safeNumber(idx.planningCharBudget, DEFAULT_INDEX_CONFIG.planningCharBudget),
+      planningSemanticTopK: safeNumber(idx.planningSemanticTopK, DEFAULT_INDEX_CONFIG.planningSemanticTopK),
     };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
@@ -148,6 +149,19 @@ export function getVaultPaths(plan: ParsedPlan): VaultPaths {
     planDir,
     sharedDir,
     planFiles: PLAN_VAULT_FILES.map((file) => path.join(planDir, file.name)),
+    sharedFiles: SHARED_VAULT_FILES.map((file) => path.join(sharedDir, file.name))
+  };
+}
+
+export function getPlanlessVaultPaths(cwd: string): VaultPaths {
+  const vaultRoot = path.join(cwd, "vault");
+  const sharedDir = path.join(vaultRoot, "shared");
+
+  return {
+    vaultRoot,
+    planDir: "",
+    sharedDir,
+    planFiles: [],
     sharedFiles: SHARED_VAULT_FILES.map((file) => path.join(sharedDir, file.name))
   };
 }

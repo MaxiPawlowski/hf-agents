@@ -7,8 +7,9 @@ import { describe, expect, test } from "vitest";
 import { runDoctor } from "../src/runtime/doctor.js";
 import { parsePlan } from "../src/runtime/plan-doc.js";
 import { getRuntimePaths, getVaultPaths, readStatus, readVaultContext } from "../src/runtime/persistence.js";
-import { HybridLoopRuntime, computeDecision, resolveManagedPlanPath } from "../src/runtime/runtime.js";
+import { HybridLoopRuntime, computeDecision, resolveManagedPlanPath, isManagedPlanUnavailable } from "../src/runtime/runtime.js";
 import type { DecisionInput } from "../src/runtime/runtime.js";
+import { hydrateRuntimeWithTimeout } from "../src/adapters/lifecycle.js";
 import {
   TURN_OUTCOME_TRAILER_FORMAT,
   buildTurnOutcomeIngestionEvent,
@@ -40,31 +41,27 @@ function outcome(state: TurnOutcome["state"], overrides?: Partial<TurnOutcome>):
 // specific to the runtime's plan handling belong here.
 
 describe("HybridLoopRuntime", () => {
-  test("resolves the latest plan when started from the repo root", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "hf-runtime-"));
-    const olderPlanPath = path.join(root, "plans", "2026-03-06-older-plan.md");
-    await mkdir(path.dirname(olderPlanPath), { recursive: true });
-    await writeFile(olderPlanPath, ["# Plan: Older", "", "## Milestones", "- [ ] 1. Older milestone"].join("\n"), "utf8");
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    const latestPlanPath = await createPlan(root, ["# Plan: Test", "", "## Milestones", "- [ ] 1. Add runtime core"].join("\n"));
-
-    await expect(resolveManagedPlanPath(root)).resolves.toBe(latestPlanPath);
-  });
-
-  test("resolves a plan when started from a nested directory under the repo", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "hf-runtime-"));
-    const planPath = await createPlan(root, ["# Plan: Test", "", "## Milestones", "- [ ] 1. Add runtime core"].join("\n"));
-    const nestedDir = path.join(root, "src", "features", "nested");
-    await mkdir(nestedDir, { recursive: true });
-
-    await expect(resolveManagedPlanPath(nestedDir)).resolves.toBe(planPath);
-  });
-
-  test("resolves a plan when started from the plans directory itself", async () => {
+  test("resolves an explicit plan path against the given cwd", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-runtime-"));
     const planPath = await createPlan(root, ["# Plan: Test", "", "## Milestones", "- [ ] 1. Add runtime core"].join("\n"));
 
-    await expect(resolveManagedPlanPath(path.join(root, "plans"))).resolves.toBe(planPath);
+    await expect(resolveManagedPlanPath(root, planPath)).resolves.toBe(planPath);
+  });
+
+  test("resolves a relative explicit plan path against the given cwd", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-runtime-"));
+    await createPlan(root, ["# Plan: Test", "", "## Milestones", "- [ ] 1. Add runtime core"].join("\n"));
+
+    const resolved = await resolveManagedPlanPath(root, "plans/2026-03-07-test-plan.md");
+    expect(resolved).toBe(path.resolve(root, "plans/2026-03-07-test-plan.md"));
+  });
+
+  test("throws with a helpful message when no explicit plan path is provided", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-runtime-"));
+
+    await expect(resolveManagedPlanPath(root)).rejects.toThrow(
+      "No plan specified. Use hf_plan_start tool (OpenCode) or --plan flag (CLI) to target a specific plan."
+    );
   });
 
   test("hydrates from a plan and writes sidecar state", async () => {
@@ -156,7 +153,7 @@ describe("HybridLoopRuntime", () => {
     const prompt = await readFile(getRuntimePaths(plan).resumePromptPath, "utf8");
 
     expect(status.phase).toBe("planning");
-    expect(decision.action).toBe("continue");
+    expect(decision.action).toBe("allow_stop");
     expect(prompt).toContain("planning-review loop");
     expect(prompt).toContain("## User intent");
     expect(prompt).toContain("hf-plan-reviewer");
@@ -408,6 +405,35 @@ describe("HybridLoopRuntime", () => {
     expect(prompt).toContain("1. Add runtime core");
     expect(prompt).toContain("Wire the runtime into the OpenCode idle hook.");
     expect(prompt).toContain(TURN_OUTCOME_TRAILER_FORMAT);
+  });
+
+  test("resume prompt is written to disk even when planning phase returns allow_stop", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-runtime-"));
+    const planPath = await createPlan(root, [
+      "---",
+      "status: planning",
+      "---",
+      "",
+      "# Plan: Test",
+      "",
+      "## User Intent",
+      "Review all files and apply X.",
+      "",
+      "## Milestones",
+      "- [ ] 1. Add runtime core"
+    ].join("\n"));
+
+    const runtime = new HybridLoopRuntime();
+    await runtime.hydrate(planPath);
+    const decision = await runtime.decideNext();
+
+    expect(decision.action).toBe("allow_stop");
+
+    const plan = await parsePlan(planPath);
+    const prompt = await readFile(getRuntimePaths(plan).resumePromptPath, "utf8");
+
+    expect(prompt).toContain("planning-review loop");
+    expect(prompt).toContain("## User intent");
   });
 
   test("resume prompt includes enriched milestone context", async () => {
@@ -774,9 +800,9 @@ describe("computeDecision", () => {
   }
 
   // --- Planning phase ---
-  test("planning: continues when draft needs approval", () => {
+  test("planning: stops to allow manual continue when draft needs approval", () => {
     const result = computeDecision(makeInput({ approved: false }));
-    expect(result.action).toBe("continue");
+    expect(result.action).toBe("allow_stop");
   });
 
   test("planning: max_turns when limit reached", () => {
@@ -811,12 +837,12 @@ describe("computeDecision", () => {
     expect(result.action).toBe("allow_stop");
   });
 
-  test("planning: continues on blocker below threshold", () => {
+  test("planning: stops to allow manual continue on blocker below threshold", () => {
     const result = computeDecision(makeInput({
       approved: false,
       lastOutcome: outcome("blocked", { blocker: { message: "x" } })
     }));
-    expect(result.action).toBe("continue");
+    expect(result.action).toBe("allow_stop");
   });
 
   // --- Execution phase ---
@@ -936,5 +962,193 @@ describe("hydratePlanless", () => {
     expect(decision.reason).toContain("No active plan");
     expect(decision.resume_prompt).toBeTruthy();
     expect(decision.resume_prompt).toContain("Wait for an explicit task");
+  });
+
+  test("decideNext includes vault shared content in planless resume prompt", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-planless-"));
+
+    // Create vault/shared directory with a document
+    const sharedDir = path.join(root, "vault", "shared");
+    await mkdir(sharedDir, { recursive: true });
+    await writeFile(path.join(sharedDir, "architecture.md"), "# Architecture\n\nShared architecture note", "utf8");
+
+    const runtime = new HybridLoopRuntime();
+    await runtime.hydratePlanless(root);
+    const decision = await runtime.decideNext();
+
+    expect(decision.action).toBe("allow_stop");
+    expect(decision.resume_prompt).toContain("recovered vault context");
+    expect(decision.resume_prompt).toContain("Shared architecture note");
+    expect(decision.resume_prompt).toContain("## Recovered context");
+    expect(decision.resume_prompt).toContain("## Instructions");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// concurrent plan execution
+// ---------------------------------------------------------------------------
+
+describe("concurrent plan execution", () => {
+  // Creates a plan with a slug-specific filename so different plans get different slugs.
+  // Filename pattern: YYYY-MM-DD-<slug>-plan.md  →  derivePlanSlug returns <slug>.
+  async function createNamedPlan(root: string, slug: string): Promise<string> {
+    const plansDir = path.join(root, "plans");
+    await mkdir(plansDir, { recursive: true });
+    const planPath = path.join(plansDir, `2026-03-27-${slug}-plan.md`);
+    await writeFile(planPath, [
+      "---",
+      "status: in-progress",
+      "---",
+      "",
+      `# Plan: ${slug}`,
+      "",
+      "## Milestones",
+      `- [ ] 1. Implement ${slug}`
+    ].join("\n"), "utf8");
+    return planPath;
+  }
+
+  test("two runtimes hydrated with different plans operate independently", async () => {
+    const rootA = await mkdtemp(path.join(os.tmpdir(), "hf-concurrent-a-"));
+    const rootB = await mkdtemp(path.join(os.tmpdir(), "hf-concurrent-b-"));
+    const planPathA = await createNamedPlan(rootA, "alpha");
+    const planPathB = await createNamedPlan(rootB, "beta");
+
+    const runtimeA = new HybridLoopRuntime();
+    const runtimeB = new HybridLoopRuntime();
+
+    await runtimeA.hydrate(planPathA);
+    await runtimeB.hydrate(planPathB);
+
+    const statusA = await runtimeA.evaluateTurn({
+      state: "progress",
+      summary: "Alpha progress",
+      files_changed: ["src/alpha.ts"],
+      tests_run: [],
+      next_action: "Continue alpha."
+    });
+    const statusB = await runtimeB.evaluateTurn({
+      state: "blocked",
+      summary: "Beta blocked",
+      files_changed: [],
+      tests_run: [],
+      blocker: { message: "beta blocker" },
+      next_action: "Unblock beta."
+    });
+
+    // Each runtime has its own counter state and slug
+    expect(statusA.counters.totalTurns).toBe(1);
+    expect(statusA.planSlug).toBe("alpha");
+    expect(statusB.counters.totalTurns).toBe(1);
+    expect(statusB.planSlug).toBe("beta");
+
+    // A's counters are unaffected by B's blocked turn
+    expect(statusA.counters.repeatedBlocker).toBe(0);
+    expect(statusB.counters.repeatedBlocker).toBe(1);
+  });
+
+  test("per-session runtime map isolates two sessions independently", async () => {
+    const rootA = await mkdtemp(path.join(os.tmpdir(), "hf-session-a-"));
+    const rootB = await mkdtemp(path.join(os.tmpdir(), "hf-session-b-"));
+    const planPathA = await createNamedPlan(rootA, "session-alpha");
+    const planPathB = await createNamedPlan(rootB, "session-beta");
+
+    // Simulate the per-session runtime map from the plugin
+    const sessionRuntimes = new Map<string, HybridLoopRuntime>();
+
+    const runtimeA = new HybridLoopRuntime();
+    await runtimeA.hydrate(planPathA);
+    sessionRuntimes.set("session-aaa", runtimeA);
+
+    const runtimeB = new HybridLoopRuntime();
+    await runtimeB.hydrate(planPathB);
+    sessionRuntimes.set("session-bbb", runtimeB);
+
+    // Record events independently
+    await sessionRuntimes.get("session-aaa")!.recordEvent({
+      vendor: "opencode",
+      type: "opencode.session.idle",
+      timestamp: new Date().toISOString(),
+      sessionId: "session-aaa"
+    });
+    await sessionRuntimes.get("session-bbb")!.recordEvent({
+      vendor: "opencode",
+      type: "opencode.session.idle",
+      timestamp: new Date().toISOString(),
+      sessionId: "session-bbb"
+    });
+
+    // Each session holds its own plan
+    expect(sessionRuntimes.get("session-aaa")!.getStatus().planSlug).toBe("session-alpha");
+    expect(sessionRuntimes.get("session-bbb")!.getStatus().planSlug).toBe("session-beta");
+
+    // Map isolation: two entries, no cross-contamination
+    expect(sessionRuntimes.size).toBe(2);
+    expect(sessionRuntimes.get("session-aaa")).not.toBe(sessionRuntimes.get("session-bbb"));
+  });
+
+  test("resolveManagedPlanPath with explicit path ignores other plans in the directory", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-resolve-"));
+    const planPathA = await createPlan(root, "# Plan: Target\n\n## Milestones\n- [ ] 1. Target milestone");
+
+    // Write a second plan file manually alongside the first
+    const otherPlanPath = path.join(root, "plans", "2026-01-01-other-plan.md");
+    await writeFile(otherPlanPath, "# Plan: Other\n\n## Milestones\n- [ ] 1. Other milestone", "utf8");
+
+    // Resolving with explicit path for planPathA must return planPathA, not the other plan
+    const resolved = await resolveManagedPlanPath(root, planPathA);
+    expect(resolved).toBe(planPathA);
+    expect(resolved).not.toBe(otherPlanPath);
+  });
+
+  test("resolveManagedPlanPath without explicit path throws immediately", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-no-path-"));
+    // Create a plan in the directory — it must NOT be auto-discovered
+    await createPlan(root, "# Plan: Hidden\n\n## Milestones\n- [ ] 1. Hidden milestone");
+
+    await expect(resolveManagedPlanPath(root)).rejects.toThrow(
+      "No plan specified. Use hf_plan_start tool (OpenCode) or --plan flag (CLI) to target a specific plan."
+    );
+  });
+
+  test("HF_PLAN_PATH env var has no effect — resolveManagedPlanPath still throws without explicit path", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-env-var-"));
+    await createPlan(root, "# Plan: EnvVar\n\n## Milestones\n- [ ] 1. EnvVar milestone");
+
+    const originalEnv = process.env["HF_PLAN_PATH"];
+    process.env["HF_PLAN_PATH"] = path.join(root, "plans", "2026-03-07-test-plan.md");
+    try {
+      await expect(resolveManagedPlanPath(root)).rejects.toThrow(
+        "No plan specified. Use hf_plan_start tool (OpenCode) or --plan flag (CLI) to target a specific plan."
+      );
+    } finally {
+      if (originalEnv === undefined) {
+        delete process.env["HF_PLAN_PATH"];
+      } else {
+        process.env["HF_PLAN_PATH"] = originalEnv;
+      }
+    }
+  });
+
+  test("hydrateRuntimeWithTimeout without explicit plan path enters planless mode gracefully", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-planless-timeout-"));
+    // No plan created — no explicit plan path passed
+
+    const runtime = await hydrateRuntimeWithTimeout({
+      cwd: root,
+      timeoutMs: 5000,
+      timeoutMessage: "hydration timed out",
+      tag: "test"
+      // explicitPlanPath intentionally omitted
+    });
+
+    // Must return a runtime (not throw), in planless mode
+    expect(runtime).toBeInstanceOf(HybridLoopRuntime);
+    expect(runtime.isPlanless()).toBe(true);
+    expect(runtime.getPlan()).toBeNull();
+
+    const decision = await runtime.decideNext();
+    expect(decision.action).toBe("allow_stop");
+    expect(decision.reason).toContain("No active plan");
   });
 });

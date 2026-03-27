@@ -47,7 +47,8 @@ describe("loadIndexConfig", () => {
     expect(config.enabled).toBe(true);
     expect(config.maxChunkChars).toBe(2000);
     expect(config.charBudget).toBe(3000);
-    expect(config.planningCharBudget).toBe(1500);
+    expect(config.planningCharBudget).toBe(4000);
+    expect(config.planningSemanticTopK).toBe(5);
   });
 
   it("ignores invalid types and uses defaults", async () => {
@@ -57,6 +58,7 @@ describe("loadIndexConfig", () => {
         index: {
           enabled: "yes",         // should be boolean
           semanticTopK: -5,       // should be positive
+          planningSemanticTopK: "abc", // should be number
           code: {
             roots: 42,            // should be string[]
             extensions: [123],    // elements should be strings
@@ -69,6 +71,7 @@ describe("loadIndexConfig", () => {
     expect(config.semanticTopK).toBe(5);          // fallback
     expect(config.code.roots).toEqual(["src"]);   // fallback
     expect(config.code.extensions).toEqual([".ts"]); // fallback
+    expect(config.planningSemanticTopK).toBe(5);     // fallback
   });
 
   it("handles malformed JSON gracefully", async () => {
@@ -97,6 +100,15 @@ describe("loadIndexConfig", () => {
     const config = await loadIndexConfig(tmpDir);
     expect(config.code.enabled).toBe(false);
     expect(config.enabled).toBe(true);
+  });
+
+  it("overrides planningSemanticTopK", async () => {
+    await fs.writeFile(
+      path.join(tmpDir, "hybrid-framework.json"),
+      JSON.stringify({ index: { planningSemanticTopK: 10 } }),
+    );
+    const config = await loadIndexConfig(tmpDir);
+    expect(config.planningSemanticTopK).toBe(10);
   });
 
   it("overrides charBudget and planningCharBudget", async () => {

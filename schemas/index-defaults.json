@@ -11,5 +11,6 @@
   "embeddingBatchSize": 100,
   "timeoutMs": 15000,
   "charBudget": 3000,
-  "planningCharBudget": 1500
+  "planningCharBudget": 4000,
+  "planningSemanticTopK": 5
 }

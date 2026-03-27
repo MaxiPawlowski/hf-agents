@@ -84,3 +84,10 @@ Return:
 - completion_summary: user-facing summary of what was verified, how, and what remains unverified or pending
 - gaps: anything still unverified or intentionally out of scope
 - completion_decision: `ready` or `blocked`
+
+### Completion decision criteria
+
+The builder uses `completion_decision` to auto-complete the plan without human acknowledgment. The decision must reflect whether every artifact was verified at its appropriate tier:
+
+- **`ready`**: every changed artifact was verified at the tier it requires — static-read for config/docs/prompts, command-execution for code/scripts/tests/builds, browser-check for UI components. All evidence is fresh and attached. The builder will set `status: complete` autonomously.
+- **`blocked`**: one or more artifacts that require command-execution or browser-check verification lack real evidence at that tier. Reading source is not sufficient for code artifacts. A passing build alone is not sufficient for UI artifacts. The builder will escalate to the user with the specific gap.

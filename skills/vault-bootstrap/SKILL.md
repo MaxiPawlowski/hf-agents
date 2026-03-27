@@ -53,13 +53,13 @@ If a needed file does not exist, create it. If it exists, preserve useful conten
 
 1. Check whether `vault/README.md` and any existing target vault files already contain starter guidance or project-specific notes.
 2. Start with the context already available in the request. Do not ask the user to restate information that is already clear.
-3. Ask only the smallest missing questions needed to cover these buckets:
+3. Use the `question` tool to ask only the smallest missing questions needed to cover these buckets. Set a concise `header` (max 30 chars), the full `question`, and `options` with a label and description for each identifiable alternative. Do not add "Other" or catch-all options -- the tool automatically adds a free-text input:
    - project intent and success criteria
    - system shape, components, integrations, and data flow
    - technical constraints, standards, and preferred patterns
    - important terminology, domain concepts, and non-goals
    - plan-specific context when a current plan slug exists
-4. Keep the interview conversational. Ask one compact batch of high-value questions rather than a long checklist.
+4. Keep the interview conversational. Batch all questions into a single `question` tool call rather than asking one at a time. One compact batch of high-value questions is better than a long checklist or multiple sequential calls.
 5. Stop once the vault would be meaningfully more useful than the starter scaffold. Do not stretch the conversation into full discovery or planning if the baseline is already adequate.
 
 ## Mapping Rules

@@ -275,7 +275,7 @@ describe("adapter integration", () => {
   test("OpenCode pre-tool hook blocks destructive commands", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-adapter-"));
     await createPlan(root);
-    const hooks = createHybridRuntimeHooks({ cwd: root, session: { id: "session-1" } });
+    const { hooks } = createHybridRuntimeHooks({ cwd: root, session: { id: "session-1" } });
     const preToolUse = hooks["tool.execute.before"];
     if (!preToolUse) {
       throw new Error("expected tool.execute.before hook");
@@ -290,9 +290,9 @@ describe("adapter integration", () => {
     expect(isDestructiveCommand("npm test")).toBe(false);
   });
 
-  test("OpenCode hooks operate in planless mode when no managed plan exists yet", async () => {
+  test("OpenCode hooks return no-op responses when session has no plan binding", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-adapter-no-plan-"));
-    const hooks = createHybridRuntimeHooks({ cwd: root, session: { id: "session-no-plan" } });
+    const { hooks } = createHybridRuntimeHooks({ cwd: root, session: { id: "session-no-plan" } });
 
     const sessionCreated = hooks["session.created"];
     const sessionStatus = hooks["session.status"];
@@ -302,23 +302,21 @@ describe("adapter integration", () => {
       throw new Error("expected hooks");
     }
 
-    // Guardrails still work
+    // Guardrails still work (destructive command check is before runtime lookup)
     await expect(preToolUse({ command: "npm test" })).resolves.toBeNull();
     await expect(
       (hooks["tool.execute.before"] as Function)({ command: "git reset --hard HEAD~1" })
     ).rejects.toThrow("Hybrid runtime guardrail blocked a destructive command.");
 
-    // Session hooks return planless status
-    await expect(sessionCreated({ sessionID: "session-no-plan" })).resolves.toMatchObject({
-      additionalContext: expect.stringContaining("Wait for an explicit task")
-    });
+    // Session hooks return empty no-op responses — no plan binding means no runtime
+    await expect(sessionCreated({ sessionID: "session-no-plan" })).resolves.toMatchObject({});
     const status = await sessionStatus();
-    expect(status).toMatchObject({ planless: true, planSlug: "_planless" });
+    expect(status).toMatchObject({ enabled: false });
 
-    // Idle returns allow_stop decision instead of null
+    // Idle returns null when no plan binding (no runtime available for hf agent either)
     await hooks["message.updated"]!(HF_AGENT_MESSAGE);
     const idleResult = await sessionIdle({ sessionID: "session-no-plan" });
-    expect(idleResult).toMatchObject({ action: "allow_stop", reason: expect.stringContaining("No active plan") });
+    expect(idleResult).toBeNull();
   });
 
   test("OpenCode idle hook returns a continue decision after progress", async () => {
@@ -336,7 +334,7 @@ describe("adapter integration", () => {
       next_action: "Add the Claude hook integration."
     } satisfies TurnOutcome);
 
-    const hooks = createHybridRuntimeHooks({
+    const { hooks, planBindings } = createHybridRuntimeHooks({
       cwd: root,
       session: { id: "session-2" },
       client: {
@@ -346,6 +344,9 @@ describe("adapter integration", () => {
         }
       }
     });
+    // Bind this session to the plan path (simulates hf_plan_start tool call)
+    planBindings.set("session-2", planPath);
+
     const sessionIdle = hooks["session.idle"];
     if (!sessionIdle) {
       throw new Error("expected session.idle hook");
@@ -369,7 +370,7 @@ describe("adapter integration", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-adapter-"));
     const planPath = await createPlan(root);
     const prompts: string[] = [];
-    const hooks = createHybridRuntimeHooks({
+    const { hooks, planBindings } = createHybridRuntimeHooks({
       cwd: root,
       session: { id: "session-3" },
       client: {
@@ -379,6 +380,9 @@ describe("adapter integration", () => {
         }
       }
     });
+    // Bind this session to the plan path (simulates hf_plan_start tool call)
+    planBindings.set("session-3", planPath);
+
     const sessionIdle = hooks["session.idle"];
     if (!sessionIdle) {
       throw new Error("expected session.idle hook");
@@ -424,7 +428,7 @@ describe("adapter integration", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-adapter-"));
     const planPath = await createPlanningPlan(root);
     const prompts: string[] = [];
-    const hooks = createHybridRuntimeHooks({
+    const { hooks, planBindings } = createHybridRuntimeHooks({
       cwd: root,
       session: { id: "approval-gate" },
       client: {
@@ -434,6 +438,9 @@ describe("adapter integration", () => {
         }
       }
     });
+    // Bind this session to the plan path (simulates hf_plan_start tool call)
+    planBindings.set("approval-gate", planPath);
+
     const sessionIdle = hooks["session.idle"];
     if (!sessionIdle) {
       throw new Error("expected session.idle hook");
@@ -477,7 +484,7 @@ describe("adapter integration", () => {
   });
 
   test("OpenCode omits passive lifecycle hooks from the lean event surface", async () => {
-    const hooks = createHybridRuntimeHooks({ cwd: process.cwd() });
+    const { hooks } = createHybridRuntimeHooks({ cwd: process.cwd() });
 
     expect(hooks["tool.execute.after"]).toBeUndefined();
     expect(hooks["file.edited"]).toBeUndefined();
@@ -575,8 +582,11 @@ describe("enriched milestone adapter integration", () => {
 
   test("OpenCode session.created includes enriched context in resume prompt", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-enriched-"));
-    await createEnrichedPlan(root);
-    const hooks = createHybridRuntimeHooks({ cwd: root, session: { id: "enriched-session" } });
+    const planPath = await createEnrichedPlan(root);
+    const { hooks, planBindings } = createHybridRuntimeHooks({ cwd: root, session: { id: "enriched-session" } });
+    // Bind session to the plan
+    planBindings.set("enriched-session", planPath);
+
     const sessionCreated = hooks["session.created"];
     if (!sessionCreated) {
       throw new Error("expected session.created hook");
@@ -605,7 +615,7 @@ describe("enriched milestone adapter integration", () => {
       next_action: "Add test coverage."
     } satisfies TurnOutcome);
 
-    const hooks = createHybridRuntimeHooks({
+    const { hooks, planBindings } = createHybridRuntimeHooks({
       cwd: root,
       session: { id: "enriched-idle" },
       client: {
@@ -615,6 +625,9 @@ describe("enriched milestone adapter integration", () => {
         }
       }
     });
+    // Bind session to the plan
+    planBindings.set("enriched-idle", planPath);
+
     const sessionIdle = hooks["session.idle"];
     if (!sessionIdle) {
       throw new Error("expected session.idle hook");
@@ -648,7 +661,7 @@ describe("enriched milestone adapter integration", () => {
       next_action: "Start the next enumerated milestone."
     } satisfies TurnOutcome);
 
-    const hooks = createHybridRuntimeHooks({
+    const { hooks, planBindings } = createHybridRuntimeHooks({
       cwd: root,
       session: { id: "enriched-loop" },
       client: {
@@ -658,6 +671,9 @@ describe("enriched milestone adapter integration", () => {
         }
       }
     });
+    // Bind session to the plan
+    planBindings.set("enriched-loop", planPath);
+
     const sessionIdle = hooks["session.idle"];
     if (!sessionIdle) {
       throw new Error("expected session.idle hook");
@@ -681,9 +697,10 @@ describe("ESC-interrupt and agent-gating", () => {
   test("session.idle returns allow_stop after ESC interrupt (MessageAbortedError)", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-interrupt-"));
     await createPlan(root);
-    const hooks = createHybridRuntimeHooks({ cwd: root, session: { id: "interrupt-test" } });
+    const { hooks } = createHybridRuntimeHooks({ cwd: root, session: { id: "interrupt-test" } });
 
-    // Activate hf agent, then simulate ESC abort
+    // Activate hf agent, then simulate ESC abort.
+    // message.updated uses context.session.id as fallback when info has no sessionID.
     await hooks["message.updated"]!(HF_AGENT_MESSAGE);
     await hooks["message.updated"]!({
       info: { role: "assistant", agent: "hf-builder", error: { name: "MessageAbortedError", data: { message: "User interrupted generation" } } }
@@ -696,11 +713,11 @@ describe("ESC-interrupt and agent-gating", () => {
     });
   });
 
-  test("interrupted flag is consumed — second session.idle proceeds normally", async () => {
+  test("interrupted flag is consumed — second session.idle returns null (no plan binding)", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-interrupt-consumed-"));
     await createPlan(root);
     const prompts: string[] = [];
-    const hooks = createHybridRuntimeHooks({
+    const { hooks } = createHybridRuntimeHooks({
       cwd: root,
       session: { id: "consume-test" },
       client: {
@@ -718,16 +735,15 @@ describe("ESC-interrupt and agent-gating", () => {
     const first = await hooks["session.idle"]!({ sessionID: "consume-test" });
     expect(first).toMatchObject({ action: "allow_stop" });
 
-    // Second idle should enter the normal path (not the interrupt path)
+    // Second idle: interrupted is false, activeAgentIsHf is true, but no plan binding → null
     const second = await hooks["session.idle"]!({ sessionID: "consume-test" });
-    // The normal hf-agent path with a plan: it does ingestion and continues
-    expect(second).toMatchObject({ action: "continue" });
+    expect(second).toBeNull();
   });
 
   test("session.idle returns null with no prior message.updated", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-no-agent-"));
     await createPlan(root);
-    const hooks = createHybridRuntimeHooks({ cwd: root, session: { id: "no-agent-test" } });
+    const { hooks } = createHybridRuntimeHooks({ cwd: root, session: { id: "no-agent-test" } });
 
     // No message.updated call — activeAgentIsHf defaults to false
     const result = await hooks["session.idle"]!({ sessionID: "no-agent-test" });
@@ -737,7 +753,7 @@ describe("ESC-interrupt and agent-gating", () => {
   test("session.idle returns null with a non-hf agent", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-non-hf-agent-"));
     await createPlan(root);
-    const hooks = createHybridRuntimeHooks({ cwd: root, session: { id: "non-hf-test" } });
+    const { hooks } = createHybridRuntimeHooks({ cwd: root, session: { id: "non-hf-test" } });
 
     // Set a non-hf agent
     await hooks["message.updated"]!({ info: { role: "assistant", agent: "some-other-agent" } });
@@ -748,7 +764,7 @@ describe("ESC-interrupt and agent-gating", () => {
 
   test("tool.execute.before blocks destructive commands even with no hf agent active", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-universal-guard-"));
-    const hooks = createHybridRuntimeHooks({ cwd: root, session: { id: "universal-guard" } });
+    const { hooks } = createHybridRuntimeHooks({ cwd: root, session: { id: "universal-guard" } });
 
     // No message.updated — activeAgentIsHf is false
     await expect(
@@ -764,13 +780,78 @@ describe("ESC-interrupt and agent-gating", () => {
 
   test("session.created works regardless of agent state", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-session-created-"));
-    await createPlan(root);
-    const hooks = createHybridRuntimeHooks({ cwd: root, session: { id: "created-test" } });
+    const planPath = await createPlan(root);
+    const { hooks, planBindings } = createHybridRuntimeHooks({ cwd: root, session: { id: "created-test" } });
+    // Bind session to the plan so session.created has a runtime to work with
+    planBindings.set("created-test", planPath);
 
     // No message.updated — activeAgentIsHf is false, but session.created is not gated
     const result = await hooks["session.created"]!({ sessionID: "created-test" }) as { additionalContext?: string };
     expect(result).toBeDefined();
     // session.created should still return additionalContext (resume prompt)
     expect(result.additionalContext).toBeDefined();
+  });
+
+  test("two sessions with different IDs get independent runtime instances", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-concurrent-"));
+    const planPath1 = path.join(root, "plans", "2026-03-07-plan-a-plan.md");
+    const planPath2 = path.join(root, "plans", "2026-03-07-plan-b-plan.md");
+    await mkdir(path.join(root, "plans"), { recursive: true });
+    await writeFile(planPath1, ["# Plan: A", "", "## Milestones", "- [ ] 1. Do A"].join("\n"), "utf8");
+    await writeFile(planPath2, ["# Plan: B", "", "## Milestones", "- [ ] 1. Do B"].join("\n"), "utf8");
+
+    const { hooks, planBindings, sessionRuntimes } = createHybridRuntimeHooks({ cwd: root });
+
+    planBindings.set("session-A", planPath1);
+    planBindings.set("session-B", planPath2);
+
+    // Trigger runtime hydration for both sessions
+    await hooks["session.created"]!({ sessionID: "session-A" });
+    await hooks["session.created"]!({ sessionID: "session-B" });
+
+    // Each session should have its own runtime promise
+    expect(sessionRuntimes.has("session-A")).toBe(true);
+    expect(sessionRuntimes.has("session-B")).toBe(true);
+    expect(sessionRuntimes.get("session-A")).not.toBe(sessionRuntimes.get("session-B"));
+
+    const runtimeA = await sessionRuntimes.get("session-A")!;
+    const runtimeB = await sessionRuntimes.get("session-B")!;
+    expect(runtimeA).not.toBeNull();
+    expect(runtimeB).not.toBeNull();
+    expect(runtimeA).not.toBe(runtimeB);
+  });
+
+  test("interrupted and activeAgentIsHf flags are per-session, not global", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-per-session-flags-"));
+    await createPlan(root);
+    const { hooks } = createHybridRuntimeHooks({ cwd: root, session: { id: "session-flags-default" } });
+
+    // Activate hf agent and interrupt for context.session.id (default fallback)
+    await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+    await hooks["message.updated"]!({
+      info: { role: "assistant", agent: "hf-builder", error: { name: "MessageAbortedError" } }
+    });
+
+    // session-flags-default: interrupted = true, activeAgentIsHf = true
+    const resultDefault = await hooks["session.idle"]!({ sessionID: "session-flags-default" });
+    expect(resultDefault).toMatchObject({ action: "allow_stop", reason: expect.stringContaining("interrupted") });
+
+    // session-other: has its own independent flags (defaults to false/false)
+    const resultOther = await hooks["session.idle"]!({ sessionID: "session-other" });
+    expect(resultOther).toBeNull(); // non-hf agent (default), not interrupted
+  });
+
+  test("session with no plan binding returns null from getRuntime — hooks no-op gracefully", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-no-binding-"));
+    const { hooks, getRuntime } = createHybridRuntimeHooks({ cwd: root, session: { id: "unbound" } });
+
+    // No planBinding registered — getRuntime returns null immediately
+    const runtime = await getRuntime("unbound");
+    expect(runtime).toBeNull();
+
+    // Hooks no-op gracefully
+    await expect(hooks["session.created"]!({ sessionID: "unbound" })).resolves.toMatchObject({});
+    await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+    await expect(hooks["session.idle"]!({ sessionID: "unbound" })).resolves.toBeNull();
   });
 });

@@ -22,6 +22,7 @@ Keep shared review notes in `subagents/REVIEW.md` and colocate starter fixtures 
 - does `hf-reviewer` still refuse approval without execution evidence when the milestone implies running code?
 - does `hf-reviewer` still reject avoidable complexity?
 - does the plan-reviewer still check verification-readiness and technical-approach proportionality?
+- does the plan-reviewer still read the plan doc and vault paths directly instead of expecting a full context bundle?
 
 ## Adding Coverage
 
@@ -37,3 +38,4 @@ Add new cases in `subagents/evals/evals.json` when prompt edits change:
 - verification evidence adequacy
 - reviewer complexity rejection thresholds
 - plan-reviewer verification and approach checks
+- plan-reviewer vault-referencing dispatch pattern

@@ -211,6 +211,7 @@ export interface IndexConfig {
   timeoutMs: number;
   charBudget: number;
   planningCharBudget: number;
+  planningSemanticTopK: number;
 }
 
 export interface LoopRuntime {

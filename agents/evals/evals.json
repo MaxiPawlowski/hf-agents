@@ -289,6 +289,75 @@
           "hide verification results behind a bare success claim"
         ]
       }
+    },
+    {
+      "id": "planner-explore-persist-continue-loop",
+      "prompt": "agents/hf-planner.md",
+      "focus": [
+        "explore-persist-continue pattern",
+        "vault checkpoint between batches",
+        "incremental exploration"
+      ],
+      "input": {
+        "request": "Plan a large refactoring that requires understanding multiple subsystems."
+      },
+      "expected": {
+        "must_include": [
+          "explore one focused batch of targets at a time",
+          "write findings to vault between exploration batches",
+          "do not re-read findings into conversation after vault write",
+          "decide whether more exploration is needed based on vault content"
+        ],
+        "must_not": [
+          "load all files at once before any vault writing",
+          "accumulate all findings in conversation until plan synthesis"
+        ]
+      }
+    },
+    {
+      "id": "planner-vault-referencing-reviewer-dispatch",
+      "prompt": "agents/hf-planner.md",
+      "focus": [
+        "vault-referencing review gate",
+        "no context bundle re-send"
+      ],
+      "input": {
+        "request": "Plan a cross-cutting feature that touches auth, API, and database layers."
+      },
+      "expected": {
+        "must_include": [
+          "dispatch hf-plan-reviewer with the plan doc path",
+          "pass vault paths where discoveries and decisions live",
+          "reviewer reads the plan doc and vault directly"
+        ],
+        "must_not": [
+          "re-send the full context bundle to the reviewer",
+          "include raw local findings in the reviewer dispatch payload"
+        ]
+      }
+    },
+    {
+      "id": "planner-compaction-recovery-from-vault",
+      "prompt": "agents/hf-planner.md",
+      "focus": [
+        "compaction safety",
+        "vault checkpoint resume"
+      ],
+      "input": {
+        "request": "Resume planning after a compaction event; prior exploration already covered the runtime and adapter subsystems.",
+        "vault_state": "vault/plans/<plan-slug>/discoveries.md contains dated sections for runtime and adapter findings"
+      },
+      "expected": {
+        "must_include": [
+          "check vault for prior exploration findings before restarting",
+          "do not re-explore targets already covered in vault",
+          "resume from what is already persisted"
+        ],
+        "must_not": [
+          "restart exploration from scratch ignoring vault",
+          "re-load hf-local-context for targets already in vault discoveries"
+        ]
+      }
     }
   ]
 }

@@ -415,6 +415,7 @@ describe("install-runtime smoke tests", () => {
         timeoutMs?: number;
         charBudget?: number;
         planningCharBudget?: number;
+        planningSemanticTopK?: number;
       };
     };
 
@@ -426,6 +427,7 @@ describe("install-runtime smoke tests", () => {
     expect(config.index?.maxChunkChars).toBeTypeOf("number");
     expect(config.index?.charBudget).toBeTypeOf("number");
     expect(config.index?.planningCharBudget).toBeTypeOf("number");
+    expect(config.index?.planningSemanticTopK).toBeTypeOf("number");
   });
 
   test("init preserves existing index config and does not overwrite it", async () => {

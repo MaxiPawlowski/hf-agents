@@ -1,6 +1,74 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
+// ---------------------------------------------------------------------------
+// File-level locking for the shared .hf/ index store
+// ---------------------------------------------------------------------------
+
+const LOCK_FILE = "index.lock";
+/** Total time (ms) we are willing to wait for the lock before giving up. */
+const LOCK_TIMEOUT_MS = 1500;
+/** Interval (ms) between successive acquisition attempts. */
+const LOCK_RETRY_INTERVAL_MS = 50;
+
+/**
+ * Try to create the lock file exclusively.
+ * Returns the file descriptor on success, null if the file already exists.
+ * Propagates all other errors.
+ */
+async function tryCreateLock(lockPath: string): Promise<fs.FileHandle | null> {
+  try {
+    const handle = await fs.open(lockPath, "wx");
+    return handle;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "EEXIST") {
+      return null;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Acquire the lock at `lockPath` with retry and exponential-ish backoff.
+ * Returns the FileHandle on success, or null when the timeout expires
+ * (indicating the caller should skip its write).
+ */
+async function acquireLock(lockPath: string): Promise<fs.FileHandle | null> {
+  const deadline = Date.now() + LOCK_TIMEOUT_MS;
+  let interval = LOCK_RETRY_INTERVAL_MS;
+
+  while (true) {
+    const handle = await tryCreateLock(lockPath);
+    if (handle !== null) {
+      // Write PID + timestamp for debuggability, ignore write errors.
+      await handle
+        .writeFile(`${JSON.stringify({ pid: process.pid, ts: new Date().toISOString() })}\n`, "utf8")
+        .catch(() => undefined);
+      return handle;
+    }
+
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      return null;
+    }
+
+    // Wait the smaller of the retry interval and the remaining budget.
+    await new Promise<void>((resolve) => setTimeout(resolve, Math.min(interval, remaining)));
+    // Mild back-off, capped so we don't stall too long on the last attempt.
+    interval = Math.min(interval * 1.5, 200);
+  }
+}
+
+/**
+ * Release the lock: close and unlink the file.
+ * Errors are swallowed — a leftover stale lock will be overwritten by the next
+ * writer after the timeout, or cleaned up on the next successful save.
+ */
+async function releaseLock(handle: fs.FileHandle, lockPath: string): Promise<void> {
+  await handle.close().catch(() => undefined);
+  await fs.unlink(lockPath).catch(() => undefined);
+}
+
 export type MetadataValue = string | number | boolean;
 
 /**
@@ -154,17 +222,36 @@ export async function saveUnifiedIndex(
   vectors: Float32Array,
 ): Promise<void> {
   const { jsonPath, binPath } = getIndexPaths(basePath);
-  const tmpJson = `${jsonPath}.tmp`;
-  const tmpBin = `${binPath}.tmp`;
-  await fs.mkdir(path.dirname(jsonPath), { recursive: true });
-  // Write to temp files first, then rename atomically to prevent corruption
-  // if the process crashes mid-write.
-  await Promise.all([
-    fs.writeFile(tmpJson, `${JSON.stringify(index, null, 2)}\n`, "utf8"),
-    fs.writeFile(tmpBin, Buffer.from(vectors.buffer, vectors.byteOffset, vectors.byteLength)),
-  ]);
-  await fs.rename(tmpJson, jsonPath);
-  await fs.rename(tmpBin, binPath);
+  const storeDir = path.dirname(jsonPath);
+  await fs.mkdir(storeDir, { recursive: true });
+
+  const lockPath = path.join(storeDir, LOCK_FILE);
+  const lockHandle = await acquireLock(lockPath);
+
+  if (lockHandle === null) {
+    // Another concurrent writer holds the lock. The index is a content-
+    // addressable cache, so skipping this save is safe — it will be rebuilt
+    // on the next invocation.
+    console.warn(
+      `[unified-store] Could not acquire index lock within ${LOCK_TIMEOUT_MS}ms — skipping save (index will be rebuilt next run).`,
+    );
+    return;
+  }
+
+  try {
+    const tmpJson = `${jsonPath}.tmp`;
+    const tmpBin = `${binPath}.tmp`;
+    // Write to temp files first, then rename atomically to prevent corruption
+    // if the process crashes mid-write.
+    await Promise.all([
+      fs.writeFile(tmpJson, `${JSON.stringify(index, null, 2)}\n`, "utf8"),
+      fs.writeFile(tmpBin, Buffer.from(vectors.buffer, vectors.byteOffset, vectors.byteLength)),
+    ]);
+    await fs.rename(tmpJson, jsonPath);
+    await fs.rename(tmpBin, binPath);
+  } finally {
+    await releaseLock(lockHandle, lockPath);
+  }
 }
 
 /**

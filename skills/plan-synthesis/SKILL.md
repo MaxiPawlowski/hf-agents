@@ -6,7 +6,7 @@ description: >
   acceptance criteria and language that builders can execute without guessing.
 autonomy: supervised
 disable-model-invocation: true
-context_budget: 14000 / 5000
+context_budget: 10000 / 3000 (vault-assisted)
 max_iterations: 2
 ---
 
@@ -35,13 +35,14 @@ The plan must be specific enough that a builder can execute one milestone at a t
 ## Workflow
 
 1. Check preconditions: intent is confirmed, major unknowns are resolved, and required research inputs are present or explicitly missing.
-2. Synthesize the research into a detailed overview covering the chosen approach, why it was chosen over alternatives, key constraints, and what was explicitly excluded from scope.
-3. Write the research summary with specific file-level findings, not just file names — include patterns discovered, conventions in use, dependencies that affect milestone ordering, and the key design decisions that shaped milestone boundaries.
-4. Break the work into as many milestones as needed for full coverage. Each milestone must be independently executable, independently reviewable, and paired with concrete acceptance criteria.
-5. For each milestone, write a description paragraph explaining what it does, why it's needed, and any design context that helps the builder and coder. Follow with multi-condition acceptance criteria for non-trivial milestones.
-6. For milestones with `review: required` or `review: auto`, add a `Verify:` block describing what needs to be verified. Each step should state the verification intent clearly enough that a builder or reviewer can determine the right approach — e.g., "run the parser tests", "confirm the export exists in `src/validation.ts`", "build completes without errors". Do not write exact commands; the builder decides how to verify. `review: skip` milestones may omit `Verify:`.
-7. Word milestones so the current scope is obvious, the done state is testable, and a builder can report progress or blocked status cleanly.
-8. Record residual risks and open questions that remain outside milestone scope. Each risk should cite a specific file or area and name what could go wrong.
+2. Read vault discoveries: Read `vault/plans/<plan-slug>/discoveries.md` and relevant `vault/shared/` files for prior exploration findings. These are the primary research input — prefer vault-persisted findings over conversation context when both are available.
+3. Synthesize the research into a detailed overview covering the chosen approach, why it was chosen over alternatives, key constraints, and what was explicitly excluded from scope.
+4. Write the research summary with specific file-level findings, not just file names — include patterns discovered, conventions in use, dependencies that affect milestone ordering, and the key design decisions that shaped milestone boundaries.
+5. Break the work into as many milestones as needed for full coverage. Each milestone must be independently executable, independently reviewable, and paired with concrete acceptance criteria.
+6. For each milestone, write a description paragraph explaining what it does, why it's needed, and any design context that helps the builder and coder. Follow with multi-condition acceptance criteria for non-trivial milestones.
+7. For milestones with `review: required` or `review: auto`, add a `Verify:` block describing what needs to be verified. Each step should state the verification intent clearly enough that a builder or reviewer can determine the right approach — e.g., "run the parser tests", "confirm the export exists in `src/validation.ts`", "build completes without errors". Do not write exact commands; the builder decides how to verify. `review: skip` milestones may omit `Verify:`.
+8. Word milestones so the current scope is obvious, the done state is testable, and a builder can report progress or blocked status cleanly.
+9. Record residual risks and open questions that remain outside milestone scope. Each risk should cite a specific file or area and name what could go wrong.
 
 ## Incremental Writing Strategy
 
@@ -49,11 +50,11 @@ Never write the full plan doc in a single Write tool call — large plans timeou
 
 **Step 1 — Skeleton**: Write the plan file with frontmatter, all section headers, milestone title lines (`- [ ] N. Title - brief summary`), and placeholder text for each section. No descriptions, acceptance criteria, or metadata yet.
 
-**Step 2 — Fill sections**: Use Edit to expand each section individually:
+**Step 2 — Fill sections**: Use Edit to expand each section individually. Before filling each section, read the relevant vault discovery entries for that section's scope — this keeps each Edit call grounded in specific findings rather than accumulated conversation context.
 1. `## User Intent`
-2. `## Overview`
-3. `## Research Summary`
-4. Each milestone's body (description, acceptance criteria, metadata) — one Edit per milestone
+2. `## Overview` — read vault discoveries for approach rationale and alternatives considered
+3. `## Research Summary` — pull specific findings from vault discovery entries rather than summarizing conversation
+4. Each milestone's body (description, acceptance criteria, metadata) — one Edit per milestone; read vault entries relevant to each milestone's target files before writing
 5. `## Risks & Open Questions`
 
 Each Edit call is small and completes without timeout. The parser handles partial plans gracefully since it only requires `## Milestones` with checkbox lines.
@@ -114,6 +115,7 @@ Do not resolve plan-shaping unknowns by silent defaulting.
 ## Integration
 
 - Loaded by `hf-planner` after local exploration and any needed user clarification.
+- Reads vault-persisted exploration findings from `vault/plans/<plan-slug>/discoveries.md` as the primary research input, reducing reliance on in-conversation context.
 - Consumes the planner's local findings plus any user-supplied manual research.
 - Produces the draft plan doc reviewed by `hf-plan-reviewer`, then used by `hf-builder` and `hf-milestone-tracking`.
 

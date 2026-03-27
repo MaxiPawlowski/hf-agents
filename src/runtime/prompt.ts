@@ -12,7 +12,7 @@ import {
 } from "./types.js";
 
 export const DEFAULT_VAULT_CHAR_BUDGET = 3000;
-export const PLANNING_VAULT_CHAR_BUDGET = 1500;
+export const PLANNING_VAULT_CHAR_BUDGET = 4000;
 const TRUNCATION_SUFFIX = "[vault content truncated]";
 
 /**
@@ -229,6 +229,18 @@ export function buildResumePrompt(
       lines.push(...recoveryLines);
     }
 
+    if (vault && (vault.plan.length > 0 || vault.shared.length > 0)) {
+      lines.push("## Exploration state");
+      lines.push("The following vault documents contain findings from prior exploration passes:");
+      for (const doc of vault.plan) {
+        lines.push(`- **${doc.title}**: \`${doc.path}\``);
+      }
+      for (const doc of vault.shared) {
+        lines.push(`- **${doc.title}**: \`${doc.path}\``);
+      }
+      lines.push("");
+    }
+
     const planningVaultLines = vaultSearchResults && vaultSearchResults.length > 0
       ? formatSemanticVaultContext(vaultSearchResults, planningBudget)
       : formatVaultContext(vault, planningBudget);
@@ -242,7 +254,7 @@ export function buildResumePrompt(
         ? `Recommended next action: ${status.recommendedNextAction}`
         : "Recommended next action: revise the draft plan until `hf-plan-reviewer` can approve it."
     );
-    lines.push("Keep the full user request, local findings, constraints, and draft plan visible to both planner and reviewer.");
+    lines.push("Reference vault-persisted findings and the plan doc; avoid re-loading the full context bundle into conversation.");
     lines.push("Emit a final turn_outcome trailer as the last block of your response:");
     lines.push("");
     lines.push(TURN_OUTCOME_TRAILER_FORMAT);
@@ -343,6 +355,36 @@ export function buildResumePrompt(
   lines.push("Emit a final turn_outcome trailer as the last block of your response:");
   lines.push("");
   lines.push(TURN_OUTCOME_TRAILER_FORMAT);
+
+  return lines.join("\n");
+}
+
+export function buildPlanlessResumePrompt(
+  vault: VaultContext | null,
+  vaultSearchResults: VaultSearchResult[] | null = null,
+  budgets: PromptBudgets = {}
+): string {
+  if (!vault || (vault.plan.length === 0 && vault.shared.length === 0)) {
+    return "No task is currently active. Wait for an explicit task before taking action.";
+  }
+
+  const lines: string[] = [
+    "No active plan. The runtime recovered vault context from a prior session.",
+    "",
+    "## Recovered context"
+  ];
+
+  const budget = budgets.planningCharBudget ?? PLANNING_VAULT_CHAR_BUDGET;
+  const vaultLines = vaultSearchResults && vaultSearchResults.length > 0
+    ? formatSemanticVaultContext(vaultSearchResults, budget)
+    : formatVaultContext(vault, budget);
+  if (vaultLines.length > 0) {
+    lines.push(...vaultLines);
+  }
+
+  lines.push("");
+  lines.push("## Instructions");
+  lines.push("Review the recovered vault context above. If a planning discussion was in progress, continue from where it left off. If vault context is not relevant to the current task, proceed normally.");
 
   return lines.join("\n");
 }

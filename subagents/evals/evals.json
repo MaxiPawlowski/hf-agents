@@ -270,6 +270,90 @@
           "return a revision_request that rewrites milestones the plan reviewer was not asked to change"
         ]
       }
+    },
+    {
+      "id": "plan-reviewer-reads-vault-paths",
+      "prompt": "subagents/hf-plan-reviewer.md",
+      "focus": [
+        "vault-referencing dispatch",
+        "context-efficient review"
+      ],
+      "input": {
+        "dispatch": {
+          "plan_doc_path": "vault/plans/add-auth/plan.md",
+          "vault_paths": {
+            "discoveries": "vault/plans/add-auth/discoveries.md",
+            "decisions": "vault/plans/add-auth/decisions.md",
+            "context": "vault/plans/add-auth/context.md"
+          },
+          "user_request_summary": "Add JWT authentication to all API endpoints with role-based access control.",
+          "coverage_map": {
+            "JWT token validation": "Milestone 1",
+            "Role-based middleware": "Milestone 2",
+            "Apply to all endpoints": "Milestone 3"
+          }
+        }
+      },
+      "expected": {
+        "must_include": [
+          "reviewer reads plan doc and vault paths to evaluate",
+          "reviewer uses file-reading tools to access plan and vault content"
+        ],
+        "must_not": [
+          "expect the full context bundle to be provided inline",
+          "skip reading vault paths and rely only on dispatch payload content"
+        ]
+      }
+    },
+    {
+      "id": "plan-reviewer-covers-all-gates-with-vault-dispatch",
+      "prompt": "subagents/hf-plan-reviewer.md",
+      "focus": [
+        "behavioral regression",
+        "quality gate preservation"
+      ],
+      "input": {
+        "dispatch": {
+          "plan_doc_path": "vault/plans/refactor-api/plan.md",
+          "vault_paths": {
+            "discoveries": "vault/plans/refactor-api/discoveries.md",
+            "decisions": "vault/plans/refactor-api/decisions.md",
+            "context": "vault/plans/refactor-api/context.md"
+          },
+          "user_request_summary": "Refactor API layer to use service pattern across all route handlers.",
+          "coverage_map": {
+            "Extract service layer": "Milestone 1",
+            "Migrate route handlers": "Milestone 2"
+          }
+        },
+        "plan_content_at_path": {
+          "milestones": [
+            {
+              "title": "Extract service layer from route handlers",
+              "review": "required",
+              "description": "Move business logic into service modules.",
+              "note": "No Verify: block is present on this review-required milestone"
+            },
+            {
+              "title": "Migrate all route handlers to use services",
+              "review": "auto",
+              "description": "Update route files to delegate to service layer.",
+              "verify": "Run existing integration tests"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "approved": "no",
+        "must_include": [
+          "missing Verify: block flagged on the review-required milestone",
+          "revision_request bounded to the specific milestone that needs correction"
+        ],
+        "must_not": [
+          "approve a plan where a review-required executable-artifact milestone lacks a Verify: block",
+          "fail to detect quality gaps because context was read from vault paths instead of inline bundle"
+        ]
+      }
     }
   ]
 }

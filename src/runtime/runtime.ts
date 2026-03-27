@@ -12,8 +12,8 @@ async function reParsePlanIfChanged(current: ParsedPlan): Promise<ParsedPlan> {
   if (stats.mtimeMs === current.mtimeMs) return current;
   return parsePlan(current.path);
 }
-import { DEFAULT_INDEX_CONFIG, appendEvent, ensureRuntimeDir, ensurePlanlessRuntimeDir, getRepoRoot, getVaultPaths, loadIndexConfig, readStatus, readVaultContext, writeResumePrompt, writeStatus } from "./persistence.js";
-import { buildResumePrompt } from "./prompt.js";
+import { DEFAULT_INDEX_CONFIG, appendEvent, ensureRuntimeDir, ensurePlanlessRuntimeDir, getPlanlessVaultPaths, getRepoRoot, getVaultPaths, loadIndexConfig, readStatus, readVaultContext, writeResumePrompt, writeStatus } from "./persistence.js";
+import { buildPlanlessResumePrompt, buildResumePrompt } from "./prompt.js";
 import { buildUnifiedIndex } from "./unified-index-pipeline.js";
 import { queryItems, type UnifiedIndex as StoredUnifiedIndex } from "./unified-store.js";
 import { embed, warmupEmbeddingModel } from "./vault-embeddings.js";
@@ -179,9 +179,9 @@ export function computeDecision(input: DecisionInput): Omit<ContinueDecision, "r
       return { action: "allow_stop", reason: "The plan is approved and ready to hand off to the builder." };
     }
     if (lastOutcome?.state === "blocked") {
-      return { action: "continue", reason: "The planning-review loop reported a blocker, but the runtime threshold has not been reached yet." };
+      return { action: "allow_stop", reason: "Planning phase does not auto-continue. A blocker was recorded but the threshold has not been reached. The user may resume manually." };
     }
-    return { action: "continue", reason: "The planning-review loop is active and the draft plan still needs reviewer approval." };
+    return { action: "allow_stop", reason: "Planning phase does not auto-continue. The user may manually continue or the planner will resume on next user input." };
   }
 
   // Execution phase
@@ -217,7 +217,7 @@ export function isManagedPlanUnavailable(error: unknown): boolean {
     return false;
   }
 
-  return error.message.startsWith("No plan doc found")
+  return error.message.startsWith("No plan specified.")
     || error.message.startsWith("Plan doc does not contain a ## Milestones section");
 }
 
@@ -513,10 +513,24 @@ export class HybridLoopRuntime implements LoopRuntime {
         hfLog({ tag: "runtime", msg: "vault index failed (planless)", data: { error: (error as Error).message } });
         this.resetVaultState();
       }
+
+      // Load vault shared context for planless compaction recovery
+      if (!this.vault) {
+        try {
+          const vaultPaths = getPlanlessVaultPaths(this.planlessCwd);
+          this.vault = await readVaultContext(vaultPaths);
+        } catch (error) {
+          hfLog({ tag: "runtime", msg: "vault load failed (planless)", data: { error: (error as Error).message } });
+          this.vault = null;
+        }
+      }
+
       return {
         action: "allow_stop",
         reason: "No active plan. The runtime is providing guardrails only.",
-        resume_prompt: "No task is currently active. Wait for an explicit task before taking action."
+        resume_prompt: buildPlanlessResumePrompt(this.vault, this.vaultSearchResults, {
+          planningCharBudget: this.indexConfig?.planningCharBudget,
+        })
       };
     }
 
@@ -670,10 +684,26 @@ export class HybridLoopRuntime implements LoopRuntime {
       return;
     }
 
+    if (this.unifiedIndex && plan?.status === "planning" && !plan.currentMilestone && plan.userIntent) {
+      try {
+        this.vaultSearchResults = await withTimeout(
+          this.retrieveUnifiedChunks(plan.userIntent, cfg?.planningSemanticTopK ?? 5),
+          cfg?.timeoutMs ?? DEFAULT_INDEX_CONFIG.timeoutMs,
+          null
+        );
+      } catch (error) {
+        const msg = (error as Error).message;
+        hfLog({ tag: "runtime", msg: "vault search failed (planning)", data: { error: msg } });
+        if (status) status.lastIndexError = `vault search: ${msg}`;
+        this.vaultSearchResults = null;
+      }
+      return;
+    }
+
     this.vaultSearchResults = null;
   }
 
-  private async retrieveUnifiedChunks(queryText: string): Promise<VaultSearchResult[] | null> {
+  private async retrieveUnifiedChunks(queryText: string, topK?: number): Promise<VaultSearchResult[] | null> {
     if (!this.unifiedIndex) {
       return null;
     }
@@ -683,7 +713,7 @@ export class HybridLoopRuntime implements LoopRuntime {
       this.unifiedIndex.index,
       this.unifiedIndex.vectors,
       queryVector,
-      this.indexConfig?.semanticTopK ?? 5,
+      topK ?? this.indexConfig?.semanticTopK ?? 5,
     );
 
     return results.map((result) => ({
@@ -718,50 +748,7 @@ export async function resolveManagedPlanPath(cwd: string, explicitPlanPath?: str
     return path.resolve(cwd, explicitPlanPath);
   }
 
-  if (process.env.HF_PLAN_PATH) {
-    return path.resolve(cwd, process.env.HF_PLAN_PATH);
-  }
-
-  const startDir = path.resolve(cwd);
-  let searchDir = startDir;
-  const MAX_PARENT_DEPTH = 10;
-  let depth = 0;
-
-  while (depth < MAX_PARENT_DEPTH) {
-    depth++;
-    const plansDir = path.join(searchDir, "plans");
-    try {
-      const entries = await fs.readdir(plansDir, { withFileTypes: true });
-      const candidates = await Promise.all(
-        entries
-          .filter((entry) => entry.isFile() && /-plan\.md$/i.test(entry.name))
-          .map(async (entry) => {
-            const candidatePath = path.join(plansDir, entry.name);
-            const stats = await fs.stat(candidatePath);
-            return { candidatePath, mtimeMs: stats.mtimeMs };
-          })
-      );
-
-      if (candidates.length > 0) {
-        candidates.sort((left, right) => right.mtimeMs - left.mtimeMs);
-        const latestCandidate = candidates[0];
-        if (!latestCandidate) {
-          throw new Error("No plan doc found after candidate sort.");
-        }
-        return latestCandidate.candidatePath;
-      }
-    } catch (error) {
-      if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) {
-        throw error;
-      }
-    }
-
-    const parentDir = path.dirname(searchDir);
-    if (parentDir === searchDir) {
-      break;
-    }
-    searchDir = parentDir;
-  }
-
-  throw new Error(`No plan doc found from ${startDir}. Set HF_PLAN_PATH or pass an explicit plan path.`);
+  throw new Error(
+    "No plan specified. Use hf_plan_start tool (OpenCode) or --plan flag (CLI) to target a specific plan."
+  );
 }

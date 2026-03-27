@@ -241,4 +241,64 @@ describe("unified-store", () => {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }
   });
+
+  test("concurrent saveUnifiedIndex calls do not corrupt the index", async () => {
+    // Two concurrent saves with different items must not leave a corrupt or
+    // empty index on disk.  One write wins; the other either also completes or
+    // is skipped — but the result must be a valid, loadable index.
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "unified-store-concurrent-"));
+
+    try {
+      const indexA = makeIndex([makeItem("a")]);
+      const vectorsA = new Float32Array(384);
+      vectorsA.set(makeVector([1, 0, 0]), 0);
+
+      const indexB = makeIndex([makeItem("b")]);
+      const vectorsB = new Float32Array(384);
+      vectorsB.set(makeVector([0, 1, 0]), 0);
+
+      // Fire both saves concurrently without awaiting either individually.
+      await Promise.all([
+        saveUnifiedIndex(tmpDir, indexA, vectorsA),
+        saveUnifiedIndex(tmpDir, indexB, vectorsB),
+      ]);
+
+      // The on-disk state must be a valid, loadable index.
+      const loaded = await loadUnifiedIndex(tmpDir);
+      expect(loaded).not.toBeNull();
+      // Must have exactly the items that the winning write serialised.
+      expect(loaded!.index.items.length).toBeGreaterThan(0);
+      expect(loaded!.vectors.length).toBe(384 * loaded!.index.items.length);
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("saveUnifiedIndex skips saving gracefully when lock cannot be acquired", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "unified-store-lockskip-"));
+
+    try {
+      const hfDir = path.join(tmpDir, ".hf");
+      await fs.mkdir(hfDir, { recursive: true });
+
+      // Pre-create the lock file to simulate a held lock for the entire timeout.
+      const lockPath = path.join(hfDir, "index.lock");
+      await fs.writeFile(lockPath, '{"pid":0,"ts":"held"}\n', "utf8");
+
+      const index = makeIndex([makeItem("x")]);
+      const vectors = new Float32Array(384);
+
+      // saveUnifiedIndex must resolve (not throw) even though the lock is held.
+      await expect(saveUnifiedIndex(tmpDir, index, vectors)).resolves.toBeUndefined();
+
+      // The index files must NOT have been written because the save was skipped.
+      const jsonExists = await fs
+        .access(path.join(hfDir, "index.json"))
+        .then(() => true)
+        .catch(() => false);
+      expect(jsonExists).toBe(false);
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
 });

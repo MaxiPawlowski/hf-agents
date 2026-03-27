@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { buildResumePrompt, formatSemanticVaultContext } from "../src/runtime/prompt.js";
+import { buildResumePrompt, buildPlanlessResumePrompt, formatSemanticVaultContext } from "../src/runtime/prompt.js";
 import type { ParsedPlan, RuntimeStatus, VaultContext, VaultSearchResult } from "../src/runtime/types.js";
 
 function makePlan(overrides?: Partial<ParsedPlan>): ParsedPlan {
@@ -260,16 +260,16 @@ describe("buildResumePrompt with semantic retrieval", () => {
     });
     const status = makeStatus({ phase: "planning" });
     const bigVault: VaultContext = {
-      plan: [{ path: "vault/plans/test/big.md", title: "Big doc", content: "Y".repeat(2000) }],
-      shared: [{ path: "vault/shared/big2.md", title: "Big shared", content: "Z".repeat(2000) }]
+      plan: [{ path: "vault/plans/test/big.md", title: "Big doc", content: "Y".repeat(4000) }],
+      shared: [{ path: "vault/shared/big2.md", title: "Big shared", content: "Z".repeat(4000) }]
     };
 
     const prompt = buildResumePrompt(plan, status, bigVault, null);
 
     expect(prompt).toContain("## Vault context");
-    // The vault section should be truncated due to the 1500 char planning budget
+    // The vault section should be truncated due to the 4000 char planning budget
     expect(prompt).toContain("[vault content truncated]");
-    // The second document should not appear because 1500 budget can't fit both
+    // The second document should not appear because 4000 budget can't fit both
     expect(prompt).not.toContain("### Big shared");
   });
 
@@ -309,5 +309,75 @@ describe("buildResumePrompt with semantic retrieval", () => {
     const afterVault = prompt.indexOf("## Last turn");
     const vaultSection = prompt.slice(vaultStart, afterVault);
     expect(vaultSection.length).toBeLessThanOrEqual(3100); // Allow small margin for headers
+  });
+
+  test("planning phase includes exploration state when vault documents exist", () => {
+    const plan = makePlan({ status: "planning", approved: false });
+    const status = makeStatus({ phase: "planning" });
+    const vault = makeVault();
+
+    const prompt = buildResumePrompt(plan, status, vault, null);
+
+    expect(prompt).toContain("## Exploration state");
+    expect(prompt).toContain("The following vault documents contain findings from prior exploration passes:");
+    expect(prompt).toContain("**Plan discoveries**");
+    expect(prompt).toContain("`vault/plans/test/discoveries.md`");
+    expect(prompt).toContain("**Shared patterns**");
+    expect(prompt).toContain("`vault/shared/patterns.md`");
+  });
+
+  test("planning phase omits exploration state when no vault documents exist", () => {
+    const plan = makePlan({ status: "planning", approved: false });
+    const status = makeStatus({ phase: "planning" });
+
+    const prompt = buildResumePrompt(plan, status, null, null);
+
+    expect(prompt).not.toContain("## Exploration state");
+  });
+
+  test("planning phase uses vault-referencing instruction text", () => {
+    const plan = makePlan({ status: "planning", approved: false });
+    const status = makeStatus({ phase: "planning" });
+
+    const prompt = buildResumePrompt(plan, status, null, null);
+
+    expect(prompt).toContain("Reference vault-persisted findings and the plan doc; avoid re-loading the full context bundle into conversation.");
+    expect(prompt).not.toContain("Keep the full user request, local findings, constraints, and draft plan visible to both planner and reviewer.");
+  });
+});
+
+describe("buildPlanlessResumePrompt", () => {
+  test("returns stub message when vault is null", () => {
+    const prompt = buildPlanlessResumePrompt(null);
+    expect(prompt).toBe("No task is currently active. Wait for an explicit task before taking action.");
+  });
+
+  test("returns stub message when vault has no documents", () => {
+    const prompt = buildPlanlessResumePrompt({ plan: [], shared: [] });
+    expect(prompt).toBe("No task is currently active. Wait for an explicit task before taking action.");
+  });
+
+  test("returns enriched prompt when vault has shared documents", () => {
+    const vault: VaultContext = {
+      plan: [],
+      shared: [{ path: "vault/shared/patterns.md", title: "Shared patterns", content: "Pattern content" }]
+    };
+    const prompt = buildPlanlessResumePrompt(vault);
+    expect(prompt).toContain("No active plan. The runtime recovered vault context from a prior session.");
+    expect(prompt).toContain("## Recovered context");
+    expect(prompt).toContain("## Instructions");
+    expect(prompt).toContain("Shared patterns");
+    expect(prompt).toContain("Pattern content");
+  });
+
+  test("uses semantic results when available", () => {
+    const vault: VaultContext = {
+      plan: [],
+      shared: [{ path: "vault/shared/patterns.md", title: "Shared patterns", content: "Pattern content" }]
+    };
+    const results = makeSearchResults(1);
+    const prompt = buildPlanlessResumePrompt(vault, results);
+    expect(prompt).toContain("### Section 1");
+    expect(prompt).not.toContain("### Shared patterns");
   });
 });

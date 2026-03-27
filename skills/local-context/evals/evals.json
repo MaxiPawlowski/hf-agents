@@ -1,6 +1,6 @@
 {
   "skill": "hf-local-context",
-  "purpose": "Starter fixtures for minimal-context retrieval and research-brief discipline.",
+  "purpose": "Starter fixtures for minimal-context retrieval, research-brief discipline, and checkpoint-and-persist workflow.",
   "cases": [
     {
       "id": "local-context-minimal-targeted-scan",
@@ -100,6 +100,86 @@
           "continue reading files after both targets are grounded in concrete paths",
           "expand scope to unrelated directories once the search targets are resolved",
           "return more than the minimum set of files needed to answer the planning question"
+        ]
+      }
+    },
+    {
+      "id": "local-context-vault-writes-output",
+      "focus": [
+        "vault_writes output field",
+        "required output completeness",
+        "vault path correctness"
+      ],
+      "input": {
+        "local_search_targets": [
+          "skill prompt structure and naming",
+          "vault directory layout"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "vault_writes field listing each vault path written",
+          "each vault_writes entry includes a brief note about what was persisted",
+          "vault paths follow the vault/plans/<plan-slug>/discoveries.md or vault/shared/ convention"
+        ],
+        "must_not": [
+          "omit vault_writes from the returned output",
+          "list vault writes without describing their content",
+          "write to vault paths outside the vault/plans/ or vault/shared/ directories"
+        ]
+      }
+    },
+    {
+      "id": "local-context-checkpoint-between-batches",
+      "focus": [
+        "checkpoint-and-persist workflow",
+        "multi-batch exploration",
+        "vault persistence between batches"
+      ],
+      "input": {
+        "local_search_targets": [
+          "planner skill conventions",
+          "runtime loop architecture",
+          "eval fixture format",
+          "vault persistence patterns"
+        ]
+      },
+      "expected": {
+        "must_include": [
+          "findings written to vault after each exploration batch before starting the next",
+          "dated sections appended to discoveries.md rather than replacing prior content",
+          "in-memory findings released after vault write so conversation context stays lean"
+        ],
+        "must_not": [
+          "accumulate all findings in conversation and write to vault only at the end",
+          "overwrite previous vault content instead of appending a new dated section",
+          "re-read findings from vault back into conversation after persisting them"
+        ]
+      }
+    },
+    {
+      "id": "local-context-vault-check-before-explore",
+      "focus": [
+        "vault prior-findings check",
+        "avoiding redundant exploration",
+        "compaction recovery"
+      ],
+      "input": {
+        "local_search_targets": [
+          "skill prompt structure and naming"
+        ],
+        "precondition": "vault/plans/test-plan/discoveries.md already contains findings for 'skill prompt structure and naming'"
+      },
+      "expected": {
+        "must_include": [
+          "check vault/plans/<plan-slug>/discoveries.md for existing findings before exploring",
+          "skip or reduce exploration for targets already covered by vault findings",
+          "reference existing vault path instead of re-reading the same files"
+        ],
+        "must_not": [
+          "ignore existing vault findings and re-explore targets from scratch",
+          "fail to check vault before starting exploration",
+          "duplicate findings already present in vault"
         ]
       }
     }
