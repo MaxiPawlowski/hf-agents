@@ -12,3 +12,4 @@ dist/
 *.tgz
 vault/.vault-index.json
 .hf/
+.scannerwork/
