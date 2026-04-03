@@ -1,2 +1,9 @@
 #!/bin/sh
 npx lint-staged
+
+# Optional SonarQube scan — runs only when HF_SONAR_PRECOMMIT=1 is set.
+# Requires a running local SonarQube instance (see docker-compose.sonar.yml)
+# and a valid SONAR_TOKEN environment variable.
+if [ "$HF_SONAR_PRECOMMIT" = "1" ]; then
+  npm run sonar
+fi
