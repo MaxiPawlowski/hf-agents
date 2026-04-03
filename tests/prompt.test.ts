@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { buildResumePrompt, buildPlanlessResumePrompt, formatSemanticVaultContext } from "../src/runtime/prompt.js";
+import { buildResumePrompt, buildPlanlessResumePrompt, formatSemanticVaultContext, formatToolSearchResults } from "../src/runtime/prompt.js";
 import type { ParsedPlan, RuntimeStatus, VaultContext, VaultSearchResult } from "../src/runtime/types.js";
 
 function makePlan(overrides?: Partial<ParsedPlan>): ParsedPlan {
@@ -135,6 +135,23 @@ describe("formatSemanticVaultContext", () => {
     const lines = formatSemanticVaultContext(makeSearchResults(1));
 
     expect(lines[0]).toBe("## Vault context");
+  });
+
+  test("formatSemanticVaultContext prefixes external result section titles with [external]", () => {
+    const result: VaultSearchResult = {
+      score: 0.85,
+      text: "function extFunc() { return 1; }",
+      metadata: {
+        sourcePath: "/absolute/path/external.ts",
+        sectionTitle: "extFunc",
+        documentTitle: "external.ts",
+        kind: "external"
+      }
+    };
+    const lines = formatSemanticVaultContext([result]);
+
+    expect(lines[0]).toBe("## Knowledge context");
+    expect(lines.join("\n")).toContain("### [external] extFunc");
   });
 });
 
@@ -379,5 +396,181 @@ describe("buildPlanlessResumePrompt", () => {
     const prompt = buildPlanlessResumePrompt(vault, results);
     expect(prompt).toContain("### Section 1");
     expect(prompt).not.toContain("### Shared patterns");
+  });
+});
+
+describe("formatToolSearchResults", () => {
+  test("returns empty message for empty results array", () => {
+    const result = formatToolSearchResults([]);
+    expect(result).toBe("No matching results found.");
+  });
+
+  test("formats a single vault result with number, label, source, score, and content", () => {
+    const results: VaultSearchResult[] = [
+      {
+        score: 0.87,
+        text: "Introduction content here.",
+        metadata: {
+          sourcePath: "vault/guides/planning.md",
+          sectionTitle: "Introduction to Planning",
+          documentTitle: "Planning Guide"
+        }
+      }
+    ];
+    const output = formatToolSearchResults(results);
+    expect(output).toContain("1. [vault] Introduction to Planning");
+    expect(output).toContain("   Source: vault/guides/planning.md");
+    expect(output).toContain("   Score: 0.87");
+    expect(output).toContain("   Introduction content here.");
+  });
+
+  test("formats a code result with [code] kind label", () => {
+    const results: VaultSearchResult[] = [
+      {
+        score: 0.82,
+        text: "function buildResumePrompt() {}",
+        metadata: {
+          sourcePath: "src/runtime/prompt.ts",
+          sectionTitle: "buildResumePrompt",
+          documentTitle: "prompt.ts",
+          kind: "code"
+        }
+      }
+    ];
+    const output = formatToolSearchResults(results);
+    expect(output).toContain("1. [code] buildResumePrompt");
+    expect(output).toContain("   Source: src/runtime/prompt.ts");
+    expect(output).toContain("   Score: 0.82");
+    expect(output).toContain("   function buildResumePrompt() {}");
+  });
+
+  test("formats an external result with [external] kind label", () => {
+    const results: VaultSearchResult[] = [
+      {
+        score: 0.78,
+        text: "export function externalHelper() {}",
+        metadata: {
+          sourcePath: "/absolute/path/to/helper.ts",
+          sectionTitle: "externalHelper",
+          documentTitle: "helper.ts",
+          kind: "external"
+        }
+      }
+    ];
+    const output = formatToolSearchResults(results);
+    expect(output).toContain("1. [external] externalHelper");
+    expect(output).toContain("   Source: /absolute/path/to/helper.ts");
+    expect(output).toContain("   Score: 0.78");
+    expect(output).toContain("   export function externalHelper() {}");
+  });
+
+  test("uses [vault] label when kind is undefined", () => {
+    const results: VaultSearchResult[] = [
+      {
+        score: 0.75,
+        text: "Some vault content.",
+        metadata: {
+          sourcePath: "vault/shared/patterns.md",
+          sectionTitle: "Patterns",
+          documentTitle: "Patterns"
+          // kind intentionally omitted
+        }
+      }
+    ];
+    const output = formatToolSearchResults(results);
+    expect(output).toContain("1. [vault] Patterns");
+  });
+
+  test("formats score to exactly 2 decimal places", () => {
+    const results: VaultSearchResult[] = [
+      {
+        score: 0.9,
+        text: "Content.",
+        metadata: { sourcePath: "vault/a.md", sectionTitle: "A", documentTitle: "A" }
+      }
+    ];
+    const output = formatToolSearchResults(results);
+    expect(output).toContain("   Score: 0.90");
+  });
+
+  test("formats mixed vault and code results with correct numbers and labels", () => {
+    const results: VaultSearchResult[] = [
+      {
+        score: 0.95,
+        text: "Vault content.",
+        metadata: {
+          sourcePath: "vault/guides/planning.md",
+          sectionTitle: "Planning Overview",
+          documentTitle: "Planning Guide",
+          kind: "vault"
+        }
+      },
+      {
+        score: 0.82,
+        text: "Code content.",
+        metadata: {
+          sourcePath: "src/runtime/runtime.ts",
+          sectionTitle: "queryIndex",
+          documentTitle: "runtime.ts",
+          kind: "code"
+        }
+      }
+    ];
+    const output = formatToolSearchResults(results);
+    expect(output).toContain("1. [vault] Planning Overview");
+    expect(output).toContain("   Score: 0.95");
+    expect(output).toContain("2. [code] queryIndex");
+    expect(output).toContain("   Score: 0.82");
+  });
+
+  test("separates multiple results with blank lines", () => {
+    const results: VaultSearchResult[] = [
+      {
+        score: 0.9,
+        text: "First content.",
+        metadata: { sourcePath: "vault/a.md", sectionTitle: "First", documentTitle: "A" }
+      },
+      {
+        score: 0.8,
+        text: "Second content.",
+        metadata: { sourcePath: "vault/b.md", sectionTitle: "Second", documentTitle: "B" }
+      }
+    ];
+    const output = formatToolSearchResults(results);
+    // There should be a blank line between the two blocks
+    expect(output).toContain("\n\n");
+    // Both results should appear
+    expect(output).toContain("1. [vault] First");
+    expect(output).toContain("2. [vault] Second");
+  });
+
+  test("output ends with a trailing newline", () => {
+    const results: VaultSearchResult[] = [
+      {
+        score: 0.9,
+        text: "Content.",
+        metadata: { sourcePath: "vault/a.md", sectionTitle: "A", documentTitle: "A" }
+      }
+    ];
+    const output = formatToolSearchResults(results);
+    expect(output.endsWith("\n")).toBe(true);
+  });
+
+  test("formatToolSearchResults labels external results with [external]", () => {
+    const results: VaultSearchResult[] = [
+      {
+        score: 0.88,
+        text: "function ext() { return 'external'; }",
+        metadata: {
+          sourcePath: "/absolute/path/external.ts",
+          sectionTitle: "ext",
+          documentTitle: "external.ts",
+          kind: "external"
+        }
+      }
+    ];
+    const output = formatToolSearchResults(results);
+    expect(output).toContain("[external]");
+    expect(output).toContain("1. [external] ext");
   });
 });

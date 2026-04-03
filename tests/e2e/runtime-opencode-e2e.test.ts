@@ -142,4 +142,111 @@ describe("opencode plugin e2e", () => {
       expect(validActions).toContain(decision.action);
     }
   }, 15_000);
+
+  // -------------------------------------------------------------------------
+  // Test 5: hf_search — no plan binding → planless on-demand build
+  // -------------------------------------------------------------------------
+  test("hf_search: no plan binding triggers planless on-demand index build", async () => {
+    // Create a fresh hooks instance with no plan binding for this session.
+    // The tool will spin up a disposable planless runtime and attempt an index build.
+    const { tools } = createHybridRuntimeHooks({ cwd: fixtureDir });
+    const UNBOUND_SESSION_ID = "e2e-vault-query-unbound";
+
+    const tool = tools.hf_search as {
+      execute: (
+        args: { query: string; top_k?: number; source?: string },
+        ctx: { sessionID: string; directory: string; worktree: string; abort: AbortSignal; metadata: () => void; ask: () => Promise<void> }
+      ) => Promise<string>;
+    };
+
+    const toolCtx = {
+      sessionID: UNBOUND_SESSION_ID,
+      directory: fixtureDir,
+      worktree: fixtureDir,
+      abort: new AbortController().signal,
+      metadata: () => {},
+      ask: async () => {}
+    };
+
+    const result = await tool.execute({ query: "semantic search" }, toolCtx);
+
+    expect(typeof result).toBe("string");
+    expect(result.length).toBeGreaterThan(0);
+    // Must not claim "No index available" — the planless on-demand build should succeed.
+    expect(result).not.toContain("No index available");
+  }, 30_000);
+
+  // -------------------------------------------------------------------------
+  // Test 6: hf_search — plan binding but cold runtime → on-demand index build
+  // -------------------------------------------------------------------------
+  test("hf_search: cold runtime (no decideNext yet) triggers on-demand index build", async () => {
+    // Create a fresh hooks instance and bind the plan, but do NOT call session.created.
+    // The runtime is hydrated on first getRuntime() call (triggered by tool.execute),
+    // but decideNext() has NOT been called yet. queryIndex() will trigger an on-demand
+    // refreshVaultIndex() and return a non-empty result string.
+    const { tools, planBindings } = createHybridRuntimeHooks({ cwd: fixtureDir });
+    const COLD_SESSION_ID = "e2e-vault-query-cold";
+    planBindings.set(COLD_SESSION_ID, path.join(fixtureDir, FIXTURE_PLAN_PATH));
+
+    const tool = tools.hf_search as {
+      execute: (
+        args: { query: string; top_k?: number; source?: string },
+        ctx: { sessionID: string; directory: string; worktree: string; abort: AbortSignal; metadata: () => void; ask: () => Promise<void> }
+      ) => Promise<string>;
+    };
+
+    const toolCtx = {
+      sessionID: COLD_SESSION_ID,
+      directory: fixtureDir,
+      worktree: fixtureDir,
+      abort: new AbortController().signal,
+      metadata: () => {},
+      ask: async () => {}
+    };
+
+    const result = await tool.execute({ query: "vault context" }, toolCtx);
+
+    expect(typeof result).toBe("string");
+    expect(result.length).toBeGreaterThan(0);
+    // Must not claim "No index available" — the on-demand build should succeed
+    // or at minimum return "No matching results found" (not the null-index message).
+    expect(result).not.toContain("No index available");
+  }, 30_000);
+
+  // -------------------------------------------------------------------------
+  // Test 7: hf_search — after session.created (runtime hydrated + index built)
+  // -------------------------------------------------------------------------
+  test("hf_search: after session.created returns a non-empty string result", async () => {
+    // Create a fresh hooks instance and bind the plan.
+    const { hooks, tools, planBindings } = createHybridRuntimeHooks({ cwd: fixtureDir });
+    const WARM_SESSION_ID = "e2e-vault-query-warm";
+    planBindings.set(WARM_SESSION_ID, path.join(fixtureDir, FIXTURE_PLAN_PATH));
+
+    // Call session.created to trigger hydration and decideNext() → refreshVaultIndex().
+    await hooks["session.created"]!({ sessionID: WARM_SESSION_ID });
+
+    const tool = tools.hf_search as {
+      execute: (
+        args: { query: string; top_k?: number; source?: string },
+        ctx: { sessionID: string; directory: string; worktree: string; abort: AbortSignal; metadata: () => void; ask: () => Promise<void> }
+      ) => Promise<string>;
+    };
+
+    const toolCtx = {
+      sessionID: WARM_SESSION_ID,
+      directory: fixtureDir,
+      worktree: fixtureDir,
+      abort: new AbortController().signal,
+      metadata: () => {},
+      ask: async () => {}
+    };
+
+    // The tool must not throw and must return a non-empty string.
+    // Accept any of: formatted results, "No index available", or "No matching results found"
+    // (fixture may not have embedded docs if the index build timed out or the fixture is minimal).
+    const result = await tool.execute({ query: "plan milestone harness" }, toolCtx);
+
+    expect(typeof result).toBe("string");
+    expect(result.length).toBeGreaterThan(0);
+  }, 15_000);
 });

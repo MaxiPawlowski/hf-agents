@@ -14,8 +14,8 @@ const HYDRATION_TIMEOUT_MS = 4_000;
 const VAULT_INDEX_TIMEOUT_MS = 5_000;
 const UNIFIED_INDEX_TIMEOUT_MS = 15_000;
 const WARNING_RATIO = 0.8;
-const LOG_WAIT_TIMEOUT_MS = 15_000;
-const INDEX_WAIT_TIMEOUT_MS = 15_000;
+const _LOG_WAIT_TIMEOUT_MS = 15_000;
+const _INDEX_WAIT_TIMEOUT_MS = 15_000;
 
 interface DebugLogEntry {
   t: string;
@@ -432,7 +432,7 @@ function parseDebugLogEntries(rawLog: string): DebugLogEntry[] {
   return entries;
 }
 
-async function readDebugLogEntriesWithWait(
+async function _readDebugLogEntriesWithWait(
   logPath: string,
   timeoutMs: number,
   baselineCount = 0
@@ -475,7 +475,7 @@ async function readChunkCount(fixtureDir: string, fixtureKind: "unified" | "vaul
   }
 }
 
-async function waitForChunkCount(
+async function _waitForChunkCount(
   fixtureDir: string,
   fixtureKind: "unified" | "vault",
   timeoutMs: number

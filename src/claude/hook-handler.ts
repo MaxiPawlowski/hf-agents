@@ -5,7 +5,7 @@ import {
   recordCompactionArchive,
   recordSubagentLifecycle
 } from "../adapters/lifecycle.js";
-import { HybridLoopRuntime } from "../runtime/runtime.js";
+import type { HybridLoopRuntime } from "../runtime/runtime.js";
 import { detectTurnOutcomeInPayload } from "../runtime/turn-outcome-ingestion.js";
 import { hfLog, hfLogTimed } from "../runtime/logger.js";
 import type { ContinueDecision, RuntimeEvent } from "../runtime/types.js";
@@ -53,12 +53,14 @@ export function toRuntimeEvent(eventName: string, input: ClaudeHookInput): Runti
   };
 }
 
+// oxlint-disable max-params, max-lines-per-function -- eventName, input, cwd, explicitPlanPath are distinct hook dispatch params; exhaustive event-name dispatch with thin branches
 export async function handleClaudeHook(
   eventName: string,
   input: ClaudeHookInput,
   cwd: string,
   explicitPlanPath?: string
 ): Promise<Record<string, unknown>> {
+// oxlint-enable max-params, max-lines-per-function
   const hookDone = hfLogTimed({ tag: "claude-hook", msg: `handleClaudeHook(${eventName})` });
 
   if (eventName === "PostToolUse" || eventName === "Notification") {

@@ -6,6 +6,11 @@
     "extensions": [".ts"],
     "exclude": ["node_modules/", "dist/"]
   },
+  "external": {
+    "roots": [],
+    "extensions": [".ts", ".js", ".md"],
+    "exclude": ["node_modules/", "dist/"]
+  },
   "semanticTopK": 5,
   "maxChunkChars": 2000,
   "embeddingBatchSize": 100,

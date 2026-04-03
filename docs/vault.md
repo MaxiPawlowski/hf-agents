@@ -219,6 +219,47 @@ Tests the full stack through the OpenCode plugin in a real fixture project. Requ
 
 ---
 
+## hf_search Tool
+
+`hf_search` is a plugin tool registered in the OpenCode adapter (`src/opencode/plugin.ts`). It lets an agent issue targeted semantic queries against the unified index at any point during its turn.
+
+**Availability**: Cross-platform — available as an OpenCode plugin tool (registered in `src/opencode/plugin.ts`) and as a Claude Code MCP tool. Both adapters expose the same arguments and return format. Claude-based agents that do not use Claude Code MCP still receive semantic context exclusively through automatic resume-prompt injection.
+
+### Arguments
+
+| Argument | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `query` | `string` | yes | — | Natural-language query text |
+| `top_k` | `number` | no | `5` | Maximum number of results to return |
+| `source` | `"vault" \| "code" \| "all"` | no | `"all"` | Filter results by source type: `"vault"` returns only markdown chunks, `"code"` returns only TypeScript source chunks, `"all"` returns both |
+
+### Return format
+
+Results are formatted by `formatToolSearchResults()` as numbered, labelled text blocks:
+
+```
+1. [vault] vault/plans/my-plan/context.md (score: 0.87)
+<chunk body text>
+
+2. [code] src/runtime/unified-store.ts (score: 0.74)
+<chunk body text>
+```
+
+- The label prefix is `[vault]` for markdown chunks and `[code]` for TypeScript source chunks.
+- Score is rounded to 2 decimal places (cosine similarity, 0–1).
+- If no results match: `"No matching results found."`
+- If the index has not been built yet for the session: `"No index available — the unified index has not been built yet for this session."`
+
+### Relationship to auto-injection
+
+The runtime already injects top-K semantic results into the resume prompt at each turn boundary (`formatSemanticVaultContext()`), using the current milestone text as the query and a per-turn token budget. `hf_search` is the on-demand complement: agents can call it with a more targeted query whenever the auto-injected context is insufficient for the task at hand.
+
+### External indexing
+
+The unified index can also be built outside of a live agent session using the `buildUnifiedIndex` API directly (e.g. in a CI step or a pre-session warmup script). Pass the `repoRoot`, optional `vaultPaths`, and optional `codeConfig` to produce a persisted `.hf/index.json` and `.hf/index.bin` before the session starts. When the index already exists and files have not changed, the pipeline short-circuits without re-embedding anything.
+
+---
+
 ## Adding Vault Content
 
 See `hf-vault-bootstrap` skill for interactive first-pass authoring. For manual additions:

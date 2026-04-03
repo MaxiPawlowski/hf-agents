@@ -1,6 +1,7 @@
 import { pipeline } from "@huggingface/transformers";
 import type { FeatureExtractionPipeline } from "@huggingface/transformers";
 
+import { tryIpcEmbed, tryIpcEmbedBatch } from "./embedding-ipc-client.js";
 import { hfLogTimed } from "./logger.js";
 
 const MODEL_ID = "Xenova/all-MiniLM-L6-v2";
@@ -16,6 +17,11 @@ export class EmbeddingModelError extends Error {
 
 let extractor: FeatureExtractionPipeline | null = null;
 let loadingPromise: Promise<FeatureExtractionPipeline> | null = null;
+let embeddingIpcRoot: string | null = null;
+
+export function setEmbeddingIpcRoot(repoRoot: string | null): void {
+  embeddingIpcRoot = repoRoot;
+}
 
 async function getExtractor(): Promise<FeatureExtractionPipeline> {
   if (extractor) return extractor;
@@ -87,6 +93,16 @@ export async function disposeEmbeddingModel(): Promise<void> {
  * Embed a single text string into a 384-dimensional normalized vector.
  */
 export async function embed(text: string): Promise<number[]> {
+  if (extractor) {
+    const output = await extractor(text, { pooling: "mean", normalize: true });
+    return Array.from(output.data as Float32Array).slice(0, EMBEDDING_DIM);
+  }
+
+  if (embeddingIpcRoot) {
+    const ipcEmbedding = await tryIpcEmbed(embeddingIpcRoot, text);
+    if (ipcEmbedding) return ipcEmbedding;
+  }
+
   const ext = await getExtractor();
   const output = await ext(text, { pooling: "mean", normalize: true });
   const vec = Array.from(output.data as Float32Array).slice(0, EMBEDDING_DIM);
@@ -98,6 +114,25 @@ export async function embed(text: string): Promise<number[]> {
  */
 export async function embedBatch(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return [];
+
+  if (extractor) {
+    const done = hfLogTimed({ tag: "embedding-model", msg: "embedBatch", data: { text_count: texts.length } });
+    const output = await extractor(texts, { pooling: "mean", normalize: true });
+    done({ text_count: texts.length });
+    const flat = Array.from(output.data as Float32Array);
+
+    const results: number[][] = [];
+    for (let i = 0; i < texts.length; i++) {
+      const start = i * EMBEDDING_DIM;
+      results.push(flat.slice(start, start + EMBEDDING_DIM));
+    }
+    return results;
+  }
+
+  if (embeddingIpcRoot) {
+    const ipcEmbeddings = await tryIpcEmbedBatch(embeddingIpcRoot, texts);
+    if (ipcEmbeddings) return ipcEmbeddings;
+  }
 
   const ext = await getExtractor();
   const done = hfLogTimed({ tag: "embedding-model", msg: "embedBatch", data: { text_count: texts.length } });

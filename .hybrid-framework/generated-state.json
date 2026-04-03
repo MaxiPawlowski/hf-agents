@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "packageName": "hybrid-framework",
+  "adapters": {
+    "claude": {
+      "commands": [
+        "node \"$CLAUDE_PROJECT_DIR/dist/src/bin/hf-claude-hook.js\" SessionStart",
+        "node \"$CLAUDE_PROJECT_DIR/dist/src/bin/hf-claude-hook.js\" UserPromptSubmit",
+        "node \"$CLAUDE_PROJECT_DIR/dist/src/bin/hf-claude-hook.js\" PreToolUse",
+        "node \"$CLAUDE_PROJECT_DIR/dist/src/bin/hf-claude-hook.js\" PreCompact",
+        "node \"$CLAUDE_PROJECT_DIR/dist/src/bin/hf-claude-hook.js\" Stop",
+        "node \"$CLAUDE_PROJECT_DIR/dist/src/bin/hf-claude-hook.js\" SubagentStart",
+        "node \"$CLAUDE_PROJECT_DIR/dist/src/bin/hf-claude-hook.js\" SubagentStop"
+      ],
+      "settingsPath": ".claude/settings.local.json",
+      "mcpConfigPath": ".mcp.json",
+      "generatedPaths": [],
+      "managedDirectories": []
+    },
+    "opencode": {
+      "generatedPaths": [
+        ".opencode/plugins/hybrid-runtime.js",
+        ".opencode/registry.json",
+        ".opencode/package.json",
+        ".opencode/README.md",
+        ".opencode/agents/hf-builder.md",
+        ".opencode/agents/hf-coder.md",
+        ".opencode/agents/hf-plan-reviewer.md",
+        ".opencode/agents/hf-planner.md",
+        ".opencode/agents/hf-reviewer.md",
+        ".opencode/skills/local-context/evals/evals.json",
+        ".opencode/skills/local-context/REVIEW.md",
+        ".opencode/skills/local-context/SKILL.md",
+        ".opencode/skills/milestone-tracking/evals/evals.json",
+        ".opencode/skills/milestone-tracking/REVIEW.md",
+        ".opencode/skills/milestone-tracking/SKILL.md",
+        ".opencode/skills/plan-synthesis/evals/evals.json",
+        ".opencode/skills/plan-synthesis/REVIEW.md",
+        ".opencode/skills/plan-synthesis/SKILL.md",
+        ".opencode/skills/verification-before-completion/evals/evals.json",
+        ".opencode/skills/verification-before-completion/REVIEW.md",
+        ".opencode/skills/verification-before-completion/SKILL.md"
+      ],
+      "managedDirectories": [
+        ".opencode/plugins",
+        ".opencode/agents",
+        ".opencode/skills"
+      ]
+    }
+  }
+}

@@ -7,7 +7,6 @@ import {
   type ParsedPlan,
   type RuntimeStatus,
   type VaultContext,
-  type VaultDocument,
   type VaultSearchResult,
 } from "./types.js";
 
@@ -19,11 +18,13 @@ const TRUNCATION_SUFFIX = "[vault content truncated]";
  * Append content blocks to `lines` while tracking a character budget.
  * Returns true if all blocks fit; false if truncation occurred.
  */
+// oxlint-disable max-params -- lines, blocks, charBudget, and used are distinct budget-tracking params with no natural grouping
 function appendWithBudget(
   lines: string[],
   blocks: string[][],
   charBudget: number,
   used: number,
+// oxlint-enable max-params
 ): void {
   for (const block of blocks) {
     const blockText = block.join("\n");
@@ -130,13 +131,13 @@ export function formatSemanticVaultContext(
     return [];
   }
 
-  const hasCodeResults = results.some((result) => result.metadata.kind === "code");
+  const hasCodeResults = results.some((result) => result.metadata.kind === "code" || result.metadata.kind === "external");
   const lines = [hasCodeResults ? "## Knowledge context" : "## Vault context"];
   const headerCost = lines[0]!.length + 1;
 
   const blocks = results.map((result) => {
-    const sectionTitle = result.metadata.kind === "code"
-      ? `### [code] ${result.metadata.sectionTitle}`
+    const sectionTitle = (result.metadata.kind === "code" || result.metadata.kind === "external")
+      ? `### [${result.metadata.kind}] ${result.metadata.sectionTitle}`
       : `### ${result.metadata.sectionTitle}`;
     return [sectionTitle, result.text, ""];
   });
@@ -144,6 +145,32 @@ export function formatSemanticVaultContext(
   appendWithBudget(lines, blocks, charBudget, headerCost);
 
   return lines.length > 1 ? lines : [];
+}
+
+/**
+ * Format semantic search results into a numbered list for tool output.
+ * No character budget constraint — returns all results.
+ */
+export function formatToolSearchResults(results: VaultSearchResult[]): string {
+  if (results.length === 0) {
+    return "No matching results found.";
+  }
+
+  const blocks = results.map((result, index) => {
+    let kindLabel = "[vault]";
+    if (result.metadata.kind === "code") kindLabel = "[code]";
+    else if (result.metadata.kind === "external") kindLabel = "[external]";
+    const num = index + 1;
+    return [
+      `${num}. ${kindLabel} ${result.metadata.sectionTitle}`,
+      `   Source: ${result.metadata.sourcePath}`,
+      `   Score: ${result.score.toFixed(2)}`,
+      "",
+      `   ${result.text}`
+    ].join("\n");
+  });
+
+  return blocks.join("\n\n") + "\n";
 }
 
 function formatVaultContext(vault: VaultContext | null, charBudget = DEFAULT_VAULT_CHAR_BUDGET): string[] {
@@ -169,12 +196,14 @@ export interface PromptBudgets {
   planningCharBudget?: number | undefined;
 }
 
+// oxlint-disable max-lines-per-function, max-params -- plan, status, vault, vaultSearchResults, budgets are all distinct prompt-building inputs; function renders a full multi-section prompt doc and cannot be split without obscuring structure
 export function buildResumePrompt(
   plan: ParsedPlan,
   status: RuntimeStatus,
   vault: VaultContext | null = null,
   vaultSearchResults: VaultSearchResult[] | null = null,
   budgets: PromptBudgets = {}
+// oxlint-enable max-lines-per-function, max-params
 ): string {
   const charBudget = budgets.charBudget ?? DEFAULT_VAULT_CHAR_BUDGET;
   const planningBudget = budgets.planningCharBudget ?? PLANNING_VAULT_CHAR_BUDGET;

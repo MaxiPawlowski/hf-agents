@@ -10,7 +10,7 @@ import {
   recordSubagentLifecycle
 } from "../src/adapters/lifecycle.js";
 // @ts-ignore -- Vitest executes the JS installer module directly for consumer fixture coverage.
-import { buildOpenCodePluginSource } from "../scripts/install-runtime.mjs";
+import { buildOpenCodePluginSource } from "../scripts/lib/install-opencode.mjs";
 import { handleClaudeHook, mapDecisionToClaudeStopResponse } from "../src/claude/hook-handler.js";
 import { createHybridRuntimeHooks } from "../src/opencode/plugin.js";
 import { parsePlan } from "../src/runtime/plan-doc.js";

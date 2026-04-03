@@ -185,7 +185,7 @@ export interface VaultChunk {
     sourcePath: string;
     sectionTitle: string;
     documentTitle: string;
-    kind?: "vault" | "code";
+    kind?: "vault" | "code" | "external";
   };
 }
 
@@ -202,9 +202,16 @@ export interface IndexCodeConfig {
   exclude: string[];
 }
 
+export interface ExternalIndexConfig {
+  roots: string[];
+  extensions?: string[];
+  exclude?: string[];
+}
+
 export interface IndexConfig {
   enabled: boolean;
   code: IndexCodeConfig;
+  external?: ExternalIndexConfig;
   semanticTopK: number;
   maxChunkChars: number;
   embeddingBatchSize: number;

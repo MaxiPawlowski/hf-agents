@@ -12,10 +12,11 @@ import {
   readVaultContext,
   getVaultPaths,
   getRuntimePaths,
-  ensureRuntimeDir
+  ensureRuntimeDir,
+  resolveLastActivePlanPath
 } from "../src/runtime/persistence.js";
 import { parsePlan } from "../src/runtime/plan-doc.js";
-import type { RuntimeStatus, RuntimeEvent, ParsedPlan, VaultPaths } from "../src/runtime/types.js";
+import type { RuntimeStatus, RuntimeEvent, ParsedPlan } from "../src/runtime/types.js";
 
 let tmpDir: string;
 let plan: ParsedPlan;
@@ -247,5 +248,107 @@ describe("readVaultContext", () => {
       "Plan discoveries",
       "Plan decisions"
     ]);
+  });
+});
+
+describe("resolveLastActivePlanPath", () => {
+  test("returns the plan path of the most recently updated active plan", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "hf-resolve-plan-"));
+    const runtimeDir = path.join(root, "plans", "runtime", "my-feature");
+    await fs.mkdir(runtimeDir, { recursive: true });
+    await fs.writeFile(
+      path.join(runtimeDir, "status.json"),
+      JSON.stringify({
+        version: 1,
+        planPath: path.join(root, "plans", "2026-03-28-my-feature-plan.md"),
+        planSlug: "my-feature",
+        loopState: "running",
+        updatedAt: "2026-03-28T10:00:00.000Z"
+      }),
+      "utf8"
+    );
+
+    const result = await resolveLastActivePlanPath(root);
+    expect(result).toBe(path.join(root, "plans", "2026-03-28-my-feature-plan.md"));
+  });
+
+  test("skips completed plans", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "hf-resolve-complete-"));
+    const runtimeDir = path.join(root, "plans", "runtime", "done-feature");
+    await fs.mkdir(runtimeDir, { recursive: true });
+    await fs.writeFile(
+      path.join(runtimeDir, "status.json"),
+      JSON.stringify({
+        version: 1,
+        planPath: path.join(root, "plans", "done-plan.md"),
+        planSlug: "done-feature",
+        loopState: "complete",
+        updatedAt: "2026-03-28T10:00:00.000Z"
+      }),
+      "utf8"
+    );
+
+    const result = await resolveLastActivePlanPath(root);
+    expect(result).toBeNull();
+  });
+
+  test("returns null when no runtime directories exist", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "hf-resolve-empty-"));
+    const result = await resolveLastActivePlanPath(root);
+    expect(result).toBeNull();
+  });
+
+  test("picks the most recently updated plan among multiple", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "hf-resolve-multi-"));
+    const olderDir = path.join(root, "plans", "runtime", "older-plan");
+    const newerDir = path.join(root, "plans", "runtime", "newer-plan");
+    await fs.mkdir(olderDir, { recursive: true });
+    await fs.mkdir(newerDir, { recursive: true });
+
+    await fs.writeFile(
+      path.join(olderDir, "status.json"),
+      JSON.stringify({
+        version: 1,
+        planPath: "/plans/older-plan.md",
+        planSlug: "older-plan",
+        loopState: "running",
+        updatedAt: "2026-03-27T10:00:00.000Z"
+      }),
+      "utf8"
+    );
+    await fs.writeFile(
+      path.join(newerDir, "status.json"),
+      JSON.stringify({
+        version: 1,
+        planPath: "/plans/newer-plan.md",
+        planSlug: "newer-plan",
+        loopState: "paused",
+        updatedAt: "2026-03-28T10:00:00.000Z"
+      }),
+      "utf8"
+    );
+
+    const result = await resolveLastActivePlanPath(root);
+    expect(result).toBe("/plans/newer-plan.md");
+  });
+
+  test("skips _planless directory", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "hf-resolve-planless-"));
+    const planlessDir = path.join(root, "plans", "runtime", "_planless");
+    await fs.mkdir(planlessDir, { recursive: true });
+    await fs.writeFile(
+      path.join(planlessDir, "status.json"),
+      JSON.stringify({
+        version: 1,
+        planPath: "",
+        planSlug: "_planless",
+        loopState: "idle",
+        updatedAt: "2026-03-28T10:00:00.000Z"
+      }),
+      "utf8"
+    );
+
+    const result = await resolveLastActivePlanPath(root);
+    expect(result).toBeNull();
   });
 });

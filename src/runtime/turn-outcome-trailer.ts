@@ -57,19 +57,22 @@ function describeType(value: unknown): string {
   return typeof value;
 }
 
+// oxlint-disable max-params -- validation helper needs issues, value, allowed-set, and path; no natural grouping
 function pushUnexpectedKeys(
   issues: TurnOutcomeValidationIssue[],
   value: Record<string, unknown>,
   allowedKeys: Set<string>,
   path: string
 ): void {
+// oxlint-enable max-params
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) {
-      issues.push({ path, message: `unexpected property \"${key}\"` });
+      issues.push({ path, message: `unexpected property "${key}"` });
     }
   }
 }
 
+// oxlint-disable-next-line max-lines-per-function -- validates a tree-shaped schema; extracting sub-validators would obscure the overall structure
 export function validateTurnOutcome(value: unknown): TurnOutcomeValidationIssue[] {
   const issues: TurnOutcomeValidationIssue[] = [];
   if (!isRecord(value)) {

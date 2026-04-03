@@ -1,3 +1,4 @@
+// oxlint-disable max-lines -- plugin integrates hooks, tools, session management and LRU eviction in a single cohesive unit
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import { createRequire } from "node:module";
@@ -9,11 +10,12 @@ import {
   recordCompactionArchive,
   recordSubagentLifecycle
 } from "../adapters/lifecycle.js";
-import { HybridLoopRuntime } from "../runtime/runtime.js";
+import type { HybridLoopRuntime } from "../runtime/runtime.js";
 import { parsePlan } from "../runtime/plan-doc.js";
 import { detectTurnOutcomeInPayload } from "../runtime/turn-outcome-ingestion.js";
 import { hfLog, hfLogTimed } from "../runtime/logger.js";
 import type { ContinueDecision, RuntimeEvent } from "../runtime/types.js";
+import { formatToolSearchResults } from "../runtime/prompt.js";
 
 /**
  * Inline ToolContext shape matching @opencode-ai/plugin ToolContext.
@@ -48,7 +50,12 @@ const _req = createRequire(import.meta.url);
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-require-imports
 const _zodMod = _req(
   path.resolve(process.cwd(), ".opencode", "node_modules", "zod", "index.cjs")
-) as { z: { string(): { describe(s: string): unknown } } };
+) as {
+  z: {
+    string(): { describe(s: string): { optional(): unknown } };
+    number(): { describe(s: string): { optional(): unknown } };
+  }
+};
 // pluginZ is the `z` export — used only to build the hf_plan_start args schema.
 const pluginZ = _zodMod.z;
 
@@ -98,7 +105,7 @@ function extractCommand(input?: HookInput, output?: HookInput): string {
 
 function toPayload(input?: HookInput, output?: HookInput): Record<string, unknown> {
   return {
-    ...(input ?? {}),
+    ...(input),
     ...(output ? { output } : {})
   };
 }
@@ -131,12 +138,14 @@ async function hydrateRuntime(context: OpenCodePluginContext, explicitPlanPath?:
   return runtime;
 }
 
+// oxlint-disable max-params -- runtime, eventType, input, output, context are all distinct event-recording params
 async function recordOpenCodeEvent(
   runtime: HybridLoopRuntime,
   eventType: string,
   input: HookInput,
   output: HookInput,
   context: OpenCodePluginContext
+// oxlint-enable max-params
 ): Promise<HybridLoopRuntime> {
   const sessionId = extractSessionId(input, output, context);
   const event: RuntimeEvent = {
@@ -150,7 +159,9 @@ async function recordOpenCodeEvent(
   return runtime;
 }
 
+// oxlint-disable max-params -- runtime, input, output, sessionId are distinct outcome-ingestion params
 async function ingestOpenCodeOutcome(runtime: HybridLoopRuntime, input: HookInput, output: HookInput, sessionId?: string): Promise<{
+// oxlint-enable max-params
   ingested: boolean;
   observed: boolean;
 }> {
@@ -208,7 +219,9 @@ export interface HybridRuntimeHooksResult {
   getRuntime: (sessionId: string) => Promise<HybridLoopRuntime | null>;
 }
 
+// oxlint-disable max-lines-per-function -- factory function that sets up per-session runtime map, LRU eviction, hooks, and tool definitions; cannot be split without breaking closure state
 export function createHybridRuntimeHooks(context: OpenCodePluginContext): HybridRuntimeHooksResult {
+// oxlint-enable max-lines-per-function
   // Per-session runtime map: sessionId → Promise<HybridLoopRuntime | null>
   const sessionRuntimes = new Map<string, Promise<HybridLoopRuntime | null>>();
 
@@ -530,7 +543,9 @@ export function createHybridRuntimeHooks(context: OpenCodePluginContext): Hybrid
     args: {
       plan: pluginZ.string().describe("Plan slug or relative path (e.g. 'my-feature' or 'plans/2026-03-27-my-feature-plan.md')")
     },
+    // oxlint-disable max-lines-per-function -- plan resolution, slug scanning, runtime hydration, and summary building are tightly coupled steps for a single atomic tool operation
     execute: async (args: { plan: string }, toolContext: ToolContext): Promise<string> => {
+    // oxlint-enable max-lines-per-function
       const planArg = args.plan ?? "";
       const baseDir = toolContext.directory;
 
@@ -602,10 +617,11 @@ export function createHybridRuntimeHooks(context: OpenCodePluginContext): Hybrid
           const status = runtime.getStatus();
           // Parse plan doc for richer info (title, milestone count).
           try {
-            const parsed = await parsePlan(resolvedPath);
-            const planTitle = parsed.milestones.length > 0
-              ? (parsed.userIntent ? parsed.userIntent.split("\n")[0]?.trim() ?? path.basename(resolvedPath) : path.basename(resolvedPath))
-              : path.basename(resolvedPath);
+              const parsed = await parsePlan(resolvedPath);
+              const planTitle =
+                parsed.milestones.length > 0 && parsed.userIntent
+                  ? (parsed.userIntent.split("\n")[0]?.trim() ?? path.basename(resolvedPath))
+                  : path.basename(resolvedPath);
             const totalMilestones = parsed.milestones.length;
             const currentIdx = parsed.currentMilestone?.index ?? null;
             const currentTitle = parsed.currentMilestone?.title ?? "(all complete)";
@@ -634,8 +650,63 @@ export function createHybridRuntimeHooks(context: OpenCodePluginContext): Hybrid
     }
   };
 
+  /**
+   * `hf_search` tool: performs an ad-hoc semantic search against the
+   * project's unified vector index (vault markdown + TypeScript source code).
+   *
+   * Agents call this when the context dispatched to them is insufficient or
+   * when they need to explore conventions, patterns, or related implementations
+   * in the codebase. Optionally filter by source type.
+   */
+  const hfSearchTool = {
+    description: "Search the hybrid framework's unified semantic index (vault docs, code, and external files). Optionally filter by source: 'vault' for documentation, 'code' for source code, 'all' (default) for everything.",
+    args: {
+      query: pluginZ.string().describe("Natural language search query"),
+      top_k: pluginZ.number().describe("Number of results to return (default: 5)").optional(),
+      source: pluginZ.string().describe("Source filter: 'vault' for documentation only, 'code' for source code only, 'all' for everything (default: 'all')").optional()
+    },
+    execute: async (args: { query: string; top_k?: number; source?: string }, toolContext: ToolContext): Promise<string> => {
+      try {
+        const query = args.query ?? "";
+        const topK = args.top_k !== undefined ? args.top_k : undefined;
+        const sourceArg = args.source;
+        let sourceFilter: "vault" | "code" | undefined;
+        if (sourceArg === "vault") sourceFilter = "vault";
+        else if (sourceArg === "code") sourceFilter = "code";
+
+        let runtime = await getRuntime(toolContext.sessionID);
+
+        // No plan binding for this session — spin up a disposable planless runtime
+        // so the tool can still search the code index even without an active plan.
+        if (!runtime) {
+          try {
+            const planlessRuntime = await hydrateRuntimeWithTimeout({
+              cwd: context.cwd ?? toolContext.directory,
+              timeoutMs: 15_000,
+              timeoutMessage: "Runtime hydration timed out",
+              tag: "plugin/hf_search",
+            });
+            runtime = planlessRuntime;
+          } catch {
+            return "No index available — the unified index has not been built yet for this session.";
+          }
+        }
+
+        const results = await runtime.queryIndex(query, topK, sourceFilter);
+        if (results === null) {
+          return "No index available — the unified index has not been built yet for this session.";
+        }
+
+        return formatToolSearchResults(results);
+      } catch (err) {
+        return `Error querying index: ${String(err)}`;
+      }
+    }
+  };
+
   const tools: Record<string, unknown> = {
-    hf_plan_start: hfPlanStartTool
+    hf_plan_start: hfPlanStartTool,
+    hf_search: hfSearchTool
   };
 
   return { hooks, tools, planBindings, sessionRuntimes, getRuntime };
@@ -670,10 +741,12 @@ async function listAvailablePlans(baseDir: string): Promise<string[]> {
  * top-level hook names.  Registering them as top-level keys caused OpenCode to
  * silently ignore them.
  */
+// oxlint-disable max-lines-per-function -- maps internal hooks to OpenCode-compatible shape; all branches are necessary routing and cannot be further reduced
 function toOpenCodeHooks(
   internalHooks: Record<string, OpenCodeHook>,
   tools: Record<string, unknown>,
-  context: OpenCodePluginContext
+  _context: OpenCodePluginContext
+// oxlint-enable max-lines-per-function
 ): Record<string, unknown> {
   return {
     /* ── filter hook – unchanged ─────────────────────────────────── */

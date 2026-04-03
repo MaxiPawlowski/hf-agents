@@ -23,6 +23,10 @@ const generatedOpenCodeSkillDirectories = [
   "skills/verification-before-completion"
 ];
 
+function stripDisableModelInvocation(content) {
+  return content.replace(/^disable-model-invocation:.*\r?\n/m, "");
+}
+
 function log(message) {
   process.stdout.write(`${message}\n`);
 }
@@ -139,7 +143,7 @@ function trySymlink(sourcePath, targetPath, allowFallback) {
   }
 }
 
-function materializeFile(options, sourceRelativePath, targetRelativePath, stats) {
+function materializeFile(options, sourceRelativePath, targetRelativePath, stats, transform) {
   const sourcePath = path.join(options.sourceRoot, sourceRelativePath);
   const targetPath = path.join(options.targetRoot, targetRelativePath);
 
@@ -149,6 +153,13 @@ function materializeFile(options, sourceRelativePath, targetRelativePath, stats)
 
   removeIfPresent(targetPath);
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+
+  if (transform) {
+    const content = fs.readFileSync(sourcePath, "utf8");
+    fs.writeFileSync(targetPath, transform(content), "utf8");
+    stats.copied += 1;
+    return;
+  }
 
   if (options.mode === "copy") {
     fs.copyFileSync(sourcePath, targetPath);
@@ -265,7 +276,7 @@ function buildConfiguredMappings(adapter, configuredAssets) {
   return mappings;
 }
 
-function syncMappings(options, mappings, label) {
+function syncMappings(options, mappings, label, transform) {
   const dedupedMappings = [];
   const seenTargets = new Set();
 
@@ -281,7 +292,7 @@ function syncMappings(options, mappings, label) {
   const stats = { copied: 0, symlinked: 0 };
 
   for (const mapping of dedupedMappings) {
-    materializeFile(options, mapping.sourceRelativePath, mapping.targetRelativePath, stats);
+    materializeFile(options, mapping.sourceRelativePath, mapping.targetRelativePath, stats, transform);
   }
 
   log(`${label}: ${dedupedMappings.length} files (${stats.symlinked} symlinked, ${stats.copied} copied).`);
@@ -335,7 +346,7 @@ function syncOpenCode(options, config) {
   }
 
   syncMappings(options, agentMappings, "OpenCode agents");
-  syncMappings(options, skillMappings, "OpenCode skills");
+  syncMappings(options, skillMappings, "OpenCode skills", stripDisableModelInvocation);
 }
 
 function syncClaude(options, config) {

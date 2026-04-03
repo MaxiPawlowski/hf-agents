@@ -1,7 +1,6 @@
-import { readEventLines, readStatus } from "./persistence.js";
+import { readEventLines, readStatus, getRuntimePaths } from "./persistence.js";
 import { parsePlan } from "./plan-doc.js";
 import type { ParsedPlan } from "./types.js";
-import { getRuntimePaths } from "./persistence.js";
 
 export interface DoctorResult {
   ok: boolean;
@@ -47,7 +46,7 @@ export async function runDoctor(planPath: string): Promise<DoctorResult> {
   for (const [index, line] of eventLines.entries()) {
     try {
       JSON.parse(line);
-    } catch (error) {
+    } catch {
       issues.push(`events.jsonl line ${index + 1} is not valid JSON.`);
       break;
     }

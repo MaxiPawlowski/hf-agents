@@ -124,7 +124,6 @@ describe("adapter README drift detection", () => {
       { path: "plans/README.md", label: "../plans/README.md" },
       { path: ".claude/settings.example.json", label: "settings.example.json" },
       { path: "src/claude/hook-handler.ts", label: "../src/claude/hook-handler.ts" },
-      { path: "scripts/install-runtime.mjs", label: "scripts/install-runtime.mjs" },
     ];
 
     for (const ref of referencedPaths) {
@@ -172,7 +171,6 @@ describe("adapter README drift detection", () => {
       { path: "plans/README.md", label: "../plans/README.md" },
       { path: ".opencode/registry.json", label: "registry.json" },
       { path: "scripts/sync-opencode-assets.mjs", label: "scripts/sync-opencode-assets.mjs" },
-      { path: "scripts/install-runtime.mjs", label: "scripts/install-runtime.mjs" },
     ];
 
     for (const ref of referencedPaths) {

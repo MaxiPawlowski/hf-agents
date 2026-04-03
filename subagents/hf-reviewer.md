@@ -58,6 +58,7 @@ Checklist:
 - Verification adequacy: confirm evidence matches the verification tier the artifact requires — execution evidence for code changes, not just file reads.
 - Technical optimality: reject avoidable complexity such as code duplication or unnecessary fallback chains.
 - Artifact consistency: required execution artifacts reflect the current milestone state.
+- Lint compliance: Oxlint-detectable structural violations (function length, file length, nesting depth, magic numbers, `any` type, unhandled promises) are blocking quality failures — reject if the builder's oxlint evidence shows violations or is absent for code-changing milestones. New suppression directives (`oxlint-ignore`, `oxlint-disable`) require a written justification comment and explicit milestone scope approval; flag and reject if either is missing.
 
 ## Required Output
 

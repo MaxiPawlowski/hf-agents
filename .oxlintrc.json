@@ -1,0 +1,59 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "import", "unicorn", "promise"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "max-lines-per-function": ["error", { "max": 50, "skipBlankLines": true, "skipComments": true }],
+    "max-params": ["error", { "max": 3 }],
+    "max-depth": ["error", { "max": 3 }],
+    "complexity": ["error", { "max": 10 }],
+    "no-magic-numbers": ["warn", { "ignore": [-1, 0, 1, 2], "ignoreArrayIndexes": true, "ignoreDefaultValues": true }],
+    "no-var": "error",
+    "prefer-const": "error",
+    "no-nested-ternary": "error",
+    "no-unused-vars": "error",
+    "no-unreachable": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/consistent-type-imports": ["error", { "prefer": "type-imports" }],
+    "typescript/no-non-null-assertion": "warn",
+    "import/no-cycle": "error",
+    "import/no-duplicates": "error",
+    "promise/no-return-wrap": "error",
+    "no-async-promise-executor": "error",
+    "promise/catch-or-return": "warn",
+    "unicorn/prefer-module": "error",
+    "unicorn/prefer-node-protocol": "error",
+    "no-console": "warn",
+    "max-lines": ["error", { "max": 500, "skipBlankLines": true, "skipComments": true }]
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.spec.ts", "**/tests/**"],
+      "rules": {
+        "max-lines-per-function": "off",
+        "max-lines": "off",
+        "max-params": "off",
+        "max-depth": "off",
+        "no-magic-numbers": "off",
+        "typescript/no-explicit-any": "warn",
+        "no-console": "off"
+      }
+    },
+    {
+      "files": ["**/*.config.ts", "**/config/**"],
+      "rules": {
+        "max-lines-per-function": "off",
+        "max-lines": "off",
+        "no-magic-numbers": "off"
+      }
+    },
+    {
+      "files": ["src/bin/**"],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ]
+}

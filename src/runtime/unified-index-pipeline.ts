@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-import type { VaultContext, VaultDocument, VaultPaths } from "./types.js";
+import type { ExternalIndexConfig, VaultChunk, VaultContext, VaultDocument, VaultPaths } from "./types.js";
 import { normalizePath } from "./chunk-utils.js";
 import { chunkTypeScriptFile } from "./code-chunker.js";
 import { hfLog } from "./logger.js";
@@ -30,14 +30,15 @@ interface BuildUnifiedIndexConfig {
   vaultPaths?: VaultPaths;
   vaultContext?: VaultContext;
   codeConfig?: CodeIndexConfig | undefined;
+  externalConfig?: ExternalIndexConfig | undefined;
   embeddingBatchSize?: number | undefined;
   maxChunkChars?: number | undefined;
 }
 
-interface ScannedFile {
+export interface ScannedFile {
   path: string;
   hash: string;
-  kind: "vault" | "code";
+  kind: "vault" | "code" | "external";
   content: string;
   title?: string;
 }
@@ -163,6 +164,114 @@ async function scanCodeFiles(repoRoot: string, codeConfig: CodeIndexConfig): Pro
   return files.flat();
 }
 
+const EXTERNAL_DEFAULT_EXTENSIONS = [".ts", ".js", ".md"];
+const TS_JS_EXTENSIONS = [".ts", ".js"];
+
+export async function scanExternalFiles(externalConfig: ExternalIndexConfig): Promise<ScannedFile[]> {
+  const exclude = [...DEFAULT_EXCLUDES, ...(externalConfig.exclude ?? [])];
+  const extensions = externalConfig.extensions ?? EXTERNAL_DEFAULT_EXTENSIONS;
+  const roots = [...new Set(externalConfig.roots.map((root) => path.resolve(root)))].sort((a, b) =>
+    a.localeCompare(b),
+  );
+
+  const files = await Promise.all(
+    roots.map(async (rootPath) => {
+      const entries = await scanRecursive(rootPath);
+      const sourceFiles = entries.filter((filePath) => {
+        const matchesExt = extensions.some((ext) => filePath.endsWith(ext));
+        if (!matchesExt) {
+          return false;
+        }
+        // For .ts/.js only: exclude test and declaration files
+        if (TS_JS_EXTENSIONS.some((ext) => filePath.endsWith(ext))) {
+          if (TS_JS_EXTENSIONS.some((ext) => filePath.endsWith(`.test${ext}`) || filePath.endsWith(`.d${ext}`))) {
+            return false;
+          }
+        }
+        return !matchesExclude(filePath, rootPath, exclude);
+      });
+
+      return (
+        await Promise.all(
+          sourceFiles.map(async (filePath) => {
+            const resolvedPath = path.resolve(filePath);
+            let content: string;
+            try {
+              content = await fs.readFile(resolvedPath, "utf8");
+            } catch (err) {
+              const code = (err as NodeJS.ErrnoException).code;
+              if (code === "EACCES" || code === "EPERM") {
+                hfLog({ tag: "unified-index-pipeline", msg: `Skipping file due to permission error: ${resolvedPath}` });
+                return null;
+              }
+              throw err;
+            }
+            const result: ScannedFile = {
+              path: resolvedPath,
+              hash: computeFileHash(content),
+              kind: "external",
+              content,
+            };
+            return result;
+          }),
+        )
+      ).filter((f): f is ScannedFile => f !== null);
+    }),
+  );
+
+  return files.flat();
+}
+
+function chunkTextFile(filePath: string, content: string, maxChunkChars: number = 2000): VaultChunk[] {
+  const documentTitle = path.basename(filePath, path.extname(filePath));
+  const paragraphs = content.split(/\n\n+/);
+  const chunks: VaultChunk[] = [];
+  let chunkIndex = 0;
+
+  for (const para of paragraphs) {
+    const trimmed = para.trim();
+    if (!trimmed) continue;
+
+    // Split oversized paragraphs by maxChunkChars
+    let offset = 0;
+    while (offset < trimmed.length) {
+      const slice = trimmed.slice(offset, offset + maxChunkChars);
+      const id = createHash("sha256")
+        .update(`${filePath}:${chunkIndex}`)
+        .digest("hex")
+        .slice(0, 16);
+      chunks.push({
+        id,
+        text: slice,
+        metadata: {
+          sourcePath: filePath,
+          sectionTitle: documentTitle,
+          documentTitle,
+          kind: "external",
+        },
+      });
+      chunkIndex++;
+      offset += maxChunkChars;
+    }
+  }
+
+  if (chunks.length === 0 && content.trim()) {
+    const id = createHash("sha256").update(`${filePath}:0`).digest("hex").slice(0, 16);
+    chunks.push({
+      id,
+      text: content.trim().slice(0, maxChunkChars),
+      metadata: {
+        sourcePath: filePath,
+        sectionTitle: documentTitle,
+        documentTitle,
+        kind: "external",
+      },
+    });
+  }
+
+  return chunks;
+}
+
 async function embedInBatches(texts: string[], batchSize: number = EMBEDDING_BATCH_SIZE): Promise<number[][]> {
   const results: number[][] = [];
   const totalBatches = Math.ceil(texts.length / batchSize);
@@ -186,7 +295,7 @@ function toIndexMetadata(
     sourcePath: string;
     sectionTitle: string;
     documentTitle: string;
-    kind?: "vault" | "code";
+    kind?: "vault" | "code" | "external";
   },
 ): Record<string, string> {
   return {
@@ -197,12 +306,15 @@ function toIndexMetadata(
   };
 }
 
+// oxlint-disable max-lines-per-function -- incremental index build with scan, diff, stale-purge, chunk, embed, and save phases; cannot be split without breaking the diff state
 export async function buildUnifiedIndex(
   config: BuildUnifiedIndexConfig,
 ): Promise<{ index: UnifiedIndex; vectors: Float32Array } | null> {
+// oxlint-enable max-lines-per-function
   const scannedFiles = [...new Map([
     ...(config.vaultPaths ? await scanVaultFiles(config.repoRoot, config.vaultPaths, config.vaultContext) : []),
     ...(config.codeConfig ? await scanCodeFiles(config.repoRoot, config.codeConfig) : []),
+    ...(config.externalConfig ? await scanExternalFiles(config.externalConfig) : []),
   ].map((file) => [file.path, file] as const)).values()].sort((a, b) => a.path.localeCompare(b.path));
 
   if (scannedFiles.length === 0) {
@@ -242,6 +354,28 @@ export async function buildUnifiedIndex(
         title: file.title ?? path.basename(file.path, path.extname(file.path)),
         content: file.content,
       }, config.maxChunkChars);
+    }
+    if (file.kind === "external") {
+      const ext = path.extname(file.path).toLowerCase();
+      if (ext === ".ts" || ext === ".js") {
+        // Code chunker produces kind:"code"; override to "external"
+        return chunkTypeScriptFile(file.path, file.content, config.maxChunkChars).map((chunk) => ({
+          ...chunk,
+          metadata: { ...chunk.metadata, kind: "external" as const },
+        }));
+      }
+      if (ext === ".md") {
+        // Vault chunker produces no kind; override to "external"
+        return chunkVaultDocument({
+          path: file.path,
+          title: path.basename(file.path, ext),
+          content: file.content,
+        }, config.maxChunkChars).map((chunk) => ({
+          ...chunk,
+          metadata: { ...chunk.metadata, kind: "external" as const },
+        }));
+      }
+      return chunkTextFile(file.path, file.content, config.maxChunkChars);
     }
     return chunkTypeScriptFile(file.path, file.content, config.maxChunkChars);
   });

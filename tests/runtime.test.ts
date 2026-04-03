@@ -2,12 +2,12 @@ import os from "node:os";
 import path from "node:path";
 import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi, afterEach } from "vitest";
 
 import { runDoctor } from "../src/runtime/doctor.js";
 import { parsePlan } from "../src/runtime/plan-doc.js";
 import { getRuntimePaths, getVaultPaths, readStatus, readVaultContext } from "../src/runtime/persistence.js";
-import { HybridLoopRuntime, computeDecision, resolveManagedPlanPath, isManagedPlanUnavailable } from "../src/runtime/runtime.js";
+import { HybridLoopRuntime, computeDecision, resolveManagedPlanPath } from "../src/runtime/runtime.js";
 import type { DecisionInput } from "../src/runtime/runtime.js";
 import { hydrateRuntimeWithTimeout } from "../src/adapters/lifecycle.js";
 import {
@@ -17,6 +17,27 @@ import {
   parseTurnOutcomeInput
 } from "../src/runtime/turn-outcome-trailer.js";
 import type { TurnOutcome } from "../src/runtime/types.js";
+
+// ---------------------------------------------------------------------------
+// Module-level mocks for index pipeline + embeddings
+// vi.mock() calls are hoisted by vitest; they apply to the whole file.
+// Default behaviour: buildUnifiedIndex returns null (no index), embed/embedBatch
+// are no-ops.  Individual queryIndex tests override via mockResolvedValueOnce.
+// ---------------------------------------------------------------------------
+vi.mock("../src/runtime/unified-index-pipeline.js", () => ({
+  buildUnifiedIndex: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("../src/runtime/vault-embeddings.js", () => ({
+  embed: vi.fn().mockResolvedValue(Array.from({ length: 384 }, () => 0)),
+  embedBatch: vi.fn().mockResolvedValue([]),
+  warmupEmbeddingModel: vi.fn(),
+  EmbeddingModelError: class EmbeddingModelError extends Error {},
+}));
+
+import { buildUnifiedIndex } from "../src/runtime/unified-index-pipeline.js";
+import { embed } from "../src/runtime/vault-embeddings.js";
+import type { UnifiedIndex } from "../src/runtime/unified-store.js";
 
 async function createPlan(root: string, body: string): Promise<string> {
   const plansDir = path.join(root, "plans");
@@ -774,6 +795,349 @@ describe("HybridLoopRuntime", () => {
     await runtime.hydrate(planPath);
 
     expect(runtime.getIndexConfig()?.enabled).toBe(false);
+  });
+
+  // ---------------------------------------------------------------------------
+  // queryIndex() public API
+  // ---------------------------------------------------------------------------
+
+  describe("queryIndex()", () => {
+    afterEach(() => {
+      vi.mocked(buildUnifiedIndex).mockResolvedValue(null);
+      vi.mocked(embed).mockResolvedValue(Array.from({ length: 384 }, () => 0));
+    });
+
+    test("returns null when index build returns null (e.g. disabled or failed)", async () => {
+      const root = await mkdtemp(path.join(os.tmpdir(), "hf-query-"));
+      const planPath = await createPlan(root, [
+        "# Plan: Test",
+        "",
+        "## Milestones",
+        "- [ ] 1. Add runtime core"
+      ].join("\n"));
+
+      // buildUnifiedIndex is mocked to return null for the whole file — so the
+      // on-demand refreshVaultIndex() triggered by queryIndex() will produce a
+      // null index, and queryIndex() returns null.
+      const runtime = new HybridLoopRuntime();
+      await runtime.hydrate(planPath);
+      // Do NOT call decideNext() — queryIndex() will trigger on-demand refresh,
+      // but buildUnifiedIndex mock returns null → queryIndex() returns null.
+
+      const result = await runtime.queryIndex("anything");
+      expect(result).toBeNull();
+    });
+
+    test("returns sorted VaultSearchResult[] when index is available", async () => {
+      const root = await mkdtemp(path.join(os.tmpdir(), "hf-query-"));
+      const planPath = await createPlan(root, [
+        "# Plan: Test",
+        "",
+        "## Milestones",
+        "- [ ] 1. Add runtime core"
+      ].join("\n"));
+
+      // Build a minimal mock index with two vault items
+      const EMBEDDING_DIM = 384;
+
+      const mockIndex: UnifiedIndex = {
+        version: 2,
+        embeddingDim: 384,
+        items: [
+          {
+            id: "item-1",
+            text: "First vault chunk",
+            metadata: {
+              sourcePath: "vault/shared/context.md",
+              sectionTitle: "Context",
+              documentTitle: "Context",
+              kind: "vault"
+            }
+          },
+          {
+            id: "item-2",
+            text: "Second code chunk",
+            metadata: {
+              sourcePath: "src/runtime/runtime.ts",
+              sectionTitle: "hydrate",
+              documentTitle: "runtime",
+              kind: "code"
+            }
+          }
+        ],
+        fileHashes: {},
+        timestamp: new Date().toISOString()
+      };
+
+      // Pre-normalized vectors: item-1 strongly matches query (same direction)
+      const vectors = new Float32Array(2 * EMBEDDING_DIM);
+      // item-1 vector: unit vector along dim 0
+      vectors[0] = 1.0;
+      // item-2 vector: unit vector along dim 1
+      vectors[EMBEDDING_DIM + 1] = 1.0;
+
+      vi.mocked(buildUnifiedIndex).mockResolvedValueOnce({ index: mockIndex, vectors });
+      const queryVec = Array.from({ length: EMBEDDING_DIM }, () => 0);
+      queryVec[0] = 1.0;
+
+      vi.mocked(embed).mockResolvedValueOnce(queryVec);
+
+      const runtime = new HybridLoopRuntime();
+      await runtime.hydrate(planPath);
+      await runtime.decideNext(); // triggers refreshVaultIndex() → sets unifiedIndex
+
+      const results = await runtime.queryIndex("context query");
+
+      expect(results).not.toBeNull();
+      expect(Array.isArray(results)).toBe(true);
+      expect(results!.length).toBeGreaterThan(0);
+      // Results should be sorted by score descending (item-1 has higher score)
+      expect(results![0]!.metadata.sourcePath).toBe("vault/shared/context.md");
+      expect(results![0]!.metadata.kind).toBe("vault");
+      expect(results![1]!.metadata.kind).toBe("code");
+      // Shape check: required fields present
+      expect(typeof results![0]!.score).toBe("number");
+      expect(typeof results![0]!.text).toBe("string");
+      expect(typeof results![0]!.metadata.sectionTitle).toBe("string");
+      expect(typeof results![0]!.metadata.documentTitle).toBe("string");
+    });
+
+    test("respects the topK parameter", async () => {
+      const root = await mkdtemp(path.join(os.tmpdir(), "hf-query-"));
+      const planPath = await createPlan(root, [
+        "# Plan: Test",
+        "",
+        "## Milestones",
+        "- [ ] 1. Add runtime core"
+      ].join("\n"));
+
+      const EMBEDDING_DIM = 384;
+
+      // Build a mock index with 5 items
+      const items = [1, 2, 3, 4, 5].map((i) => ({
+        id: `item-${i}`,
+        text: `Chunk number ${i}`,
+        metadata: {
+          sourcePath: `vault/shared/doc${i}.md`,
+          sectionTitle: `Section ${i}`,
+          documentTitle: `Doc ${i}`,
+          kind: "vault" as const
+        }
+      }));
+
+      const mockIndex: UnifiedIndex = {
+        version: 2,
+        embeddingDim: 384,
+        items,
+        fileHashes: {},
+        timestamp: new Date().toISOString()
+      };
+
+      // Each item gets a unit vector along its own dimension
+      const vectors = new Float32Array(5 * EMBEDDING_DIM);
+      for (let i = 0; i < 5; i++) {
+        vectors[i * EMBEDDING_DIM + i] = 1.0;
+      }
+
+      vi.mocked(buildUnifiedIndex).mockResolvedValueOnce({ index: mockIndex, vectors });
+      // embed is called twice: once by decideNext() for milestone text, once by queryIndex
+      // We give them both an identical query vector
+      const queryVec = Array.from({ length: EMBEDDING_DIM }, () => 0);
+      queryVec[0] = 1.0;
+      vi.mocked(embed).mockResolvedValue(queryVec);
+
+      const runtime = new HybridLoopRuntime();
+      await runtime.hydrate(planPath);
+      await runtime.decideNext(); // loads index
+
+      const topK2 = await runtime.queryIndex("any query", 2);
+      expect(topK2).not.toBeNull();
+      expect(topK2!.length).toBe(2);
+
+      const topK3 = await runtime.queryIndex("any query", 3);
+      expect(topK3).not.toBeNull();
+      expect(topK3!.length).toBe(3);
+    });
+
+    test("sourceFilter: only vault chunks returned when sourceFilter='vault'", async () => {
+      const root = await mkdtemp(path.join(os.tmpdir(), "hf-query-"));
+      const planPath = await createPlan(root, [
+        "# Plan: Test",
+        "",
+        "## Milestones",
+        "- [ ] 1. Add runtime core"
+      ].join("\n"));
+
+      const EMBEDDING_DIM = 384;
+
+      const mockIndex: UnifiedIndex = {
+        version: 2,
+        embeddingDim: 384,
+        items: [
+          {
+            id: "vault-item",
+            text: "Vault documentation chunk",
+            metadata: {
+              sourcePath: "vault/shared/context.md",
+              sectionTitle: "Context",
+              documentTitle: "Context",
+              kind: "vault"
+            }
+          },
+          {
+            id: "code-item",
+            text: "Source code chunk",
+            metadata: {
+              sourcePath: "src/runtime/runtime.ts",
+              sectionTitle: "hydrate",
+              documentTitle: "runtime",
+              kind: "code"
+            }
+          }
+        ],
+        fileHashes: {},
+        timestamp: new Date().toISOString()
+      };
+
+      const vectors = new Float32Array(2 * EMBEDDING_DIM);
+      vectors[0] = 1.0;
+      vectors[EMBEDDING_DIM] = 1.0;
+
+      vi.mocked(buildUnifiedIndex).mockResolvedValueOnce({ index: mockIndex, vectors });
+      const queryVec = Array.from({ length: EMBEDDING_DIM }, () => 0);
+      queryVec[0] = 1.0;
+      vi.mocked(embed).mockResolvedValue(queryVec);
+
+      const runtime = new HybridLoopRuntime();
+      await runtime.hydrate(planPath);
+      await runtime.decideNext();
+
+      const results = await runtime.queryIndex("context query", 10, "vault");
+      expect(results).not.toBeNull();
+      expect(results!.length).toBe(1);
+      expect(results![0]!.metadata.kind).toBe("vault");
+      expect(results![0]!.metadata.sourcePath).toBe("vault/shared/context.md");
+    });
+
+    test("sourceFilter: only code chunks returned when sourceFilter='code'", async () => {
+      const root = await mkdtemp(path.join(os.tmpdir(), "hf-query-"));
+      const planPath = await createPlan(root, [
+        "# Plan: Test",
+        "",
+        "## Milestones",
+        "- [ ] 1. Add runtime core"
+      ].join("\n"));
+
+      const EMBEDDING_DIM = 384;
+
+      const mockIndex: UnifiedIndex = {
+        version: 2,
+        embeddingDim: 384,
+        items: [
+          {
+            id: "vault-item",
+            text: "Vault documentation chunk",
+            metadata: {
+              sourcePath: "vault/shared/context.md",
+              sectionTitle: "Context",
+              documentTitle: "Context",
+              kind: "vault"
+            }
+          },
+          {
+            id: "code-item",
+            text: "Source code chunk",
+            metadata: {
+              sourcePath: "src/runtime/runtime.ts",
+              sectionTitle: "hydrate",
+              documentTitle: "runtime",
+              kind: "code"
+            }
+          }
+        ],
+        fileHashes: {},
+        timestamp: new Date().toISOString()
+      };
+
+      const vectors = new Float32Array(2 * EMBEDDING_DIM);
+      vectors[0] = 1.0;
+      vectors[EMBEDDING_DIM] = 1.0;
+
+      vi.mocked(buildUnifiedIndex).mockResolvedValueOnce({ index: mockIndex, vectors });
+      const queryVec = Array.from({ length: EMBEDDING_DIM }, () => 0);
+      queryVec[0] = 1.0;
+      vi.mocked(embed).mockResolvedValue(queryVec);
+
+      const runtime = new HybridLoopRuntime();
+      await runtime.hydrate(planPath);
+      await runtime.decideNext();
+
+      const results = await runtime.queryIndex("source code query", 10, "code");
+      expect(results).not.toBeNull();
+      expect(results!.length).toBe(1);
+      expect(results![0]!.metadata.kind).toBe("code");
+      expect(results![0]!.metadata.sourcePath).toBe("src/runtime/runtime.ts");
+    });
+
+    test("sourceFilter: undefined returns all chunks (existing behavior)", async () => {
+      const root = await mkdtemp(path.join(os.tmpdir(), "hf-query-"));
+      const planPath = await createPlan(root, [
+        "# Plan: Test",
+        "",
+        "## Milestones",
+        "- [ ] 1. Add runtime core"
+      ].join("\n"));
+
+      const EMBEDDING_DIM = 384;
+
+      const mockIndex: UnifiedIndex = {
+        version: 2,
+        embeddingDim: 384,
+        items: [
+          {
+            id: "vault-item",
+            text: "Vault chunk",
+            metadata: {
+              sourcePath: "vault/shared/context.md",
+              sectionTitle: "Context",
+              documentTitle: "Context",
+              kind: "vault"
+            }
+          },
+          {
+            id: "code-item",
+            text: "Code chunk",
+            metadata: {
+              sourcePath: "src/runtime/runtime.ts",
+              sectionTitle: "hydrate",
+              documentTitle: "runtime",
+              kind: "code"
+            }
+          }
+        ],
+        fileHashes: {},
+        timestamp: new Date().toISOString()
+      };
+
+      const vectors = new Float32Array(2 * EMBEDDING_DIM);
+      vectors[0] = 1.0;
+      vectors[EMBEDDING_DIM] = 1.0;
+
+      vi.mocked(buildUnifiedIndex).mockResolvedValueOnce({ index: mockIndex, vectors });
+      const queryVec = Array.from({ length: EMBEDDING_DIM }, () => 0);
+      queryVec[0] = 1.0;
+      vi.mocked(embed).mockResolvedValue(queryVec);
+
+      const runtime = new HybridLoopRuntime();
+      await runtime.hydrate(planPath);
+      await runtime.decideNext();
+
+      const results = await runtime.queryIndex("any query", 10);
+      expect(results).not.toBeNull();
+      expect(results!.length).toBe(2);
+      const kinds = results!.map((r) => r.metadata.kind).sort();
+      expect(kinds).toEqual(["code", "vault"]);
+    });
   });
 });
 

@@ -3,7 +3,7 @@
 This folder has two roles depending on where you are reading it:
 
 - In this package repo, `.claude/` contains the tracked Claude hook reference surface.
-- In a consumer project after `hf-install`, `hf-init`, or `hf-sync`, `.claude/` is generated managed output derived from the installed package.
+- In a consumer project after `hf-setup --command install`, `hf-setup --command init`, or `hf-setup --command sync`, `.claude/` is generated managed output derived from the installed package.
 
 Claude-specific material belongs here; the framework itself lives at the repo root:
 
@@ -31,20 +31,20 @@ When a consumer project runs the Claude install or init lifecycle, the package m
 
 Re-running the Claude sync lifecycle refreshes the managed Claude surface from the installed package without re-scaffolding `plans/` or `vault/`.
 
-`scripts/install-runtime.mjs --tool claude` merges those hook groups into `settings.local.json`; it does not overwrite unrelated local settings.
+`hf-setup --command install --platform claude` merges the framework hook groups into `settings.local.json`; it does not overwrite unrelated local settings.
 
-### Claude-only lifecycle commands
+### Claude lifecycle commands
 
-Use the dedicated Claude commands when a consumer project only needs Claude and should not install OpenCode at all:
+Use `hf-setup` with `--platform claude` when a consumer project only needs Claude and should not install OpenCode at all:
 
-| Purpose | Dedicated Claude command | Combined equivalent |
+| Purpose | `hf-setup` command | Combined equivalent |
 |---|---|---|
-| Install Claude wiring into an existing project | `hf-install-claude` | `hf-install --tool claude` |
-| Scaffold `plans/` + `vault/`, then install Claude wiring | `hf-init-claude` | `hf-init --tool claude` |
-| Refresh managed Claude output | `hf-sync-claude` | `hf-sync --tool claude` |
-| Remove managed Claude output | `hf-uninstall-claude` | `hf-uninstall --tool claude` |
+| Install Claude wiring into an existing project | `hf-setup --command install --platform claude` | `hf-setup --command install` |
+| Scaffold `plans/` + `vault/`, then install Claude wiring | `hf-setup --command init --platform claude` | `hf-setup --command init` |
+| Refresh managed Claude output | `hf-setup --command sync --platform claude` | `hf-setup --command sync` |
+| Remove managed Claude output | `hf-setup --command uninstall --platform claude` | `hf-setup --command uninstall` |
 
-The combined commands remain valid when the project wants both adapters. The Claude-only aliases exist so a Claude-only consumer never needs to think about OpenCode.
+The combined commands remain valid when the project wants both adapters. The `--platform claude` flag exists so a Claude-only consumer never needs to think about OpenCode.
 
 Claude does not have a default generated prompt surface the way OpenCode does. The only always-managed Claude file is the hook wiring in `settings.local.json`.
 
@@ -59,8 +59,8 @@ Those Claude markdown mirrors are generated references for the consumer project;
 In consumer projects, treat `.claude/` as generated output:
 
 - customize behavior through `hybrid-framework.json`
-- run `hf-sync-claude` (or `hf-sync --tool claude`) after changing adapter asset settings or upgrading the package
-- run `hf-uninstall-claude` (or `hf-uninstall --tool claude`) to remove managed Claude wiring cleanly while preserving unrelated local settings
+- run `hf-setup --command sync --platform claude` (or `hf-setup --command sync`) after changing adapter asset settings or upgrading the package
+- run `hf-setup --command uninstall --platform claude` (or `hf-setup --command uninstall`) to remove managed Claude wiring cleanly while preserving unrelated local settings
 
 The tracked example covers the currently supported Claude hook events:
 

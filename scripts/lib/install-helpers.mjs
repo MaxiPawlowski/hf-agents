@@ -31,58 +31,6 @@ function getInvokedCommand(argv) {
   return "install";
 }
 
-function printHelp(forcedTool = null) {
-  const commandPrefix = forcedTool ? `hf-<install|init|sync|uninstall>-${forcedTool}` : "hf-<install|init|sync|uninstall>";
-  log("Hybrid Framework consumer lifecycle contract");
-  log("");
-  log("Commands:");
-  if (forcedTool) {
-    const toolLabel = forcedTool === "claude" ? "Claude" : "OpenCode";
-    log(`  hf-install-${forcedTool}   Install ${toolLabel}-only adapter wiring into a target project.`);
-    log(`  hf-init-${forcedTool}      Scaffold plans/vault workspace, then install ${toolLabel}-only wiring.`);
-    log(`  hf-sync-${forcedTool}      Refresh generated ${toolLabel}-only adapter assets from canonical root assets.`);
-    log(`  hf-uninstall-${forcedTool} Remove generated ${toolLabel}-only framework artifacts from a target project.`);
-  } else {
-    log("  hf-install   Install adapter wiring into a target project.");
-    log("  hf-init      Scaffold plans/vault workspace, then install adapter wiring.");
-    log("  hf-sync      Refresh generated adapter assets from canonical root assets.");
-    log("  hf-uninstall Remove generated framework artifacts from a target project.");
-  }
-  log("");
-  log("Options:");
-  log("  --target-dir <path>  Target project root. Defaults to cwd when installed as a package, or the package repo root when developing locally.");
-  if (forcedTool) {
-    log(`  --tool <${forcedTool}>  Optional explicit adapter selection; this entry point always runs ${forcedTool}.`);
-  } else {
-    log("  --tool <all|claude|opencode>  Adapter selection for install/sync/uninstall.");
-  }
-  log("  --config <path>      Optional path to hybrid-framework.json in the target project.");
-  log("  --platform <windows|linux>  Claude command rendering override.");
-  log("  --skip-build         Skip npm install + npm run build before install.");
-  log("  --help               Print this contract summary.");
-  log("");
-  log("Target-project config contract: hybrid-framework.json");
-  log("  adapters.claude.enabled: boolean, default true");
-  log("  adapters.opencode.enabled: boolean, default true");
-  log("  scaffold.plans: boolean, default false for hf-install and hf-sync, true for hf-init");
-  log("  scaffold.vault: boolean, default false for hf-install and hf-sync, true for hf-init");
-  log("  assets.mode: one of references|copy|symlink, default references");
-  log("  assets.claude.copy: array of canonical markdown asset paths, default []");
-  log("  assets.opencode.copy: array of canonical markdown asset paths, default []");
-  log("  assets.opencode.syncGenerated: boolean, default true");
-  log("");
-  log("Safe defaults with no config file:");
-  if (forcedTool) {
-    log(`  - ${commandPrefix} targets ${forcedTool} only and never switches to the other adapter.`);
-    log(`  - hf-init-${forcedTool} creates plans/ and vault/ scaffolding, then wires ${forcedTool} only.`);
-  } else {
-    log("  - hf-install enables Claude and OpenCode wiring only.");
-    log("  - hf-init creates plans/ and vault/ scaffolding, then wires Claude and OpenCode.");
-  }
-  log("  - hf-sync refreshes generated adapter surfaces while keeping repo-root markdown assets canonical.");
-  log("  - hf-uninstall removes only generated framework artifacts and preserves unrelated user config.");
-  log(`  - generated install state is tracked at ${manifestRelativePath.replaceAll("\\", "/")}.`);
-}
 
 function parseArgs(argv, { forcedTool = null } = {}) {
   const options = {
@@ -509,7 +457,6 @@ export {
   manifestRelativePath,
   packageJsonPath,
   parseArgs,
-  printHelp,
   pruneEmptyDirectories,
   readJson,
   readManifest,

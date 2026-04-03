@@ -6,7 +6,7 @@ import type { MilestoneContext, ParsedPlan, PlanConfig, PlanMilestone, ReviewPol
 
 const CHECKBOX_PATTERN = /^- \[( |x)\] (.+)$/;
 const METADATA_LINE_PATTERN = /^  - (\S+?):\s*(.+)$/;
-const KNOWN_METADATA_KEYS = new Set(["scope", "conventions", "notes", "review"]);
+const _KNOWN_METADATA_KEYS = new Set(["scope", "conventions", "notes", "review"]);
 const KNOWN_EVIDENCE_KEYS = new Set(["files", "verification", "review_result", "loop", "completed", "per-item", "skill"]);
 const DEFAULT_MAX_TOTAL_TURNS = 50;
 const DEFAULT_AUTO_CONTINUE = true;

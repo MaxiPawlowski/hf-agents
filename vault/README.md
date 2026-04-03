@@ -5,16 +5,16 @@ The vault is an optional markdown knowledge layer that sits beside the canonical
 `vault/` also has a package-maintainer vs consumer-project split:
 
 - In this repository, `vault/` is the canonical starter surface that ships with the package.
-- In a consumer project after `hf-init`, `vault/` becomes editable local project context and is no longer treated as generated adapter output.
+- In a consumer project after `hf-setup --command init`, `vault/` becomes editable local project context and is no longer treated as generated adapter output.
 
-When a consumer project runs `hf-init`, this `vault/README.md`, the files under `vault/templates/`, and starter `vault/shared/*.md` notes are copied into the target project as editable local content. Re-running `hf-init` keeps existing edits and only adds missing scaffold files.
+When a consumer project runs `hf-setup --command init`, this `vault/README.md`, the files under `vault/templates/`, and starter `vault/shared/*.md` notes are copied into the target project as editable local content. Re-running `hf-setup --command init` keeps existing edits and only adds missing scaffold files.
 
 Consumer lifecycle expectations:
 
-- `hf-install` and `hf-sync` do not create the vault scaffold by default.
-- `hf-init` creates `vault/`, `vault/plans/`, `vault/shared/`, and `vault/templates/` when vault scaffolding is enabled.
-- Re-running `hf-init` preserves existing vault notes and fills in only missing starter files.
-- `hf-uninstall` removes generated adapter artifacts but leaves consumer-owned vault content in place.
+- `hf-setup --command install` and `hf-setup --command sync` do not create the vault scaffold by default.
+- `hf-setup --command init` creates `vault/`, `vault/plans/`, `vault/shared/`, and `vault/templates/` when vault scaffolding is enabled.
+- Re-running `hf-setup --command init` preserves existing vault notes and fills in only missing starter files.
+- `hf-setup --command uninstall` removes generated adapter artifacts but leaves consumer-owned vault content in place.
 
 Use it for:
 

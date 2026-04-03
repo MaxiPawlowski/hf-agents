@@ -6,19 +6,27 @@ import os from "node:os";
 import { describe, expect, test } from "vitest";
 
 // @ts-ignore -- Vitest executes the JS installer module directly; this test only checks its exported pure helpers.
-import { buildClaudeHooks, buildOpenCodePluginSource, main } from "../scripts/install-runtime.mjs";
+import { buildClaudeHooks } from "../scripts/lib/install-claude.mjs";
+// @ts-ignore
+import { buildOpenCodePluginSource } from "../scripts/lib/install-opencode.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
 
-function runScript(scriptName: string, args: string[]) {
-  const result = spawnSync(process.execPath, [path.join(repoRoot, "scripts", scriptName), ...args], {
+function runScript(platform: "install-claude.mjs" | "install-opencode.mjs", args: string[]) {
+  // Map old per-platform entry-point scripts to hf-setup with --platform flag.
+  const platformFlag = platform === "install-claude.mjs" ? "claude" : "opencode";
+  const [cmd, ...rest] = args;
+  const mappedArgs = cmd && !cmd.startsWith("-")
+    ? ["--command", cmd, "--platform", platformFlag, ...rest]
+    : ["--platform", platformFlag, ...args];
+  const result = spawnSync(process.execPath, [path.join(repoRoot, "dist", "src", "bin", "hf-setup.js"), ...mappedArgs], {
     cwd: repoRoot,
     encoding: "utf8"
   });
 
   if (result.status !== 0) {
     throw new Error([
-      `${scriptName} failed: ${args.join(" ")}`,
+      `hf-setup (${platform}) failed: ${args.join(" ")}`,
       result.stdout,
       result.stderr
     ].filter(Boolean).join("\n\n"));
@@ -28,7 +36,26 @@ function runScript(scriptName: string, args: string[]) {
 }
 
 function runInstaller(args: string[]) {
-  return runScript("install-runtime.mjs", args);
+  // Map positional command to --command flag (e.g. ["init", "--skip-build", ...] → ["--command", "init", "--skip-build", ...])
+  // Always add --platform both so hf-setup runs non-interactively (same as the old install-runtime.mjs default).
+  const [cmd, ...rest] = args;
+  const mappedArgs = cmd && !cmd.startsWith("-")
+    ? ["--command", cmd, "--platform", "both", ...rest]
+    : ["--platform", "both", ...args];
+  const result = spawnSync(process.execPath, [path.join(repoRoot, "dist", "src", "bin", "hf-setup.js"), ...mappedArgs], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+
+  if (result.status !== 0) {
+    throw new Error([
+      `hf-setup failed: ${args.join(" ")}`,
+      result.stdout,
+      result.stderr
+    ].filter(Boolean).join("\n\n"));
+  }
+
+  return result;
 }
 
 function runPackDryRun() {
@@ -142,9 +169,7 @@ describe("install-runtime smoke tests", () => {
     const packagedPaths = new Set(files.map((file) => file.path));
 
     expect(entryCount).toBeGreaterThan(0);
-    expect(packagedPaths).toContain("scripts/install-runtime.mjs");
-    expect(packagedPaths).toContain("scripts/install-claude.mjs");
-    expect(packagedPaths).toContain("scripts/install-opencode.mjs");
+    expect(packagedPaths).toContain("dist/src/bin/hf-setup.js");
     expect(packagedPaths).toContain("scripts/lib/install-helpers.mjs");
     expect(packagedPaths).toContain("scripts/lib/install-claude.mjs");
     expect(packagedPaths).toContain("scripts/lib/install-opencode.mjs");
@@ -159,7 +184,6 @@ describe("install-runtime smoke tests", () => {
   test("module exports are defined functions", () => {
     expect(typeof buildClaudeHooks).toBe("function");
     expect(typeof buildOpenCodePluginSource).toBe("function");
-    expect(typeof main).toBe("function");
   });
 
   test("buildClaudeHooks returns expected hook event keys for both platforms", () => {
@@ -185,22 +209,16 @@ describe("install-runtime smoke tests", () => {
     }
   });
 
-  test("buildClaudeHooks windows commands use backslash path separators", () => {
-    const hooks = buildClaudeHooks("windows");
-    const sessionStartCommand = hooks.SessionStart[0].hooks[0].command as string;
+  test("buildClaudeHooks commands use $CLAUDE_PROJECT_DIR with forward slashes on all platforms", () => {
+    for (const platform of ["linux", "windows"] as const) {
+      const hooks = buildClaudeHooks(platform);
+      const sessionStartCommand = hooks.SessionStart[0].hooks[0].command as string;
 
-    expect(sessionStartCommand).toContain("%CLAUDE_PROJECT_DIR%");
-    expect(sessionStartCommand).toContain("\\\\");
-    expect(sessionStartCommand).toMatch(/^node /);
-  });
-
-  test("buildClaudeHooks linux commands use forward-slash path separators", () => {
-    const hooks = buildClaudeHooks("linux");
-    const sessionStartCommand = hooks.SessionStart[0].hooks[0].command as string;
-
-    expect(sessionStartCommand).toContain("$CLAUDE_PROJECT_DIR/");
-    expect(sessionStartCommand).not.toContain("\\\\");
-    expect(sessionStartCommand).toMatch(/^node /);
+      expect(sessionStartCommand).toContain("$CLAUDE_PROJECT_DIR/");
+      expect(sessionStartCommand).not.toContain("\\\\");
+      expect(sessionStartCommand).not.toContain("%CLAUDE_PROJECT_DIR%");
+      expect(sessionStartCommand).toMatch(/^node /);
+    }
   });
 
   test("buildClaudeHooks with external targetDir produces node_modules paths", () => {

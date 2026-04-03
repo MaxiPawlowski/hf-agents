@@ -21,12 +21,11 @@ function main() {
     [
       "hybrid-framework: package install completed.",
       "No adapter wiring or project scaffolding runs automatically during postinstall.",
-      "Next steps (choose one flow):",
-      "  - Combined: npm exec hf-install -- --target-dir .",
-      "  - Claude only: npm exec hf-install-claude -- --target-dir .",
-      "  - OpenCode only: npm exec hf-install-opencode -- --target-dir .",
-      "Then use the matching init/sync/uninstall command for that flow.",
-      "See README.md for the consumer installation contract and config file shape."
+      "Run the setup wizard to wire adapters and scaffold your project:",
+      "  npx hf-setup",
+      "For CI or non-interactive use:",
+      "  npx hf-setup --yes",
+      "See README.md for the full installation guide and config file shape."
     ].join("\n") + "\n"
   );
 }

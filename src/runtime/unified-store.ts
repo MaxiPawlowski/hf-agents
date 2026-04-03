@@ -259,12 +259,14 @@ export async function saveUnifiedIndex(
  * returns the same index reference with a new vectors array.
  * Throws if an item with the same ID already exists.
  */
+// oxlint-disable max-params -- index, vectors, item, vector are all required for the insert operation; no natural grouping
 export function insertItem(
   index: UnifiedIndex,
   vectors: Float32Array,
   item: IndexItem,
   vector: number[],
 ): { index: UnifiedIndex; vectors: Float32Array } {
+// oxlint-enable max-params
   if (index.items.some((entry) => entry.id === item.id)) {
     throw new Error(`Item already exists: ${item.id}`);
   }
@@ -279,12 +281,14 @@ export function insertItem(
  * Insert or update an item. Mutates `index.items` in-place for performance
  * and returns the same index reference with a new vectors array.
  */
+// oxlint-disable max-params -- index, vectors, item, vector are all required for the upsert operation; no natural grouping
 export function upsertItem(
   index: UnifiedIndex,
   vectors: Float32Array,
   item: IndexItem,
   vector: number[],
 ): { index: UnifiedIndex; vectors: Float32Array } {
+// oxlint-enable max-params
   const existingIndex = index.items.findIndex((entry) => entry.id === item.id);
   if (existingIndex === -1) {
     return insertItem(index, vectors, item, vector);
@@ -391,17 +395,26 @@ export function deleteItems(
   };
 }
 
+function matchesSourceFilter(kind: string, sourceFilter: string): boolean {
+  if (sourceFilter === "code") return kind === "code" || kind === "external";
+  return kind === sourceFilter;
+}
+
+// oxlint-disable max-params -- index, vectors, queryVector, topK, sourceFilter are all required for query; no natural grouping
 export function queryItems(
   index: UnifiedIndex,
   vectors: Float32Array,
   queryVector: number[],
   topK: number,
+  sourceFilter?: string,
 ): QueryItemResult[] {
+// oxlint-enable max-params
   const normalizedQuery = normalize(queryVector);
   const scored: QueryItemResult[] = [];
 
   for (let i = 0; i < index.items.length; i++) {
     const item = index.items[i]!;
+    if (sourceFilter && !matchesSourceFilter(String(item.metadata.kind ?? ""), sourceFilter)) continue;
     scored.push({
       id: item.id,
       text: item.text,

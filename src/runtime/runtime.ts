@@ -1,3 +1,4 @@
+// oxlint-disable max-lines -- runtime.ts is a central orchestration class; splitting would fragment cohesive state management
 import path from "node:path";
 import { promises as fs } from "node:fs";
 
@@ -373,7 +374,9 @@ export class HybridLoopRuntime implements LoopRuntime {
     await this.recordEvent(event);
   }
 
+  // oxlint-disable max-lines-per-function -- evaluateTurn orchestrates outcome ingestion, plan re-parse, status update, and event recording; cannot be split without breaking transactional state
   public async evaluateTurn(outcome: TurnOutcome): Promise<RuntimeStatus> {
+  // oxlint-enable max-lines-per-function
     const done = hfLogTimed({ tag: "runtime", msg: "evaluateTurn", data: { state: outcome.state } });
     const status = this.requireStatus();
     const previousPhase = status.phase;
@@ -387,11 +390,13 @@ export class HybridLoopRuntime implements LoopRuntime {
     status.planMtimeMs = plan.mtimeMs;
     status.phase = plan.approved ? "execution" : "planning";
     status.currentMilestone = plan.currentMilestone;
-    status.awaitingBuilderApproval = previousPhase === "planning" && plan.approved && !plan.completed
-      ? true
-      : plan.approved
-        ? status.awaitingBuilderApproval ?? false
-        : false;
+    if (previousPhase === "planning" && plan.approved && !plan.completed) {
+      status.awaitingBuilderApproval = true;
+    } else if (plan.approved) {
+      status.awaitingBuilderApproval = status.awaitingBuilderApproval ?? false;
+    } else {
+      status.awaitingBuilderApproval = false;
+    }
     status.counters.totalAttempts += 1;
     status.counters.totalTurns += 1;
     status.counters.turnsSinceLastOutcome = 0;
@@ -502,7 +507,9 @@ export class HybridLoopRuntime implements LoopRuntime {
     return status;
   }
 
+  // oxlint-disable max-lines-per-function -- decideNext builds the full continuation decision from plan+vault+status; cannot be split without losing context
   public async decideNext(): Promise<ContinueDecision> {
+  // oxlint-enable max-lines-per-function
     const status = this.requireStatus();
 
     if (this.planlessCwd) {
@@ -619,13 +626,68 @@ export class HybridLoopRuntime implements LoopRuntime {
     return this.indexConfig;
   }
 
+  /**
+   * Query the in-memory unified index (vault + code) with an arbitrary string.
+   * Returns the top-K most relevant chunks, or null if the index cannot be
+   * loaded or if embedding fails.
+   *
+   * If the index has not been built yet for this session, triggers a one-time
+   * `refreshVaultIndex()` so callers (e.g. planners, subagents) that run before
+   * the first `decideNext()` turn still get results. Safe to call from outside
+   * the runtime (e.g., from an OpenCode tool handler).
+   */
+  public async queryIndex(query: string, topK?: number, sourceFilter?: "vault" | "code"): Promise<VaultSearchResult[] | null> {
+    if (!this.unifiedIndex) {
+      try {
+        await this.refreshVaultIndex();
+      } catch (error) {
+        hfLog({ tag: "runtime", msg: "queryIndex: on-demand index build failed", data: { error: (error as Error).message } });
+        return null;
+      }
+    }
+
+    if (!this.unifiedIndex) {
+      return null;
+    }
+
+    let queryVector: number[];
+    try {
+      queryVector = await embed(query);
+    } catch (error) {
+      const msg = (error as Error).message;
+      hfLog({ tag: "runtime", msg: "queryIndex: embed failed", data: { error: msg } });
+      return null;
+    }
+
+    const results = queryItems(
+      this.unifiedIndex.index,
+      this.unifiedIndex.vectors,
+      queryVector,
+      topK ?? this.indexConfig?.semanticTopK ?? 5,
+      sourceFilter,
+    );
+
+    return results.map((result) => ({
+      score: result.score,
+      text: result.text,
+      metadata: {
+        sourcePath: result.metadata.sourcePath as string ?? "",
+        sectionTitle: result.metadata.sectionTitle as string ?? "",
+        documentTitle: result.metadata.documentTitle as string ?? "",
+        kind: result.metadata.kind === "code" ? "code" as const : "vault" as const
+      }
+    }));
+  }
+
   private resetVaultState(): void {
     this.vault = null;
     this.unifiedIndex = null;
     this.vaultSearchResults = null;
   }
 
+  // oxlint-disable max-lines-per-function -- refreshVaultIndex orchestrates scanning, embedding, and persisting the unified index; cannot be split without losing incremental state
   private async refreshVaultIndex(): Promise<void> {
+  // oxlint-enable max-lines-per-function
     const plan = this.plan;
     const planlessCwd = this.planlessCwd;
     const vaultPaths = plan ? getVaultPaths(plan) : null;
@@ -704,28 +766,7 @@ export class HybridLoopRuntime implements LoopRuntime {
   }
 
   private async retrieveUnifiedChunks(queryText: string, topK?: number): Promise<VaultSearchResult[] | null> {
-    if (!this.unifiedIndex) {
-      return null;
-    }
-
-    const queryVector = await embed(queryText);
-    const results = queryItems(
-      this.unifiedIndex.index,
-      this.unifiedIndex.vectors,
-      queryVector,
-      topK ?? this.indexConfig?.semanticTopK ?? 5,
-    );
-
-    return results.map((result) => ({
-      score: result.score,
-      text: result.text,
-      metadata: {
-        sourcePath: result.metadata.sourcePath as string ?? "",
-        sectionTitle: result.metadata.sectionTitle as string ?? "",
-        documentTitle: result.metadata.documentTitle as string ?? "",
-        kind: result.metadata.kind === "code" ? "code" as const : "vault" as const
-      }
-    }));
+    return this.queryIndex(queryText, topK);
   }
 
   private requirePlan(): ParsedPlan {

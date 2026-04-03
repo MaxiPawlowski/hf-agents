@@ -23,10 +23,10 @@ Use the repo root as the canonical source of truth:
 
 ```bash
 npm install hybrid-framework
-npm exec hf-init
+npm exec hf-setup --command init
 ```
 
-Use `hf-init-claude` or `hf-init-opencode` when a project only needs one adapter.
+Use `--platform claude` or `--platform opencode` when a project only needs one adapter. Run `npm exec hf-setup` without flags to launch the interactive wizard.
 
 ## Canonical Layout
 
@@ -60,10 +60,12 @@ Builders emit the canonical `turn_outcome:` trailer as the final block of their 
 The vault is an optional markdown context layer under `vault/`.
 Agents may author and update it, while the runtime only reads it and never depends on it for correctness.
 Use `vault/plans/<slug>/` for plan-specific notes and `vault/shared/` for durable cross-plan context.
+The runtime automatically injects semantically relevant vault chunks into each resume prompt; agents can also call the `hf_search` tool to issue targeted queries on demand when the auto-injected context is insufficient. `hf_search` is available cross-platform as an OpenCode plugin tool and as a Claude Code MCP tool, with an optional `source` filter (`"vault" | "code" | "all"`).
 See `docs/vault.md` for layout, authoring rules, semantic indexing, and testing details.
 
 ## Detailed Docs
 
+- Developer architecture guide: `docs/architecture.md`
 - Consumer install and lifecycle contract: `docs/consumer-install.md`
 - Vault semantic index and authoring rules: `docs/vault.md`
 - Claude end-to-end testing contract: `docs/claude-e2e-contract.md`

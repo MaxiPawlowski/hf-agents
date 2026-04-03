@@ -45,6 +45,7 @@ function splitOversizedCode(text: string, maxChars: number): string[] {
   return splitOversized(text, maxChars, "\n", "\n");
 }
 
+// oxlint-disable-next-line max-lines-per-function -- walks a TypeScript AST with multiple declaration-type branches; each branch is minimal; splitting would fragment the traversal logic
 export function chunkTypeScriptFile(
   filePath: string,
   sourceText: string,

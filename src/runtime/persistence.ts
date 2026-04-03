@@ -278,7 +278,9 @@ function expectString(v: unknown, f: string, p: string): asserts v is string { i
 function expectNumber(v: unknown, f: string, p: string): asserts v is number { if (typeof v !== "number" || Number.isNaN(v)) fail(p, f, "a number"); }
 function expectBoolean(v: unknown, f: string, p: string): asserts v is boolean { if (typeof v !== "boolean") fail(p, f, "a boolean"); }
 
+// oxlint-disable max-params -- validation helpers take value, allowed/fields/key, field-name, and status-path as distinct params; no natural grouping
 function expectEnum(v: unknown, allowed: readonly string[], f: string, p: string): void {
+// oxlint-enable max-params
   if (typeof v !== "string" || !allowed.includes(v)) fail(p, f, `one of ${allowed.join(", ")}`);
 }
 
@@ -287,11 +289,13 @@ function expectObject(v: unknown, f: string, p: string): asserts v is Record<str
 }
 
 /** Validate a flat record where every listed key must be a certain type. */
+// oxlint-disable max-params -- obj, fields map, prefix, and status-path are distinct validation params; no natural grouping
 function expectFields(
   obj: Record<string, unknown>,
   fields: Record<string, "string" | "number" | "boolean">,
   prefix: string,
   p: string,
+// oxlint-enable max-params
 ): void {
   for (const [key, type] of Object.entries(fields)) {
     const fq = prefix ? `${prefix}.${key}` : key;
@@ -302,15 +306,21 @@ function expectFields(
 }
 
 /** Validate a field only if it's present (not undefined). */
+// oxlint-disable max-params -- obj, key, prefix, status-path are distinct validation params
 function optionalString(obj: Record<string, unknown>, key: string, prefix: string, p: string): void {
+// oxlint-enable max-params
   if (obj[key] !== undefined) expectString(obj[key], `${prefix}.${key}`, p);
 }
 
+// oxlint-disable max-params -- obj, key, prefix, status-path are distinct validation params
 function optionalBoolean(obj: Record<string, unknown>, key: string, prefix: string, p: string): void {
+// oxlint-enable max-params
   if (obj[key] !== undefined) expectBoolean(obj[key], `${prefix}.${key}`, p);
 }
 
+// oxlint-disable max-lines-per-function -- validates a deeply nested runtime status schema; extracting sub-validators would obscure the overall validation flow
 function validateRuntimeStatus(value: unknown, statusPath: string): asserts value is RuntimeStatus {
+// oxlint-enable max-lines-per-function
   const p = statusPath;
   expectObject(value, "root", p);
 
@@ -387,4 +397,33 @@ function validateRuntimeStatus(value: unknown, statusPath: string): asserts valu
       throw new Error(`Invalid runtime status at ${p}: lastOutcome ${issues[0]?.path} ${issues[0]?.message}`);
     }
   }
+}
+
+/**
+ * Scan plans/runtime/ for the most recently updated non-complete managed plan.
+ * Returns the plan's absolute path, or null if none is active.
+ */
+export async function resolveLastActivePlanPath(cwd: string): Promise<string | null> {
+  const runtimeRoot = path.join(cwd, "plans", "runtime");
+  let entries: string[];
+  try {
+    entries = await fs.readdir(runtimeRoot);
+  } catch {
+    return null;
+  }
+
+  let best: { planPath: string; updatedAt: string } | null = null;
+  for (const entry of entries) {
+    if (entry === "_planless") continue;
+    const statusPath = path.join(runtimeRoot, entry, "status.json");
+    try {
+      const raw = await fs.readFile(statusPath, "utf8");
+      const status = JSON.parse(raw) as { planPath?: string; loopState?: string; updatedAt?: string };
+      if (!status.planPath || status.loopState === "complete") continue;
+      if (!best || (status.updatedAt && status.updatedAt > best.updatedAt)) {
+        best = { planPath: status.planPath, updatedAt: status.updatedAt ?? "" };
+      }
+    } catch { continue; }
+  }
+  return best?.planPath ?? null;
 }

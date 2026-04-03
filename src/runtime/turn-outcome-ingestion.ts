@@ -20,12 +20,14 @@ function shouldInspectString(value: string): boolean {
   return value.includes(TURN_OUTCOME_TRAILER_LABEL) || trimmed.startsWith("{");
 }
 
+// oxlint-disable max-params -- value, source, candidates, seen are all required for recursive traversal; no natural grouping
 function collectTurnOutcomeCandidates(
   value: unknown,
   source: string,
   candidates: TurnOutcomeCandidate[],
   seen: Set<unknown>
 ): void {
+// oxlint-enable max-params
   if (typeof value === "string") {
     if (shouldInspectString(value)) {
       candidates.push({ source, text: value });

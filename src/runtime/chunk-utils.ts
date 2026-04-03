@@ -21,12 +21,14 @@ export function makeChunkId(filePath: string, sectionTitle: string): string {
  * @param delimiter - regex or string to split on (e.g. `\n\n` for paragraphs, `\n` for lines)
  * @param rejoin   - string used to rejoin segments (should match the delimiter)
  */
+// oxlint-disable max-params -- text, maxChars, delimiter, rejoin are distinct split-strategy params; no natural grouping
 export function splitOversized(
   text: string,
   maxChars: number,
   delimiter: string | RegExp = /\n\n/,
   rejoin = "\n\n",
 ): string[] {
+// oxlint-enable max-params
   if (text.length <= maxChars) return [text];
 
   const segments = text.split(delimiter);

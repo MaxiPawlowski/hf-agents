@@ -18,10 +18,6 @@ import {
 
 function buildClaudeCommand(platform, eventName, targetDir, packageName) {
   const packageRelativePath = buildPackageRelativePath(targetDir, packageName, ["dist", "src", "bin", "hf-claude-hook.js"]);
-  if (platform === "windows") {
-    return `node "%CLAUDE_PROJECT_DIR%\\\\${packageRelativePath.replaceAll("/", "\\\\")}" ${eventName}`;
-  }
-
   return `node "$CLAUDE_PROJECT_DIR/${packageRelativePath}" ${eventName}`;
 }
 
@@ -129,6 +125,58 @@ function removeHookGroups(existingGroups, commandsToRemove) {
     .filter(Boolean);
 }
 
+function buildMcpServerArgs(platform, targetDir, packageName) {
+  const packageRelativePath = buildPackageRelativePath(targetDir, packageName, ["dist", "src", "bin", "hf-mcp-server.js"]);
+  return [packageRelativePath];
+}
+
+function installMcpConfig(platform, targetDir, packageName) {
+  const mcpPath = path.join(targetDir, ".mcp.json");
+  const current = readJson(mcpPath, {});
+  const args = buildMcpServerArgs(platform, targetDir, packageName);
+  const next = {
+    ...current,
+    mcpServers: {
+      ...(current.mcpServers ?? {}),
+      "hf-search": {
+        type: "stdio",
+        command: "node",
+        args
+      }
+    }
+  };
+
+  writeJson(mcpPath, next);
+  log(`MCP config installed into ${path.relative(targetDir, mcpPath)}`);
+  return toProjectRelative(targetDir, mcpPath);
+}
+
+function uninstallMcpConfig(targetDir, mcpRelativePath) {
+  const mcpPath = path.join(targetDir, mcpRelativePath ?? ".mcp.json");
+  const current = readJson(mcpPath, null);
+  if (!current) {
+    return;
+  }
+
+  const next = { ...current };
+  if (next.mcpServers && typeof next.mcpServers === "object") {
+    const { "hf-search": _removed, ...remainingServers } = next.mcpServers;
+    if (Object.keys(remainingServers).length === 0) {
+      delete next.mcpServers;
+    } else {
+      next.mcpServers = remainingServers;
+    }
+  }
+
+  if (isObjectEmpty(next)) {
+    fs.rmSync(mcpPath, { force: true });
+    log(`MCP config removed: ${path.relative(targetDir, mcpPath)}`);
+  } else {
+    writeJson(mcpPath, next);
+    log(`MCP config updated (hf-search removed): ${path.relative(targetDir, mcpPath)}`);
+  }
+}
+
 function installClaude(platform, targetDir, packageName) {
   const settingsPath = path.join(targetDir, ".claude", "settings.local.json");
   const current = readJson(settingsPath, {});
@@ -147,6 +195,7 @@ function installClaude(platform, targetDir, packageName) {
   writeJson(settingsPath, next);
   log(`Claude hooks installed into ${path.relative(targetDir, settingsPath)}`);
 
+  const mcpRelativePath = installMcpConfig(platform, targetDir, packageName);
   const assetState = collectGeneratedAssetState(targetDir, [".claude/agents", ".claude/skills"]);
 
   return {
@@ -154,6 +203,7 @@ function installClaude(platform, targetDir, packageName) {
       .flat()
       .flatMap((group) => group.hooks.map((hook) => hook.command)),
     settingsPath: toProjectRelative(targetDir, settingsPath),
+    mcpConfigPath: mcpRelativePath,
     generatedPaths: assetState.generatedPaths,
     managedDirectories: assetState.managedDirectories
   };
@@ -163,6 +213,11 @@ function uninstallClaude(targetDir, claudeState) {
   if (!claudeState) {
     return false;
   }
+
+  const mcpConfigPath = typeof claudeState.mcpConfigPath === "string"
+    ? claudeState.mcpConfigPath
+    : ".mcp.json";
+  uninstallMcpConfig(targetDir, mcpConfigPath);
 
   const settingsRelativePath = typeof claudeState.settingsPath === "string"
     ? claudeState.settingsPath
@@ -212,8 +267,11 @@ function uninstallClaude(targetDir, claudeState) {
 export {
   buildClaudeCommand,
   buildClaudeHooks,
+  buildMcpServerArgs,
   installClaude,
+  installMcpConfig,
   mergeHookGroups,
   removeHookGroups,
-  uninstallClaude
+  uninstallClaude,
+  uninstallMcpConfig
 };

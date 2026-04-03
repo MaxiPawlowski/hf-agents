@@ -22,9 +22,6 @@
     "skills/*/SKILL.md",
     "schemas/*.json",
     "scripts/README.md",
-    "scripts/install-runtime.mjs",
-    "scripts/install-claude.mjs",
-    "scripts/install-opencode.mjs",
     "scripts/lib/*.mjs",
     "scripts/postinstall.mjs",
     "scripts/sync-opencode-assets.mjs",
@@ -40,35 +37,13 @@
   "bin": {
     "hf-runtime": "./dist/src/bin/hf-runtime.js",
     "hf-claude-hook": "./dist/src/bin/hf-claude-hook.js",
-    "hf-install": "./scripts/install-runtime.mjs",
-    "hf-init": "./scripts/install-runtime.mjs",
-    "hf-sync": "./scripts/install-runtime.mjs",
-    "hf-uninstall": "./scripts/install-runtime.mjs",
-    "hf-install-claude": "./scripts/install-claude.mjs",
-    "hf-init-claude": "./scripts/install-claude.mjs",
-    "hf-sync-claude": "./scripts/install-claude.mjs",
-    "hf-uninstall-claude": "./scripts/install-claude.mjs",
-    "hf-install-opencode": "./scripts/install-opencode.mjs",
-    "hf-init-opencode": "./scripts/install-opencode.mjs",
-    "hf-sync-opencode": "./scripts/install-opencode.mjs",
-    "hf-uninstall-opencode": "./scripts/install-opencode.mjs"
+    "hf-mcp-server": "./dist/src/bin/hf-mcp-server.js",
+    "hf-setup": "./dist/src/bin/hf-setup.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "prepare": "npm run build",
     "postinstall": "node scripts/postinstall.mjs",
-    "hf:install": "node scripts/install-runtime.mjs install",
-    "hf:init": "node scripts/install-runtime.mjs init",
-    "hf:sync": "node scripts/install-runtime.mjs sync",
-    "hf:uninstall": "node scripts/install-runtime.mjs uninstall",
-    "hf:install:claude": "node scripts/install-claude.mjs install",
-    "hf:init:claude": "node scripts/install-claude.mjs init",
-    "hf:sync:claude": "node scripts/install-claude.mjs sync",
-    "hf:uninstall:claude": "node scripts/install-claude.mjs uninstall",
-    "hf:install:opencode": "node scripts/install-opencode.mjs install",
-    "hf:init:opencode": "node scripts/install-opencode.mjs init",
-    "hf:sync:opencode": "node scripts/install-opencode.mjs sync",
-    "hf:uninstall:opencode": "node scripts/install-opencode.mjs uninstall",
     "pack:check": "npm pack --dry-run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --exclude tests/e2e/**/*.test.ts",
@@ -80,12 +55,19 @@
     "verify:e2e": "node scripts/verify-e2e.mjs"
   },
   "dependencies": {
-    "@huggingface/transformers": "^3.8.1"
+    "@huggingface/transformers": "^3.8.1",
+    "@img/sharp-linux-x64": "^0.34.5"
   },
   "devDependencies": {
     "@types/node": "^22.13.14",
     "cross-env": "^10.1.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.0",
+    "oxlint": "^0.15.9",
     "typescript": "^5.8.2",
     "vitest": "^3.0.8"
+  },
+  "lint-staged": {
+    "*.ts": "npx oxlint"
   }
 }

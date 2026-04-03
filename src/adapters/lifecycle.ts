@@ -1,7 +1,9 @@
 import { HybridLoopRuntime, isManagedPlanUnavailable, resolveManagedPlanPath } from "../runtime/runtime.js";
 import { buildTurnOutcomeIngestionEvent, type TurnOutcomeTrailerParseResult } from "../runtime/turn-outcome-trailer.js";
-import type { ContinueDecision, RuntimeVendor } from "../runtime/types.js";
+import type { RuntimeVendor } from "../runtime/types.js";
+import { setEmbeddingIpcRoot } from "../runtime/vault-embeddings.js";
 import { hfLog } from "../runtime/logger.js";
+import { withDeadline } from "../runtime/utils.js";
 
 export const DESTRUCTIVE_COMMAND_PATTERN = /git reset --hard|git checkout --|rm -rf/i;
 
@@ -9,12 +11,14 @@ export function isDestructiveCommand(command: string): boolean {
   return DESTRUCTIVE_COMMAND_PATTERN.test(command);
 }
 
+// oxlint-disable max-params -- runtime, vendor, eventType, sessionId are distinct; collapsing to an object would require a breaking API change
 export async function recordCompactionArchive(
   runtime: HybridLoopRuntime,
   vendor: RuntimeVendor,
   eventType: string,
   sessionId?: string
 ): Promise<void> {
+// oxlint-enable max-params
   await runtime.recordEvent({
     vendor,
     type: eventType,
@@ -98,6 +102,9 @@ export async function hydrateRuntimeWithTimeout(opts: {
   explicitPlanPath?: string;
 }): Promise<HybridLoopRuntime> {
   const runtime = new HybridLoopRuntime();
+  if (opts.tag === "claude-hook") {
+    setEmbeddingIpcRoot(opts.cwd);
+  }
   let planPath: string | null = null;
   try {
     planPath = await resolveManagedPlanPath(opts.cwd, opts.explicitPlanPath);
@@ -109,19 +116,12 @@ export async function hydrateRuntimeWithTimeout(opts: {
     hfLog({ tag: opts.tag, msg: "no managed plan, using planless" });
   }
 
-  let timer: ReturnType<typeof setTimeout>;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(opts.timeoutMessage)), opts.timeoutMs);
+  const hydration = planPath
+    ? runtime.hydrate(planPath)
+    : runtime.hydratePlanless(opts.cwd);
+  await withDeadline(hydration, opts.timeoutMs, () => {
+    throw new Error(opts.timeoutMessage);
   });
-
-  try {
-    const hydration = planPath
-      ? runtime.hydrate(planPath)
-      : runtime.hydratePlanless(opts.cwd);
-    await Promise.race([hydration, timeout]);
-  } finally {
-    clearTimeout(timer!);
-  }
 
   return runtime;
 }

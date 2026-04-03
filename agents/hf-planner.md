@@ -78,7 +78,7 @@ Explore the repo in focused batches. Each batch writes to vault before the next 
    - `vault/shared/*.md` only for durable patterns, architecture notes, and cross-plan decisions
 7. Assign a review policy (`review: required`, `auto`, or `skip`) to each milestone based on its complexity and risk.
 8. For broad prompts such as "review all files and apply X", discover the full target set and enumerate one explicit milestone per file before asking for review.
-9. Ensure each milestone has a clear acceptance criterion and can be executed independently.
+9. Ensure each milestone has a clear acceptance criterion and can be executed independently. For code-changing milestones, include lint compliance as an explicit acceptance criterion (e.g., "oxlint reports zero violations on touched files") unless the milestone itself is explicitly scoped to modify lint configuration.
 10. Produce a coverage map tying each user requirement to one or more milestones.
 
 ### Phase 3 - Review gate (vault-referencing)
