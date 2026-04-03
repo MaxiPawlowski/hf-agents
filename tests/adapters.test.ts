@@ -7,6 +7,7 @@ import { describe, expect, test } from "vitest";
 
 import {
   isDestructiveCommand,
+  isProtectedConfigEdit,
   recordSubagentLifecycle
 } from "../src/adapters/lifecycle.js";
 // @ts-ignore -- Vitest executes the JS installer module directly for consumer fixture coverage.
@@ -853,5 +854,158 @@ describe("ESC-interrupt and agent-gating", () => {
     await expect(hooks["session.created"]!({ sessionID: "unbound" })).resolves.toMatchObject({});
     await hooks["message.updated"]!(HF_AGENT_MESSAGE);
     await expect(hooks["session.idle"]!({ sessionID: "unbound" })).resolves.toBeNull();
+  });
+});
+
+describe("protected config guardrail", () => {
+  test("isProtectedConfigEdit blocks writes to .oxlintrc.json", () => {
+    expect(isProtectedConfigEdit(".oxlintrc.json")).toBe(true);
+    expect(isProtectedConfigEdit("/repo/.oxlintrc.json")).toBe(true);
+    expect(isProtectedConfigEdit("C:\\repo\\.oxlintrc.json")).toBe(true);
+  });
+
+  test("isProtectedConfigEdit blocks writes to sonar-project.properties", () => {
+    expect(isProtectedConfigEdit("sonar-project.properties")).toBe(true);
+    expect(isProtectedConfigEdit("/repo/sonar-project.properties")).toBe(true);
+  });
+
+  test("isProtectedConfigEdit blocks writes to .husky/pre-commit", () => {
+    expect(isProtectedConfigEdit(".husky/pre-commit")).toBe(true);
+    expect(isProtectedConfigEdit("/repo/.husky/pre-commit")).toBe(true);
+    expect(isProtectedConfigEdit("C:\\repo\\.husky\\pre-commit")).toBe(true);
+  });
+
+  test("isProtectedConfigEdit allows normal source files", () => {
+    expect(isProtectedConfigEdit("src/adapters/lifecycle.ts")).toBe(false);
+    expect(isProtectedConfigEdit("package.json")).toBe(false);
+    expect(isProtectedConfigEdit("tsconfig.json")).toBe(false);
+  });
+
+  test("isProtectedConfigEdit allows bypass when HF_ALLOW_CONFIG_EDIT=1", () => {
+    const original = process.env["HF_ALLOW_CONFIG_EDIT"];
+    try {
+      process.env["HF_ALLOW_CONFIG_EDIT"] = "1";
+      expect(isProtectedConfigEdit(".oxlintrc.json")).toBe(false);
+      expect(isProtectedConfigEdit("sonar-project.properties")).toBe(false);
+      expect(isProtectedConfigEdit(".husky/pre-commit")).toBe(false);
+    } finally {
+      if (original === undefined) {
+        delete process.env["HF_ALLOW_CONFIG_EDIT"];
+      } else {
+        process.env["HF_ALLOW_CONFIG_EDIT"] = original;
+      }
+    }
+  });
+
+  test("Claude PreToolUse blocks Write tool targeting .oxlintrc.json", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-config-guard-"));
+    await createPlan(root);
+
+    const response = await handleClaudeHook("PreToolUse", {
+      tool_name: "Write",
+      tool_input: { file_path: ".oxlintrc.json" }
+    }, root);
+
+    expect(response.hookSpecificOutput).toMatchObject({
+      permissionDecision: "deny"
+    });
+    const reason = String((response.hookSpecificOutput as { permissionDecisionReason?: string }).permissionDecisionReason ?? "");
+    expect(reason).toContain("protected config file");
+    expect(reason).toContain("HF_ALLOW_CONFIG_EDIT=1");
+  });
+
+  test("Claude PreToolUse blocks Edit tool targeting sonar-project.properties", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-config-guard-"));
+    await createPlan(root);
+
+    const response = await handleClaudeHook("PreToolUse", {
+      tool_name: "Edit",
+      tool_input: { file_path: "sonar-project.properties" }
+    }, root);
+
+    expect(response.hookSpecificOutput).toMatchObject({
+      permissionDecision: "deny"
+    });
+  });
+
+  test("Claude PreToolUse allows Write tool targeting normal source files", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-config-guard-"));
+    await createPlan(root);
+
+    const response = await handleClaudeHook("PreToolUse", {
+      tool_name: "Write",
+      tool_input: { file_path: "src/foo.ts" }
+    }, root);
+
+    expect((response as { decision?: string }).decision).toBe("allow");
+  });
+
+  test("Claude PreToolUse allows Write tool targeting .oxlintrc.json with HF_ALLOW_CONFIG_EDIT=1", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-config-guard-bypass-"));
+    await createPlan(root);
+    const original = process.env["HF_ALLOW_CONFIG_EDIT"];
+    try {
+      process.env["HF_ALLOW_CONFIG_EDIT"] = "1";
+      const response = await handleClaudeHook("PreToolUse", {
+        tool_name: "Write",
+        tool_input: { file_path: ".oxlintrc.json" }
+      }, root);
+      expect((response as { decision?: string }).decision).toBe("allow");
+    } finally {
+      if (original === undefined) {
+        delete process.env["HF_ALLOW_CONFIG_EDIT"];
+      } else {
+        process.env["HF_ALLOW_CONFIG_EDIT"] = original;
+      }
+    }
+  });
+
+  test("OpenCode tool.execute.before blocks edit to .husky/pre-commit", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-config-guard-oc-"));
+    await createPlan(root);
+    const { hooks } = createHybridRuntimeHooks({ cwd: root, session: { id: "guard-oc" } });
+
+    await expect(
+      hooks["tool.execute.before"]!({ file_path: ".husky/pre-commit" })
+    ).rejects.toThrow("Hybrid runtime guardrail blocked an edit to protected config file");
+  });
+
+  test("OpenCode tool.execute.before blocks edit via filePath field", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-config-guard-oc2-"));
+    await createPlan(root);
+    const { hooks } = createHybridRuntimeHooks({ cwd: root, session: { id: "guard-oc2" } });
+
+    await expect(
+      hooks["tool.execute.before"]!({ tool_input: { filePath: "sonar-project.properties" } })
+    ).rejects.toThrow("Hybrid runtime guardrail blocked an edit to protected config file");
+  });
+
+  test("OpenCode tool.execute.before allows normal file edits", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-config-guard-allow-"));
+    await createPlan(root);
+    const { hooks } = createHybridRuntimeHooks({ cwd: root, session: { id: "guard-allow" } });
+
+    await expect(
+      hooks["tool.execute.before"]!({ file_path: "src/foo.ts" })
+    ).resolves.toBeNull();
+  });
+
+  test("OpenCode tool.execute.before allows bypass when HF_ALLOW_CONFIG_EDIT=1", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-config-guard-bypass-oc-"));
+    await createPlan(root);
+    const { hooks } = createHybridRuntimeHooks({ cwd: root, session: { id: "guard-bypass-oc" } });
+    const original = process.env["HF_ALLOW_CONFIG_EDIT"];
+    try {
+      process.env["HF_ALLOW_CONFIG_EDIT"] = "1";
+      await expect(
+        hooks["tool.execute.before"]!({ file_path: ".oxlintrc.json" })
+      ).resolves.toBeNull();
+    } finally {
+      if (original === undefined) {
+        delete process.env["HF_ALLOW_CONFIG_EDIT"];
+      } else {
+        process.env["HF_ALLOW_CONFIG_EDIT"] = original;
+      }
+    }
   });
 });

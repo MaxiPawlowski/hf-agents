@@ -2,6 +2,7 @@ import {
   hydrateRuntimeWithTimeout,
   ingestTurnOutcome,
   isDestructiveCommand,
+  isProtectedConfigEdit,
   recordCompactionArchive,
   recordSubagentLifecycle
 } from "../adapters/lifecycle.js";
@@ -38,6 +39,8 @@ export interface ClaudeHookInput {
   metadata?: Record<string, unknown>;
   tool_input?: {
     command?: string;
+    file_path?: string;
+    filePath?: string;
   };
 }
 
@@ -78,6 +81,20 @@ export async function handleClaudeHook(
             hookEventName: eventName,
             permissionDecision: "deny",
             permissionDecisionReason: "Hybrid runtime guardrail blocked a destructive command."
+          }
+        };
+      }
+    }
+    const writeEditTools = new Set(["Write", "Edit", "MultiEdit", "FileEdit"]);
+    if (writeEditTools.has(input.tool_name ?? "")) {
+      const filePath = String(input.tool_input?.file_path ?? input.metadata?.file_path ?? "");
+      if (filePath && isProtectedConfigEdit(filePath)) {
+        hookDone({ blocked: true });
+        return {
+          hookSpecificOutput: {
+            hookEventName: eventName,
+            permissionDecision: "deny",
+            permissionDecisionReason: `Hybrid runtime guardrail blocked an edit to protected config file: ${filePath}. Set HF_ALLOW_CONFIG_EDIT=1 to allow intentional changes.`
           }
         };
       }

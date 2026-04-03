@@ -11,6 +11,20 @@ export function isDestructiveCommand(command: string): boolean {
   return DESTRUCTIVE_COMMAND_PATTERN.test(command);
 }
 
+export const PROTECTED_CONFIG_FILES = [
+  ".oxlintrc.json",
+  "sonar-project.properties",
+  ".husky/pre-commit"
+] as const;
+
+export function isProtectedConfigEdit(filePath: string): boolean {
+  if (process.env.HF_ALLOW_CONFIG_EDIT === "1") {
+    return false;
+  }
+  const normalized = filePath.replace(/\\/g, "/");
+  return PROTECTED_CONFIG_FILES.some((f) => normalized === f || normalized.endsWith(`/${f}`));
+}
+
 // oxlint-disable max-params -- runtime, vendor, eventType, sessionId are distinct; collapsing to an object would require a breaking API change
 export async function recordCompactionArchive(
   runtime: HybridLoopRuntime,

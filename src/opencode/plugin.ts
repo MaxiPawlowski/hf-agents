@@ -7,6 +7,7 @@ import {
   hydrateRuntimeWithTimeout,
   ingestTurnOutcome,
   isDestructiveCommand,
+  isProtectedConfigEdit,
   recordCompactionArchive,
   recordSubagentLifecycle
 } from "../adapters/lifecycle.js";
@@ -100,6 +101,19 @@ function extractCommand(input?: HookInput, output?: HookInput): string {
     return input.command;
   }
 
+  return "";
+}
+
+function extractFilePath(input?: HookInput, output?: HookInput): string {
+  const outputArgs = output?.args as { file_path?: string; filePath?: string } | undefined;
+  const inputTool = input?.tool_input as { file_path?: string; filePath?: string } | undefined;
+
+  if (typeof outputArgs?.file_path === "string") { return outputArgs.file_path; }
+  if (typeof outputArgs?.filePath === "string") { return outputArgs.filePath; }
+  if (typeof inputTool?.file_path === "string") { return inputTool.file_path; }
+  if (typeof inputTool?.filePath === "string") { return inputTool.filePath; }
+  if (typeof input?.file_path === "string") { return input.file_path; }
+  if (typeof input?.filePath === "string") { return input.filePath; }
   return "";
 }
 
@@ -359,6 +373,10 @@ export function createHybridRuntimeHooks(context: OpenCodePluginContext): Hybrid
       const command = extractCommand(input, output);
       if (isDestructiveCommand(command)) {
         throw new Error("Hybrid runtime guardrail blocked a destructive command.");
+      }
+      const filePath = extractFilePath(input, output);
+      if (filePath && isProtectedConfigEdit(filePath)) {
+        throw new Error(`Hybrid runtime guardrail blocked an edit to protected config file: ${filePath}. Set HF_ALLOW_CONFIG_EDIT=1 to allow intentional changes.`);
       }
       // Fire-and-forget: event recording must not block tool execution
       const sessionId = extractSessionId(input, output, context);
