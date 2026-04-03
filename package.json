@@ -52,7 +52,11 @@
     "test:e2e:vault-claude": "cross-env HF_RUN_SLOW=1 vitest run --config vitest.config.e2e.ts --reporter=verbose tests/e2e/vault-claude-e2e.test.ts",
     "test:bench": "cross-env HF_RUN_BENCHMARKS=1 vitest run --config vitest.config.e2e.ts",
     "test:slow": "cross-env HF_RUN_SLOW=1 vitest run --exclude tests/e2e/**/*.test.ts",
-    "verify:e2e": "node scripts/verify-e2e.mjs"
+    "verify:e2e": "node scripts/verify-e2e.mjs",
+    "lint": "npx oxlint src/ tests/",
+    "lint:fix": "npx oxlint --fix src/ tests/",
+    "sonar": "sonar-scanner -Dsonar.host.url=http://localhost:9000 -Dsonar.token=${SONAR_TOKEN}",
+    "precommit": "npm run lint"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",

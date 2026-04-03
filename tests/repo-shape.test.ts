@@ -206,3 +206,43 @@ describe("adapter README drift detection", () => {
     }
   });
 });
+
+describe("code quality guardrails", () => {
+  test(".oxlintrc.json exists and declares the expected plugin list", async () => {
+    const oxlintrc = await readFile(path.join(repoRoot, ".oxlintrc.json"), "utf8");
+    expect(oxlintrc).toContain('"typescript"');
+    expect(oxlintrc).toContain('"import"');
+    expect(oxlintrc).toContain('"unicorn"');
+    expect(oxlintrc).toContain('"promise"');
+  });
+
+  test(".oxlintrc.json contains a max-lines rule", async () => {
+    const oxlintrc = await readFile(path.join(repoRoot, ".oxlintrc.json"), "utf8");
+    expect(oxlintrc).toContain("max-lines");
+  });
+
+  test(".husky/pre-commit hook exists", async () => {
+    await expect(
+      access(path.join(repoRoot, ".husky", "pre-commit")),
+      ".husky/pre-commit is missing"
+    ).resolves.toBeUndefined();
+  });
+
+  test(".vscode/extensions.json recommends the oxc extension", async () => {
+    const extensions = await readFile(path.join(repoRoot, ".vscode", "extensions.json"), "utf8");
+    expect(extensions).toContain("oxc.oxc-vscode");
+  });
+
+  test("sonar-project.properties exists with expected project key", async () => {
+    const sonarProps = await readFile(path.join(repoRoot, "sonar-project.properties"), "utf8");
+    expect(sonarProps).toContain("sonar.projectKey=hybrid-framework");
+  });
+
+  test("package.json contains lint and sonar scripts", async () => {
+    const pkg = JSON.parse(
+      await readFile(path.join(repoRoot, "package.json"), "utf8")
+    ) as { scripts?: Record<string, string> };
+    expect(pkg.scripts?.["lint"]).toBeDefined();
+    expect(pkg.scripts?.["sonar"]).toBeDefined();
+  });
+});
