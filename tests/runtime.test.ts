@@ -884,7 +884,8 @@ describe("HybridLoopRuntime", () => {
 
       const runtime = new HybridLoopRuntime();
       await runtime.hydrate(planPath);
-      await runtime.decideNext(); // triggers refreshVaultIndex() → sets unifiedIndex
+      // triggers refreshVaultIndex() → sets unifiedIndex
+      await runtime.decideNext();
 
       const results = await runtime.queryIndex("context query");
 
@@ -896,10 +897,10 @@ describe("HybridLoopRuntime", () => {
       expect(results![0]!.metadata.kind).toBe("vault");
       expect(results![1]!.metadata.kind).toBe("code");
       // Shape check: required fields present
-      expect(typeof results![0]!.score).toBe("number");
-      expect(typeof results![0]!.text).toBe("string");
-      expect(typeof results![0]!.metadata.sectionTitle).toBe("string");
-      expect(typeof results![0]!.metadata.documentTitle).toBe("string");
+      expect(results![0]!.score).toBeTypeOf("number");
+      expect(results![0]!.text).toBeTypeOf("string");
+      expect(results![0]!.metadata.sectionTitle).toBeTypeOf("string");
+      expect(results![0]!.metadata.documentTitle).toBeTypeOf("string");
     });
 
     test("respects the topK parameter", async () => {
@@ -948,7 +949,8 @@ describe("HybridLoopRuntime", () => {
 
       const runtime = new HybridLoopRuntime();
       await runtime.hydrate(planPath);
-      await runtime.decideNext(); // loads index
+      // loads index
+      await runtime.decideNext();
 
       const topK2 = await runtime.queryIndex("any query", 2);
       expect(topK2).not.toBeNull();

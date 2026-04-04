@@ -53,7 +53,10 @@ Never write the full plan doc in a single Write tool call — large plans timeou
 **Step 2 — Fill sections**: Use Edit to expand each section individually. Before filling each section, read the relevant vault discovery entries for that section's scope — this keeps each Edit call grounded in specific findings rather than accumulated conversation context.
 1. `## User Intent`
 2. `## Overview` — read vault discoveries for approach rationale and alternatives considered
-3. `## Research Summary` — pull specific findings from vault discovery entries rather than summarizing conversation
+3. `## Research Summary` — pull specific findings from vault discovery entries rather than summarizing conversation. **Separation rule**: vault discoveries hold raw file-level findings (paths, line numbers, patterns observed, conventions confirmed); the plan's Research Summary holds synthesized decisions and rationale — why an approach was chosen, what shaped milestone boundaries, what was excluded and why. Do not copy raw findings verbatim into the Research Summary; distill them into decisions. Do not move rationale back into vault entries; keep it in the plan where builders and reviewers can see it.
+
+   Vault discovery entries hold **raw file-level findings** (paths, patterns, line numbers, conventions observed). The plan's Research Summary holds **synthesized decisions and rationale** — why an approach was chosen, what was ruled out, and how findings shaped milestone boundaries. Do not copy vault findings verbatim into the Research Summary; synthesize them.
+
 4. Each milestone's body (description, acceptance criteria, metadata) — one Edit per milestone; read vault entries relevant to each milestone's target files before writing
 5. `## Risks & Open Questions`
 

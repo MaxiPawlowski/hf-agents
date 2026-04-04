@@ -11,6 +11,7 @@ import {
   deleteItems,
   loadUnifiedIndex,
   saveUnifiedIndex,
+  type StoreState,
   type UnifiedIndex,
 } from "./unified-store.js";
 import { EmbeddingModelError, embedBatch } from "./vault-embeddings.js";
@@ -306,11 +307,97 @@ function toIndexMetadata(
   };
 }
 
-// oxlint-disable max-lines-per-function -- incremental index build with scan, diff, stale-purge, chunk, embed, and save phases; cannot be split without breaking the diff state
+interface DiffResult {
+  changedOrAdded: ScannedFile[];
+  removedPaths: string[];
+  currentHashes: Record<string, string>;
+  noChanges: boolean;
+}
+
+function diffFiles(scannedFiles: ScannedFile[], existing: StoreState | null): DiffResult {
+  const currentHashes = Object.fromEntries(scannedFiles.map((file) => [file.path, file.hash]));
+  const previousHashes = existing?.index.fileHashes ?? {};
+  const currentPaths = new Set(scannedFiles.map((file) => file.path));
+  const changedOrAdded = scannedFiles.filter((file) => previousHashes[file.path] !== file.hash);
+  const removedPaths = Object.keys(previousHashes)
+    .filter((filePath) => !currentPaths.has(filePath))
+    .sort((a, b) => a.localeCompare(b));
+  const noChanges = existing !== null && changedOrAdded.length === 0 && removedPaths.length === 0;
+  return { changedOrAdded, removedPaths, currentHashes, noChanges };
+}
+
+function purgeStaleItems(
+  state: StoreState,
+  changedOrAdded: ScannedFile[],
+  removedPaths: string[],
+): StoreState {
+  const stalePaths = new Set([...changedOrAdded.map((file) => file.path), ...removedPaths]);
+  if (stalePaths.size === 0) {
+    return state;
+  }
+  const staleIds = state.index.items
+    .filter((item) => stalePaths.has(String(item.metadata.sourcePath)))
+    .map((item) => item.id);
+  return deleteItems(state.index, state.vectors, staleIds);
+}
+
+function chunkExternalFile(file: ScannedFile, maxChunkChars?: number): VaultChunk[] {
+  const ext = path.extname(file.path).toLowerCase();
+  if (ext === ".ts" || ext === ".js") {
+    return chunkTypeScriptFile(file.path, file.content, maxChunkChars).map((chunk) => ({
+      ...chunk,
+      metadata: { ...chunk.metadata, kind: "external" as const },
+    }));
+  }
+  if (ext === ".md") {
+    return chunkVaultDocument({
+      path: file.path,
+      title: path.basename(file.path, ext),
+      content: file.content,
+    }, maxChunkChars).map((chunk) => ({
+      ...chunk,
+      metadata: { ...chunk.metadata, kind: "external" as const },
+    }));
+  }
+  return chunkTextFile(file.path, file.content, maxChunkChars);
+}
+
+function chunkChangedFiles(changedOrAdded: ScannedFile[], maxChunkChars?: number): VaultChunk[] {
+  return changedOrAdded.flatMap((file) => {
+    if (file.kind === "vault") {
+      return chunkVaultDocument({
+        path: file.path,
+        title: file.title ?? path.basename(file.path, path.extname(file.path)),
+        content: file.content,
+      }, maxChunkChars);
+    }
+    if (file.kind === "external") {
+      return chunkExternalFile(file, maxChunkChars);
+    }
+    return chunkTypeScriptFile(file.path, file.content, maxChunkChars);
+  });
+}
+
+async function embedAndInsertChunks(
+  state: StoreState,
+  chunks: VaultChunk[],
+  embeddingBatchSize?: number,
+): Promise<StoreState> {
+  const embeddings = await embedInBatches(chunks.map((chunk) => chunk.text), embeddingBatchSize);
+  const batchEntries = chunks.map((chunk, i) => ({
+    item: {
+      id: chunk.id,
+      text: chunk.text,
+      metadata: toIndexMetadata(chunk.metadata),
+    },
+    vector: embeddings[i]!,
+  }));
+  return batchUpsertItems(state.index, state.vectors, batchEntries);
+}
+
 export async function buildUnifiedIndex(
   config: BuildUnifiedIndexConfig,
-): Promise<{ index: UnifiedIndex; vectors: Float32Array } | null> {
-// oxlint-enable max-lines-per-function
+): Promise<StoreState | null> {
   const scannedFiles = [...new Map([
     ...(config.vaultPaths ? await scanVaultFiles(config.repoRoot, config.vaultPaths, config.vaultContext) : []),
     ...(config.codeConfig ? await scanCodeFiles(config.repoRoot, config.codeConfig) : []),
@@ -318,67 +405,21 @@ export async function buildUnifiedIndex(
   ].map((file) => [file.path, file] as const)).values()].sort((a, b) => a.path.localeCompare(b.path));
 
   if (scannedFiles.length === 0) {
-    const emptyIndex = createEmptyIndex();
-    return { index: emptyIndex, vectors: new Float32Array() };
+    return { index: createEmptyIndex(), vectors: new Float32Array() };
   }
 
-  const currentHashes = Object.fromEntries(scannedFiles.map((file) => [file.path, file.hash]));
   const existing = await loadUnifiedIndex(config.repoRoot);
-  const previousHashes = existing?.index.fileHashes ?? {};
-  const currentPaths = new Set(scannedFiles.map((file) => file.path));
-  const changedOrAdded = scannedFiles.filter((file) => previousHashes[file.path] !== file.hash);
-  const removedPaths = Object.keys(previousHashes)
-    .filter((filePath) => !currentPaths.has(filePath))
-    .sort((a, b) => a.localeCompare(b));
+  const { changedOrAdded, removedPaths, currentHashes, noChanges } = diffFiles(scannedFiles, existing);
 
-  if (existing && changedOrAdded.length === 0 && removedPaths.length === 0) {
+  if (noChanges) {
     return existing;
   }
 
-  let state = existing ?? { index: createEmptyIndex(), vectors: new Float32Array() };
-  const stalePaths = new Set([...changedOrAdded.map((file) => file.path), ...removedPaths]);
-  if (stalePaths.size > 0) {
-    const staleIds = state.index.items
-      .filter((item) => stalePaths.has(String(item.metadata.sourcePath)))
-      .map((item) => item.id);
-    state = deleteItems(state.index, state.vectors, staleIds);
-  }
-
+  let state = purgeStaleItems(existing ?? { index: createEmptyIndex(), vectors: new Float32Array() }, changedOrAdded, removedPaths);
   state.index.fileHashes = currentHashes;
   state.index.timestamp = new Date().toISOString();
 
-  const changedChunks = changedOrAdded.flatMap((file) => {
-    if (file.kind === "vault") {
-      return chunkVaultDocument({
-        path: file.path,
-        title: file.title ?? path.basename(file.path, path.extname(file.path)),
-        content: file.content,
-      }, config.maxChunkChars);
-    }
-    if (file.kind === "external") {
-      const ext = path.extname(file.path).toLowerCase();
-      if (ext === ".ts" || ext === ".js") {
-        // Code chunker produces kind:"code"; override to "external"
-        return chunkTypeScriptFile(file.path, file.content, config.maxChunkChars).map((chunk) => ({
-          ...chunk,
-          metadata: { ...chunk.metadata, kind: "external" as const },
-        }));
-      }
-      if (ext === ".md") {
-        // Vault chunker produces no kind; override to "external"
-        return chunkVaultDocument({
-          path: file.path,
-          title: path.basename(file.path, ext),
-          content: file.content,
-        }, config.maxChunkChars).map((chunk) => ({
-          ...chunk,
-          metadata: { ...chunk.metadata, kind: "external" as const },
-        }));
-      }
-      return chunkTextFile(file.path, file.content, config.maxChunkChars);
-    }
-    return chunkTypeScriptFile(file.path, file.content, config.maxChunkChars);
-  });
+  const changedChunks = chunkChangedFiles(changedOrAdded, config.maxChunkChars);
 
   if (changedChunks.length === 0) {
     await saveUnifiedIndex(config.repoRoot, state.index, state.vectors);
@@ -386,19 +427,7 @@ export async function buildUnifiedIndex(
   }
 
   try {
-    const embeddings = await embedInBatches(changedChunks.map((chunk) => chunk.text), config.embeddingBatchSize);
-
-    const batchEntries = changedChunks.map((chunk, i) => ({
-      item: {
-        id: chunk.id,
-        text: chunk.text,
-        metadata: toIndexMetadata(chunk.metadata),
-      },
-      vector: embeddings[i]!,
-    }));
-
-    state = batchUpsertItems(state.index, state.vectors, batchEntries);
-
+    state = await embedAndInsertChunks(state, changedChunks, config.embeddingBatchSize);
     await saveUnifiedIndex(config.repoRoot, state.index, state.vectors);
     return state;
   } catch (error) {

@@ -17,6 +17,9 @@ Use these checks when editing `skills/verification-before-completion/SKILL.md` o
 - does the prompt still enforce the verification tier taxonomy when choosing verification expectations?
 - does the prompt still prohibit downgrading the required verification tier?
 - does the prompt still require a completion summary before `status: complete`?
+- does the prompt still require `npm run lint` to exit 0 (command-execution tier) before `completion_decision: ready`?
+- does the prompt still require `npm test` to exit 0 with no failing tests (command-execution tier) before `completion_decision: ready`?
+- does the prompt still require `npm run sonar` to pass (command-execution when Docker+token available, manual-attestation with user escalation when not) before `completion_decision: ready`?
 
 ## Adding Coverage
 

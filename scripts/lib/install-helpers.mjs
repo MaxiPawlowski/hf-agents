@@ -32,6 +32,41 @@ function getInvokedCommand(argv) {
 }
 
 
+function applyArgToOptions(options, argv, index) {
+  const arg = argv[index];
+  if (arg === "--tool" && argv[index + 1]) {
+    options.tool = argv[index + 1];
+    return index + 1;
+  }
+
+  if (arg === "--platform" && argv[index + 1]) {
+    options.platform = argv[index + 1];
+    return index + 1;
+  }
+
+  if (arg === "--config" && argv[index + 1]) {
+    options.configPath = path.resolve(argv[index + 1]);
+    return index + 1;
+  }
+
+  if (arg === "--skip-build") {
+    options.skipBuild = true;
+    return index;
+  }
+
+  if (arg === "--help" || arg === "-h") {
+    options.help = true;
+    return index;
+  }
+
+  if (arg === "--target-dir" && argv[index + 1]) {
+    options.targetDir = path.resolve(argv[index + 1]);
+    return index + 1;
+  }
+
+  return index;
+}
+
 function parseArgs(argv, { forcedTool = null } = {}) {
   const options = {
     command: getInvokedCommand(argv),
@@ -44,43 +79,11 @@ function parseArgs(argv, { forcedTool = null } = {}) {
   };
 
   for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (index === 0 && lifecycleCommands.includes(arg)) {
+    if (index === 0 && lifecycleCommands.includes(argv[index])) {
       continue;
     }
 
-    if (arg === "--tool" && argv[index + 1]) {
-      options.tool = argv[index + 1];
-      index += 1;
-      continue;
-    }
-
-    if (arg === "--platform" && argv[index + 1]) {
-      options.platform = argv[index + 1];
-      index += 1;
-      continue;
-    }
-
-    if (arg === "--config" && argv[index + 1]) {
-      options.configPath = path.resolve(argv[index + 1]);
-      index += 1;
-      continue;
-    }
-
-    if (arg === "--skip-build") {
-      options.skipBuild = true;
-      continue;
-    }
-
-    if (arg === "--help" || arg === "-h") {
-      options.help = true;
-      continue;
-    }
-
-    if (arg === "--target-dir" && argv[index + 1]) {
-      options.targetDir = path.resolve(argv[index + 1]);
-      index += 1;
-    }
+    index = applyArgToOptions(options, argv, index);
   }
 
   if (!["all", "claude", "opencode"].includes(options.tool)) {
@@ -143,7 +146,7 @@ function writeManifest(targetDir, manifest) {
   writeJson(manifestPath, manifest);
 }
 
-function resolveAdapterSelection(options, config, manifest) {
+function resolveAdapterSelection(options, config, _manifest) {
   const configAdapters = config.adapters ?? {};
   const defaults = {
     claude: configAdapters.claude?.enabled ?? true,
@@ -228,6 +231,7 @@ function copyIfMissing(sourcePath, targetPath) {
 
 function getPackageName() {
   const packageJson = readJson(packageJsonPath, {});
+  // eslint-disable-next-line no-restricted-syntax -- plain JS script; typeof is unavoidable without TypeScript type guards
   return typeof packageJson.name === "string" && packageJson.name.length > 0
     ? packageJson.name
     : "hybrid-framework";
@@ -276,6 +280,7 @@ function buildPackageRelativePath(targetDir, packageName, segments) {
 }
 
 function isPlainObject(value) {
+  // eslint-disable-next-line no-restricted-syntax -- plain JS script; typeof is unavoidable without TypeScript type guards
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 

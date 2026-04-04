@@ -14,18 +14,22 @@ export const DEFAULT_VAULT_CHAR_BUDGET = 3000;
 export const PLANNING_VAULT_CHAR_BUDGET = 4000;
 const TRUNCATION_SUFFIX = "[vault content truncated]";
 
+interface AppendOpts {
+  charBudget: number;
+  used: number;
+}
+
 /**
  * Append content blocks to `lines` while tracking a character budget.
  * Returns true if all blocks fit; false if truncation occurred.
  */
-// oxlint-disable max-params -- lines, blocks, charBudget, and used are distinct budget-tracking params with no natural grouping
 function appendWithBudget(
   lines: string[],
   blocks: string[][],
-  charBudget: number,
-  used: number,
-// oxlint-enable max-params
+  opts: AppendOpts,
 ): void {
+  let { used } = opts;
+  const { charBudget } = opts;
   for (const block of blocks) {
     const blockText = block.join("\n");
     // +1 accounts for the "\n" separator when joining with previous content
@@ -142,7 +146,7 @@ export function formatSemanticVaultContext(
     return [sectionTitle, result.text, ""];
   });
 
-  appendWithBudget(lines, blocks, charBudget, headerCost);
+  appendWithBudget(lines, blocks, { charBudget, used: headerCost });
 
   return lines.length > 1 ? lines : [];
 }
@@ -196,124 +200,181 @@ export interface PromptBudgets {
   planningCharBudget?: number | undefined;
 }
 
-// oxlint-disable max-lines-per-function, max-params -- plan, status, vault, vaultSearchResults, budgets are all distinct prompt-building inputs; function renders a full multi-section prompt doc and cannot be split without obscuring structure
-export function buildResumePrompt(
+export interface BuildResumePromptOpts {
+  vault?: VaultContext | null;
+  vaultSearchResults?: VaultSearchResult[] | null;
+  budgets?: PromptBudgets;
+}
+
+function buildCompletedPlanPrompt(plan: ParsedPlan): string {
+  return `Plan ${plan.slug} is complete. Verify the completed milestones and stop.`;
+}
+
+function buildPlanningPhasePrompt(
   plan: ParsedPlan,
   status: RuntimeStatus,
-  vault: VaultContext | null = null,
-  vaultSearchResults: VaultSearchResult[] | null = null,
-  budgets: PromptBudgets = {}
-// oxlint-enable max-lines-per-function, max-params
+  opts: Required<BuildResumePromptOpts>,
 ): string {
-  const charBudget = budgets.charBudget ?? DEFAULT_VAULT_CHAR_BUDGET;
+  const { vault, vaultSearchResults, budgets } = opts;
   const planningBudget = budgets.planningCharBudget ?? PLANNING_VAULT_CHAR_BUDGET;
+
+  const lines = buildPlanningPhaseHeader(plan, status);
+  lines.push(...buildPlanningPhaseBlocker(status));
+  lines.push(...formatRecoveryContext(status));
+  lines.push(...buildPlanningPhaseVaultExploration(vault));
+
+  const planningVaultLines = vaultSearchResults && vaultSearchResults.length > 0
+    ? formatSemanticVaultContext(vaultSearchResults, planningBudget)
+    : formatVaultContext(vault, planningBudget);
+  if (planningVaultLines.length > 0) {
+    lines.push(...planningVaultLines);
+  }
+
+  lines.push("## Instructions");
+  lines.push(
+    status.recommendedNextAction
+      ? `Recommended next action: ${status.recommendedNextAction}`
+      : "Recommended next action: revise the draft plan until `hf-plan-reviewer` can approve it."
+  );
+  lines.push("Reference vault-persisted findings and the plan doc; avoid re-loading the full context bundle into conversation.");
+  lines.push("Emit a final turn_outcome trailer as the last block of your response:");
+  lines.push("");
+  lines.push(TURN_OUTCOME_TRAILER_FORMAT);
+
+  return lines.join("\n");
+}
+
+function buildPlanningPhaseHeader(plan: ParsedPlan, status: RuntimeStatus): string[] {
+  const lines = [
+    `Continue the managed Hybrid Framework planning-review loop for plan ${plan.path}.`,
+    "",
+    "## Plan status",
+    `Plan status: ${plan.status}.`,
+    `Loop attempts: ${status.counters.totalAttempts}/${status.counters.maxTotalTurns}.`,
+    `Evaluated outcomes: ${status.counters.totalTurns}.`,
+    "",
+    "## User intent"
+  ];
+
+  if (plan.userIntent) {
+    lines.push(plan.userIntent);
+  } else {
+    lines.push("User intent is missing from the plan doc. Add a dedicated `## User Intent` section before requesting approval.");
+  }
+
+  lines.push("");
+  lines.push("## Planning gate");
+  lines.push("The runtime owns the loop between `hf-planner` and `hf-plan-reviewer` until the plan is approved.");
+  lines.push("Expand the request into explicit milestones, then send the full context and draft plan to `hf-plan-reviewer`.");
+  lines.push("Do not hand off to `hf-builder` until the reviewer approves the plan.");
+  lines.push("");
+
+  if (status.lastOutcome) {
+    lines.push("## Last turn");
+    lines.push(`State: ${status.lastOutcome.state}`);
+    lines.push(`Summary: ${status.lastOutcome.summary}`);
+    lines.push("");
+  }
+
+  lines.push(...formatRuntimeState(status));
+
+  return lines;
+}
+
+function buildPlanningPhaseBlocker(status: RuntimeStatus): string[] {
+  if (!status.lastBlocker) {
+    return [];
+  }
+  return [
+    "## Active blocker",
+    `${status.lastBlocker.message} (repeated ${status.counters.repeatedBlocker} times).`,
+    "",
+  ];
+}
+
+function buildPlanningPhaseVaultExploration(vault: VaultContext | null): string[] {
+  if (!vault || (vault.plan.length === 0 && vault.shared.length === 0)) {
+    return [];
+  }
+  const lines = [
+    "## Exploration state",
+    "The following vault documents contain findings from prior exploration passes:",
+  ];
+  for (const doc of vault.plan) {
+    lines.push(`- **${doc.title}**: \`${doc.path}\``);
+  }
+  for (const doc of vault.shared) {
+    lines.push(`- **${doc.title}**: \`${doc.path}\``);
+  }
+  lines.push("");
+  return lines;
+}
+
+function buildVerificationPrompt(plan: ParsedPlan): string {
+  return [
+    `Continue the managed Hybrid Framework loop for plan ${plan.path}.`,
+    "",
+    "## Progress",
+    `Milestones: ${plan.milestones.length}/${plan.milestones.length} complete.`,
+    `Plan status: ${plan.status}.`,
+    "",
+    "## Final verification",
+    "All milestones are checked, but final verification evidence still needs to be attached before the plan can move to `status: complete`.",
+    "",
+    "## Instructions",
+    "Run the narrowest final verification needed for the completed work, attach fresh evidence under the last completed milestone, then update the plan status only if verification passes.",
+    "Emit a final turn_outcome trailer as the last block of your response:",
+    "",
+    TURN_OUTCOME_TRAILER_FORMAT
+  ].join("\n");
+}
+
+function buildExecutionPhasePrompt(
+  plan: ParsedPlan,
+  status: RuntimeStatus,
+  opts: Required<BuildResumePromptOpts>,
+): string {
+  const { vault, vaultSearchResults, budgets } = opts;
+  const charBudget = budgets.charBudget ?? DEFAULT_VAULT_CHAR_BUDGET;
   const currentMilestone = plan.currentMilestone;
 
-  if (!currentMilestone && plan.completed) {
-    return `Plan ${plan.slug} is complete. Verify the completed milestones and stop.`;
-  }
-
-  if (status.phase === "planning") {
-    const lines = [
-      `Continue the managed Hybrid Framework planning-review loop for plan ${plan.path}.`,
-      "",
-      "## Plan status",
-      `Plan status: ${plan.status}.`,
-      `Loop attempts: ${status.counters.totalAttempts}/${status.counters.maxTotalTurns}.`,
-      `Evaluated outcomes: ${status.counters.totalTurns}.`,
-      "",
-      "## User intent"
-    ];
-
-    if (plan.userIntent) {
-      lines.push(plan.userIntent);
-    } else {
-      lines.push("User intent is missing from the plan doc. Add a dedicated `## User Intent` section before requesting approval.");
-    }
-
-    lines.push("");
-    lines.push("## Planning gate");
-    lines.push("The runtime owns the loop between `hf-planner` and `hf-plan-reviewer` until the plan is approved.");
-    lines.push("Expand the request into explicit milestones, then send the full context and draft plan to `hf-plan-reviewer`.");
-    lines.push("Do not hand off to `hf-builder` until the reviewer approves the plan.");
-    lines.push("");
-
-    if (status.lastOutcome) {
-      lines.push("## Last turn");
-      lines.push(`State: ${status.lastOutcome.state}`);
-      lines.push(`Summary: ${status.lastOutcome.summary}`);
-      lines.push("");
-    }
-
-    lines.push(...formatRuntimeState(status));
-
-    if (status.lastBlocker) {
-      lines.push("## Active blocker");
-      lines.push(`${status.lastBlocker.message} (repeated ${status.counters.repeatedBlocker} times).`);
-      lines.push("");
-    }
-
-    const recoveryLines = formatRecoveryContext(status);
-    if (recoveryLines.length > 0) {
-      lines.push(...recoveryLines);
-    }
-
-    if (vault && (vault.plan.length > 0 || vault.shared.length > 0)) {
-      lines.push("## Exploration state");
-      lines.push("The following vault documents contain findings from prior exploration passes:");
-      for (const doc of vault.plan) {
-        lines.push(`- **${doc.title}**: \`${doc.path}\``);
-      }
-      for (const doc of vault.shared) {
-        lines.push(`- **${doc.title}**: \`${doc.path}\``);
-      }
-      lines.push("");
-    }
-
-    const planningVaultLines = vaultSearchResults && vaultSearchResults.length > 0
-      ? formatSemanticVaultContext(vaultSearchResults, planningBudget)
-      : formatVaultContext(vault, planningBudget);
-    if (planningVaultLines.length > 0) {
-      lines.push(...planningVaultLines);
-    }
-
-    lines.push("## Instructions");
-    lines.push(
-      status.recommendedNextAction
-        ? `Recommended next action: ${status.recommendedNextAction}`
-        : "Recommended next action: revise the draft plan until `hf-plan-reviewer` can approve it."
-    );
-    lines.push("Reference vault-persisted findings and the plan doc; avoid re-loading the full context bundle into conversation.");
-    lines.push("Emit a final turn_outcome trailer as the last block of your response:");
-    lines.push("");
-    lines.push(TURN_OUTCOME_TRAILER_FORMAT);
-
-    return lines.join("\n");
-  }
-
   if (!currentMilestone) {
-    return [
-      `Continue the managed Hybrid Framework loop for plan ${plan.path}.`,
-      "",
-      "## Progress",
-      `Milestones: ${plan.milestones.length}/${plan.milestones.length} complete.`,
-      `Plan status: ${plan.status}.`,
-      "",
-      "## Final verification",
-      "All milestones are checked, but final verification evidence still needs to be attached before the plan can move to `status: complete`.",
-      "",
-      "## Instructions",
-      "Run the narrowest final verification needed for the completed work, attach fresh evidence under the last completed milestone, then update the plan status only if verification passes.",
-      "Emit a final turn_outcome trailer as the last block of your response:",
-      "",
-      TURN_OUTCOME_TRAILER_FORMAT
-    ].join("\n");
+    return buildVerificationPrompt(plan);
   }
 
   const completedCount = plan.milestones.filter((m) => m.checked).length;
   const totalCount = plan.milestones.length;
 
-  const lines = [
+  const lines = buildExecutionPhaseHeader({ plan, status, currentMilestone, completedCount, totalCount });
+
+  const vaultLines = vaultSearchResults && vaultSearchResults.length > 0
+    ? formatSemanticVaultContext(vaultSearchResults, charBudget)
+    : formatVaultContext(vault, charBudget);
+  if (vaultLines.length > 0) {
+    lines.push(...vaultLines);
+  }
+
+  lines.push(...buildExecutionPhaseOutcome(status));
+  lines.push(...buildExecutionPhaseVerification(status));
+  lines.push(...formatRuntimeState(status));
+  lines.push(...buildExecutionPhaseBlocker(status));
+  lines.push(...buildExecutionPhaseRecovery(status));
+  lines.push(...buildExecutionPhaseInstructions(status));
+
+  return lines.join("\n");
+}
+
+interface ExecutionPhaseHeaderOpts {
+  plan: ParsedPlan;
+  status: RuntimeStatus;
+  currentMilestone: PlanMilestone;
+  completedCount: number;
+  totalCount: number;
+}
+
+function buildExecutionPhaseHeader(opts: ExecutionPhaseHeaderOpts): string[] {
+  const { plan, status, currentMilestone, completedCount, totalCount } = opts;
+  return [
     `Continue the managed Hybrid Framework loop for plan ${plan.path}.`,
     "",
     "## Progress",
@@ -327,65 +388,101 @@ export function buildResumePrompt(
     ...formatMilestoneContext(currentMilestone),
     ""
   ];
+}
 
-  const vaultLines = vaultSearchResults && vaultSearchResults.length > 0
-    ? formatSemanticVaultContext(vaultSearchResults, charBudget)
-    : formatVaultContext(vault, charBudget);
-  if (vaultLines.length > 0) {
-    lines.push(...vaultLines);
-  }
-
+function buildExecutionPhaseOutcome(status: RuntimeStatus): string[] {
   if (status.lastOutcome) {
-    lines.push("## Last turn");
-    lines.push(`State: ${status.lastOutcome.state}`);
-    lines.push(`Summary: ${status.lastOutcome.summary}`);
+    const lines = [
+      "## Last turn",
+      `State: ${status.lastOutcome.state}`,
+      `Summary: ${status.lastOutcome.summary}`,
+    ];
     if (status.lastOutcome.files_changed.length > 0) {
       lines.push(`Files changed: ${status.lastOutcome.files_changed.join(", ")}`);
     }
-  } else {
-    lines.push("## Last turn");
-    lines.push("No outcome recorded yet.");
+    lines.push("");
+    return lines;
+  }
+  return ["## Last turn", "No outcome recorded yet.", ""];
+}
+
+function buildExecutionPhaseVerification(status: RuntimeStatus): string[] {
+  if (!status.lastVerification) {
+    return [];
+  }
+  const lines = [`## Verification: ${status.lastVerification.status}`];
+  if (status.lastVerification.summary) {
+    lines.push(status.lastVerification.summary);
   }
   lines.push("");
+  return lines;
+}
 
-  if (status.lastVerification) {
-    lines.push(`## Verification: ${status.lastVerification.status}`);
-    if (status.lastVerification.summary) {
-      lines.push(status.lastVerification.summary);
-    }
-    lines.push("");
+function buildExecutionPhaseBlocker(status: RuntimeStatus): string[] {
+  if (!status.lastBlocker) {
+    return [];
   }
+  return [
+    "## Active blocker",
+    `${status.lastBlocker.message} (repeated ${status.counters.repeatedBlocker} times).`,
+    "",
+  ];
+}
 
-  lines.push(...formatRuntimeState(status));
-
-  if (status.lastBlocker) {
-    lines.push("## Active blocker");
-    lines.push(`${status.lastBlocker.message} (repeated ${status.counters.repeatedBlocker} times).`);
-    lines.push("");
-  }
-
+function buildExecutionPhaseRecovery(status: RuntimeStatus): string[] {
   const recoveryLines = formatRecoveryContext(status);
   if (recoveryLines.length > 0) {
-    lines.push(...recoveryLines);
-  } else if (status.counters.turnsSinceLastOutcome > 0) {
-    lines.push(`## Warning: ${status.counters.turnsSinceLastOutcome} stop(s) without a TurnOutcome trailer.`);
-    lines.push(`Raw loop attempts still count toward the hard limit (${status.counters.totalAttempts}/${status.counters.maxTotalTurns}).`);
-    lines.push("Emit the canonical turn_outcome trailer before stopping.");
-    lines.push("");
+    return recoveryLines;
   }
+  if (status.counters.turnsSinceLastOutcome > 0) {
+    return [
+      `## Warning: ${status.counters.turnsSinceLastOutcome} stop(s) without a TurnOutcome trailer.`,
+      `Raw loop attempts still count toward the hard limit (${status.counters.totalAttempts}/${status.counters.maxTotalTurns}).`,
+      "Emit the canonical turn_outcome trailer before stopping.",
+      "",
+    ];
+  }
+  return [];
+}
 
-  lines.push("## Instructions");
-  lines.push(
+function buildExecutionPhaseInstructions(status: RuntimeStatus): string[] {
+  return [
+    "## Instructions",
     status.recommendedNextAction
       ? `Recommended next action: ${status.recommendedNextAction}`
-      : "Recommended next action: make the smallest forward progress on the current milestone only."
-  );
-  lines.push("Keep scope limited to the current unchecked milestone.");
-  lines.push("Emit a final turn_outcome trailer as the last block of your response:");
-  lines.push("");
-  lines.push(TURN_OUTCOME_TRAILER_FORMAT);
+      : "Recommended next action: make the smallest forward progress on the current milestone only.",
+    "Keep scope limited to the current unchecked milestone.",
+    "Emit a final turn_outcome trailer as the last block of your response:",
+    "",
+    TURN_OUTCOME_TRAILER_FORMAT,
+  ];
+}
 
-  return lines.join("\n");
+export function buildResumePrompt(
+  plan: ParsedPlan,
+  status: RuntimeStatus,
+  opts?: BuildResumePromptOpts,
+): string {
+  const vault = opts?.vault ?? null;
+  const vaultSearchResults = opts?.vaultSearchResults ?? null;
+  const budgets = opts?.budgets ?? {};
+  const resolvedOpts: Required<BuildResumePromptOpts> = { vault, vaultSearchResults, budgets };
+
+  const currentMilestone = plan.currentMilestone;
+
+  if (!currentMilestone && plan.completed) {
+    return buildCompletedPlanPrompt(plan);
+  }
+
+  if (status.phase === "planning") {
+    return buildPlanningPhasePrompt(plan, status, resolvedOpts);
+  }
+
+  if (!currentMilestone) {
+    return buildVerificationPrompt(plan);
+  }
+
+  return buildExecutionPhasePrompt(plan, status, resolvedOpts);
 }
 
 export function buildPlanlessResumePrompt(

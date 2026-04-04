@@ -161,7 +161,7 @@ describe("buildResumePrompt with semantic retrieval", () => {
     const status = makeStatus();
     const results = makeSearchResults(2);
 
-    const prompt = buildResumePrompt(plan, status, null, results);
+    const prompt = buildResumePrompt(plan, status, { vaultSearchResults: results });
 
     expect(prompt).toContain("## Vault context");
     expect(prompt).toContain("### Section 1");
@@ -175,7 +175,7 @@ describe("buildResumePrompt with semantic retrieval", () => {
     const status = makeStatus();
     const vault = makeVault();
 
-    const prompt = buildResumePrompt(plan, status, vault, null);
+    const prompt = buildResumePrompt(plan, status, { vault });
 
     expect(prompt).toContain("## Vault context");
     expect(prompt).toContain("### Plan discoveries");
@@ -191,7 +191,7 @@ describe("buildResumePrompt with semantic retrieval", () => {
     const status = makeStatus();
     const vault = makeVault();
 
-    const prompt = buildResumePrompt(plan, status, vault, []);
+    const prompt = buildResumePrompt(plan, status, { vault, vaultSearchResults: [] });
 
     expect(prompt).toContain("## Vault context");
     expect(prompt).toContain("### Plan discoveries");
@@ -204,7 +204,7 @@ describe("buildResumePrompt with semantic retrieval", () => {
     const vault = makeVault();
     const results = makeSearchResults(1);
 
-    const prompt = buildResumePrompt(plan, status, vault, results);
+    const prompt = buildResumePrompt(plan, status, { vault, vaultSearchResults: results });
 
     expect(prompt).toContain("### Section 1");
     expect(prompt).not.toContain("### Plan discoveries");
@@ -215,7 +215,7 @@ describe("buildResumePrompt with semantic retrieval", () => {
     const plan = makePlan();
     const status = makeStatus();
 
-    const prompt = buildResumePrompt(plan, status, null, null);
+    const prompt = buildResumePrompt(plan, status);
 
     expect(prompt).not.toContain("## Vault context");
   });
@@ -225,7 +225,7 @@ describe("buildResumePrompt with semantic retrieval", () => {
     const status = makeStatus();
     const results = makeSearchResults(1);
 
-    const prompt = buildResumePrompt(plan, status, null, results);
+    const prompt = buildResumePrompt(plan, status, { vaultSearchResults: results });
 
     const milestoneIdx = prompt.indexOf("## Current milestone");
     const vaultIdx = prompt.indexOf("## Vault context");
@@ -244,7 +244,7 @@ describe("buildResumePrompt with semantic retrieval", () => {
     const status = makeStatus({ phase: "planning" });
     const vault = makeVault();
 
-    const prompt = buildResumePrompt(plan, status, vault, null);
+    const prompt = buildResumePrompt(plan, status, { vault });
 
     expect(prompt).toContain("planning-review loop");
     expect(prompt).toContain("## Vault context");
@@ -262,7 +262,7 @@ describe("buildResumePrompt with semantic retrieval", () => {
     const status = makeStatus({ phase: "planning" });
     const results = makeSearchResults(2);
 
-    const prompt = buildResumePrompt(plan, status, null, results);
+    const prompt = buildResumePrompt(plan, status, { vaultSearchResults: results });
 
     expect(prompt).toContain("planning-review loop");
     expect(prompt).toContain("## Vault context");
@@ -281,7 +281,7 @@ describe("buildResumePrompt with semantic retrieval", () => {
       shared: [{ path: "vault/shared/big2.md", title: "Big shared", content: "Z".repeat(4000) }]
     };
 
-    const prompt = buildResumePrompt(plan, status, bigVault, null);
+    const prompt = buildResumePrompt(plan, status, { vault: bigVault });
 
     expect(prompt).toContain("## Vault context");
     // The vault section should be truncated due to the 4000 char planning budget
@@ -297,7 +297,7 @@ describe("buildResumePrompt with semantic retrieval", () => {
     });
     const status = makeStatus({ phase: "planning" });
 
-    const prompt = buildResumePrompt(plan, status, null, null);
+    const prompt = buildResumePrompt(plan, status);
 
     expect(prompt).toContain("planning-review loop");
     expect(prompt).not.toContain("## Vault context");
@@ -319,13 +319,14 @@ describe("buildResumePrompt with semantic retrieval", () => {
     const plan = makePlan();
     const status = makeStatus();
 
-    const prompt = buildResumePrompt(plan, status, null, bigResults);
+    const prompt = buildResumePrompt(plan, status, { vaultSearchResults: bigResults });
 
     // The vault context section should not exceed the default 3000 char budget
     const vaultStart = prompt.indexOf("## Vault context");
     const afterVault = prompt.indexOf("## Last turn");
     const vaultSection = prompt.slice(vaultStart, afterVault);
-    expect(vaultSection.length).toBeLessThanOrEqual(3100); // Allow small margin for headers
+    // Allow small margin for headers
+    expect(vaultSection.length).toBeLessThanOrEqual(3100);
   });
 
   test("planning phase includes exploration state when vault documents exist", () => {
@@ -333,8 +334,7 @@ describe("buildResumePrompt with semantic retrieval", () => {
     const status = makeStatus({ phase: "planning" });
     const vault = makeVault();
 
-    const prompt = buildResumePrompt(plan, status, vault, null);
-
+    const prompt = buildResumePrompt(plan, status, { vault });
     expect(prompt).toContain("## Exploration state");
     expect(prompt).toContain("The following vault documents contain findings from prior exploration passes:");
     expect(prompt).toContain("**Plan discoveries**");
@@ -347,7 +347,7 @@ describe("buildResumePrompt with semantic retrieval", () => {
     const plan = makePlan({ status: "planning", approved: false });
     const status = makeStatus({ phase: "planning" });
 
-    const prompt = buildResumePrompt(plan, status, null, null);
+    const prompt = buildResumePrompt(plan, status);
 
     expect(prompt).not.toContain("## Exploration state");
   });
@@ -356,7 +356,7 @@ describe("buildResumePrompt with semantic retrieval", () => {
     const plan = makePlan({ status: "planning", approved: false });
     const status = makeStatus({ phase: "planning" });
 
-    const prompt = buildResumePrompt(plan, status, null, null);
+    const prompt = buildResumePrompt(plan, status);
 
     expect(prompt).toContain("Reference vault-persisted findings and the plan doc; avoid re-loading the full context bundle into conversation.");
     expect(prompt).not.toContain("Keep the full user request, local findings, constraints, and draft plan visible to both planner and reviewer.");

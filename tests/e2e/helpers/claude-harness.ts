@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { cleanupFixture, cleanupFixtureWithRetry, seedUnifiedIndexFixture } from "./harness.js";
+import { isRecord, isString } from "../../../src/runtime/utils.js";
 
 export { cleanupFixtureWithRetry };
 
@@ -382,7 +383,7 @@ async function readOptionalJson(filePath: string): Promise<Record<string, unknow
 
   try {
     const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    if (!parsed || !isRecord(parsed) || Array.isArray(parsed)) {
       return null;
     }
     return parsed as Record<string, unknown>;
@@ -412,7 +413,7 @@ async function runClaudeExecution(
 
   return {
     ...raw,
-    producedResponse: typeof responseText === "string" && responseText.trim().length > 0,
+    producedResponse: isString(responseText) && responseText.trim().length > 0,
     responseText,
     ...(parsed !== undefined ? { parsed } : {}),
     runtime: await readClaudeRuntimeArtifacts(fixtureDir)
@@ -438,7 +439,7 @@ function getClaudeResponseText(
   parsed?: ClaudeJsonOutput
 ): string | null {
   if (outputFormat === "json") {
-    return typeof parsed?.result === "string" && parsed.result.trim().length > 0 ? parsed.result : null;
+    return isString(parsed?.result) && parsed.result.trim().length > 0 ? parsed.result : null;
   }
 
   const trimmed = stdout.trim();
@@ -474,7 +475,7 @@ async function readClaudeRuntimeArtifacts(fixtureDir: string): Promise<ClaudeRun
       events,
       eventTypes: events
         .map((event) => event.type)
-        .filter((type): type is string => typeof type === "string"),
+        .filter((type): type is string => isString(type)),
       resumePrompt: await readOptionalText(resumePromptPath),
       status: await readOptionalJson(statusPath)
     } satisfies ClaudeRuntimeSidecar;
@@ -515,7 +516,8 @@ async function resolveClaudeExe(): Promise<string | null> {
       await fs.access(candidate);
       resolvedClaudeExe = candidate;
       return candidate;
-    } catch { /* not found */ }
+      // eslint-disable-next-line no-inline-comments -- empty catch intentionally continues loop when candidate path is absent
+      } catch { /* not found */ }
   }
   resolvedClaudeExe = null;
   return null;

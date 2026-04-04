@@ -54,8 +54,8 @@ When asking the user clarifying questions that shape the plan, use the `question
 Explore the repo in focused batches. Each batch writes to vault before the next begins.
 
 1. **Identify the next batch**: determine the next focused set of `local_search_targets` needed to shape the plan. On the first pass, start with root docs (`README.md`, active plan docs) and likely source directories. On subsequent passes, target gaps revealed by prior findings.
-2. **Load `hf-local-context`** with those targets.
-3. **Write findings to vault**: after `hf-local-context` returns, confirm that findings are written to `vault/plans/<plan-slug>/discoveries.md` as a dated section. If the skill did not write them, write them yourself.
+2. **Follow the `hf-local-context` skill protocol** with those targets.
+3. **Write findings to vault**: after completing the exploration batch, confirm that findings are written to `vault/plans/<plan-slug>/discoveries.md` as a dated section. If the skill did not write them, write them yourself.
 4. **Drop in-memory findings**: after confirming the vault write, do not re-read the findings into conversation. The vault path is the reference — downstream phases read from vault, not from conversation context.
 5. **Decide whether to continue exploring**: check whether the accumulated vault findings (read from `vault/plans/<plan-slug>/discoveries.md`, not from conversation context) are sufficient to shape the plan. If not, loop back to step 1 with the next batch of targets.
 6. If the request has high-impact unknowns, ask the user only the focused questions that materially change the plan.
@@ -95,7 +95,7 @@ Explore the repo in focused batches. Each batch writes to vault before the next 
 
 ### Compaction safety
 
-If compaction occurs mid-planning, check `vault/plans/<plan-slug>/discoveries.md` and `vault/shared/` for prior exploration findings before restarting exploration. Do not re-explore targets already covered in vault. The vault is the checkpoint — resume from what's already persisted.
+If compaction occurs mid-planning, review the vault context injected in the resume prompt — it already contains budget-capped vault and plan content. Only re-read specific vault files (`vault/plans/<plan-slug>/discoveries.md`, `vault/shared/`) when you need more detail beyond what the injected snippet provided. Do not re-explore targets already covered in vault. The vault is the checkpoint — resume from what's already persisted.
 
 ## Required Output
 

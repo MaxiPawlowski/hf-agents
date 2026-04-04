@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { isString } from "../../../src/runtime/utils.js";
+
 export const PROVIDER_ENV_VARS = [
   "ANTHROPIC_API_KEY",
   "OPENAI_API_KEY",
@@ -77,6 +79,6 @@ Vitest drives the fixture lifecycle in tests.
 export function hasProviderApiKey(env: NodeJS.ProcessEnv = process.env): boolean {
   return PROVIDER_ENV_VARS.some((name) => {
     const value = env[name];
-    return typeof value === "string" && value.trim().length > 0;
+    return isString(value) && value.trim().length > 0;
   });
 }

@@ -8,7 +8,8 @@ import { MIN_BODY_CHARS, makeChunkId, splitOversized } from "./chunk-utils.js";
 const HEADER_RE = /^#{2,3}\s+/;
 
 interface RawSection {
-  headerLine: string; // e.g. "## Context"  (empty string for preamble)
+  /** e.g. "## Context"  (empty string for preamble) */
+  headerLine: string;
   bodyLines: string[];
 }
 

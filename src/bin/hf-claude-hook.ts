@@ -39,7 +39,7 @@ function parseArgs(argv: string[]): { eventName: string; planPath?: string } {
 async function main(): Promise<void> {
   const { eventName, planPath } = parseArgs(process.argv.slice(2));
   const input = parseHookInput();
-  const response = await handleClaudeHook(eventName, input, process.cwd(), planPath);
+  const response = await handleClaudeHook(eventName, input, { cwd: process.cwd(), ...(planPath ? { explicitPlanPath: planPath } : {}) });
   process.stdout.write(JSON.stringify(response));
 }
 

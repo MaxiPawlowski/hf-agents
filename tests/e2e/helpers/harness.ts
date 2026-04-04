@@ -10,6 +10,7 @@ import {
   PLAN_VAULT_FILES,
   SHARED_VAULT_FILES
 } from "./fixtures.js";
+import { isRecord, isString } from "../../../src/runtime/utils.js";
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 
@@ -230,7 +231,7 @@ export function collectEventText(value: unknown): string {
 }
 
 function appendStrings(parts: string[], value: unknown): void {
-  if (typeof value === "string") {
+  if (isString(value)) {
     parts.push(value);
     return;
   }
@@ -242,7 +243,7 @@ function appendStrings(parts: string[], value: unknown): void {
     return;
   }
 
-  if (!value || typeof value !== "object") {
+  if (!value || !isRecord(value)) {
     return;
   }
 
@@ -432,7 +433,7 @@ function parseNdjson(stdout: string): Record<string, unknown>[] {
       throw new Error(`Failed to parse OpenCode NDJSON event: ${(error as Error).message}\nLine: ${trimmed}`);
     }
 
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    if (!parsed || !isRecord(parsed) || Array.isArray(parsed)) {
       throw new Error(`Expected OpenCode event to be a JSON object. Received: ${trimmed}`);
     }
 

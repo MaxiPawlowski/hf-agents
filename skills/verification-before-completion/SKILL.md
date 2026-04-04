@@ -21,7 +21,7 @@ Select the highest applicable tier for each changed artifact:
 - **static-read** — config, docs, prompts, frontmatter. Re-read the file after the last edit and confirm it matches the acceptance criterion.
 - **command-execution** — code, scripts, test files, build configs. Run the narrowest command that can falsify the claim and report exit code and key output. Reading source is not sufficient.
 - **browser-check** — UI components, CSS, HTML. Inspect the rendered DOM or capture a screenshot. A passing build alone does not verify visual correctness.
-- **manual-attestation** — third-party integrations, environment-dependent behavior. Escalate to the user with what needs human confirmation and why.
+- **manual-attestation** — third-party integrations, environment-dependent behavior. Escalate to the user with what needs human confirmation and why. **Trigger rule**: if a milestone delivers a script, workflow, or integration that depends on external infrastructure not available in the current environment (Docker, external APIs, credentials, hardware), classify it as `manual-attestation` regardless of whether the install step or config file validated successfully. A passing `--version` check, a valid config file, or a dry-run is not proof the integration works end-to-end. Do not substitute a weaker check and claim the tier is satisfied — escalate.
 
 ## Overview
 
@@ -39,6 +39,20 @@ The plan doc remains the canonical record of milestone state. Runtime artifacts 
 
 - Brainstorming or open-ended exploration with no completion claim.
 - Re-running the same verification with no code or artifact changes since the last pass.
+
+## Final Quality Gate
+
+Before any `completion_decision: ready` is reported, run all three gates in order: lint → tests → sonar. A gate that has not run or has not passed blocks `completion_decision: ready`.
+
+**Gate order and tier classification:**
+
+- `npm run lint` — runs oxlint and eslint. Tier: `command-execution`. Must exit 0.
+- `npm test` — runs the unit and integration test suite (excludes e2e tests). Tier: `command-execution`. Must exit 0 with no failing tests.
+- `npm run sonar` — requires Docker running on port 9000 and `SONAR_TOKEN` set in `.env`.
+  - When both are available: tier is `command-execution`. Run the command and report the exit code.
+  - When Docker is not running on port 9000 or `SONAR_TOKEN` is not set: tier is `manual-attestation`. Do not run the command. Escalate to the user for manual attestation before completion. This is a direct application of the `manual-attestation` trigger rule: sonar depends on external infrastructure not available in the current environment.
+
+**Blocking rule:** `completion_decision: ready` is blocked if any gate has not run or has not passed. Do not downgrade a gate's tier or substitute a weaker check.
 
 ## Workflow
 
@@ -90,4 +104,4 @@ Return:
 The builder uses `completion_decision` to auto-complete the plan without human acknowledgment. The decision must reflect whether every artifact was verified at its appropriate tier:
 
 - **`ready`**: every changed artifact was verified at the tier it requires — static-read for config/docs/prompts, command-execution for code/scripts/tests/builds, browser-check for UI components. All evidence is fresh and attached. The builder will set `status: complete` autonomously.
-- **`blocked`**: one or more artifacts that require command-execution or browser-check verification lack real evidence at that tier. Reading source is not sufficient for code artifacts. A passing build alone is not sufficient for UI artifacts. The builder will escalate to the user with the specific gap.
+- **`blocked`**: one or more artifacts that require command-execution or browser-check verification lack real evidence at that tier. Reading source is not sufficient for code artifacts. A passing build alone is not sufficient for UI artifacts. An install check or config-validation is not sufficient for an integration that requires live external infrastructure. The builder will escalate to the user with the specific gap.

@@ -1,6 +1,8 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
+import { isRecord, isString } from "./utils.js";
+
 // ---------------------------------------------------------------------------
 // File-level locking for the shared .hf/ index store
 // ---------------------------------------------------------------------------
@@ -112,6 +114,17 @@ export interface UnifiedIndex {
   timestamp: string;
 }
 
+export interface StoreState {
+  index: UnifiedIndex;
+  vectors: Float32Array;
+}
+
+export interface QueryOptions {
+  queryVector: number[];
+  topK: number;
+  sourceFilter?: string;
+}
+
 export interface QueryItemResult {
   id: string;
   text: string;
@@ -153,7 +166,7 @@ function readVector(vectors: Float32Array, index: number): number[] {
 }
 
 function isUnifiedIndex(value: unknown): value is UnifiedIndex {
-  if (!value || typeof value !== "object") {
+  if (!value || !isRecord(value)) {
     return false;
   }
 
@@ -163,8 +176,8 @@ function isUnifiedIndex(value: unknown): value is UnifiedIndex {
     candidate.embeddingDim === EMBEDDING_DIM &&
     Array.isArray(candidate.items) &&
     candidate.fileHashes !== null &&
-    typeof candidate.fileHashes === "object" &&
-    typeof candidate.timestamp === "string"
+    isRecord(candidate.fileHashes) &&
+    isString(candidate.timestamp)
   );
 }
 
@@ -259,45 +272,39 @@ export async function saveUnifiedIndex(
  * returns the same index reference with a new vectors array.
  * Throws if an item with the same ID already exists.
  */
-// oxlint-disable max-params -- index, vectors, item, vector are all required for the insert operation; no natural grouping
 export function insertItem(
-  index: UnifiedIndex,
-  vectors: Float32Array,
+  state: StoreState,
   item: IndexItem,
   vector: number[],
-): { index: UnifiedIndex; vectors: Float32Array } {
-// oxlint-enable max-params
-  if (index.items.some((entry) => entry.id === item.id)) {
+): StoreState {
+  if (state.index.items.some((entry) => entry.id === item.id)) {
     throw new Error(`Item already exists: ${item.id}`);
   }
 
-  index.items.push(item);
-  const nextVectors = cloneWithNormalizedVector(vectors, index.items.length);
-  writeVector(nextVectors, index.items.length - 1, vector);
-  return { index, vectors: nextVectors };
+  state.index.items.push(item);
+  const nextVectors = cloneWithNormalizedVector(state.vectors, state.index.items.length);
+  writeVector(nextVectors, state.index.items.length - 1, vector);
+  return { index: state.index, vectors: nextVectors };
 }
 
 /**
  * Insert or update an item. Mutates `index.items` in-place for performance
  * and returns the same index reference with a new vectors array.
  */
-// oxlint-disable max-params -- index, vectors, item, vector are all required for the upsert operation; no natural grouping
 export function upsertItem(
-  index: UnifiedIndex,
-  vectors: Float32Array,
+  state: StoreState,
   item: IndexItem,
   vector: number[],
-): { index: UnifiedIndex; vectors: Float32Array } {
-// oxlint-enable max-params
-  const existingIndex = index.items.findIndex((entry) => entry.id === item.id);
+): StoreState {
+  const existingIndex = state.index.items.findIndex((entry) => entry.id === item.id);
   if (existingIndex === -1) {
-    return insertItem(index, vectors, item, vector);
+    return insertItem(state, item, vector);
   }
 
-  index.items[existingIndex] = item;
-  const nextVectors = Float32Array.from(vectors);
+  state.index.items[existingIndex] = item;
+  const nextVectors = Float32Array.from(state.vectors);
   writeVector(nextVectors, existingIndex, vector);
-  return { index, vectors: nextVectors };
+  return { index: state.index, vectors: nextVectors };
 }
 
 export interface BatchEntry {
@@ -400,26 +407,19 @@ function matchesSourceFilter(kind: string, sourceFilter: string): boolean {
   return kind === sourceFilter;
 }
 
-// oxlint-disable max-params -- index, vectors, queryVector, topK, sourceFilter are all required for query; no natural grouping
-export function queryItems(
-  index: UnifiedIndex,
-  vectors: Float32Array,
-  queryVector: number[],
-  topK: number,
-  sourceFilter?: string,
-): QueryItemResult[] {
-// oxlint-enable max-params
+export function queryItems(state: StoreState, query: QueryOptions): QueryItemResult[] {
+  const { queryVector, topK, sourceFilter } = query;
   const normalizedQuery = normalize(queryVector);
   const scored: QueryItemResult[] = [];
 
-  for (let i = 0; i < index.items.length; i++) {
-    const item = index.items[i]!;
+  for (let i = 0; i < state.index.items.length; i++) {
+    const item = state.index.items[i]!;
     if (sourceFilter && !matchesSourceFilter(String(item.metadata.kind ?? ""), sourceFilter)) continue;
     scored.push({
       id: item.id,
       text: item.text,
       metadata: item.metadata,
-      score: dotProduct(readVector(vectors, i), normalizedQuery),
+      score: dotProduct(readVector(state.vectors, i), normalizedQuery),
     });
   }
 

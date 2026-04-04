@@ -128,7 +128,7 @@ describe("adapter integration", () => {
         }, null, 2),
         "```"
       ].join("\n")
-    }, root, planPath);
+    }, { cwd: root, explicitPlanPath: planPath });
 
     const runtime = new HybridLoopRuntime();
     const status = await runtime.hydrate(planPath);
@@ -155,7 +155,7 @@ describe("adapter integration", () => {
         JSON.stringify({ summary: "missing fields" }, null, 2),
         "```"
       ].join("\n")
-    }, root, planPath);
+    }, { cwd: root, explicitPlanPath: planPath });
 
     const runtime = new HybridLoopRuntime();
     const status = await runtime.hydrate(planPath);
@@ -174,7 +174,7 @@ describe("adapter integration", () => {
 
     await handleClaudeHook("Stop", {
       message: "Implemented work but forgot the trailer."
-    }, root, planPath);
+    }, { cwd: root, explicitPlanPath: planPath });
 
     const runtime = new HybridLoopRuntime();
     const status = await runtime.hydrate(planPath);
@@ -201,7 +201,7 @@ describe("adapter integration", () => {
       next_action: "Add the OpenCode idle loop handler."
     });
 
-    const response = await handleClaudeHook("Stop", {}, root, planPath);
+    const response = await handleClaudeHook("Stop", {}, { cwd: root, explicitPlanPath: planPath });
 
     expect(response.decision).toBe("block");
   });
@@ -234,7 +234,7 @@ describe("adapter integration", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-adapter-"));
     const planPath = await createPlan(root);
 
-    const response = await handleClaudeHook("SessionStart", {}, root, planPath);
+    const response = await handleClaudeHook("SessionStart", {}, { cwd: root, explicitPlanPath: planPath });
     expect(response).toMatchObject({
       hookSpecificOutput: {
         hookEventName: "SessionStart"
@@ -245,12 +245,12 @@ describe("adapter integration", () => {
   test("Claude hooks allow normal operation when no managed plan exists yet", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-adapter-no-plan-"));
 
-    await expect(handleClaudeHook("SessionStart", {}, root)).resolves.toMatchObject({
+    await expect(handleClaudeHook("SessionStart", {}, { cwd: root })).resolves.toMatchObject({
       hookSpecificOutput: {
         hookEventName: "SessionStart"
       }
     });
-    await expect(handleClaudeHook("Stop", {}, root)).resolves.toEqual({
+    await expect(handleClaudeHook("Stop", {}, { cwd: root })).resolves.toEqual({
       decision: "allow",
       reason: "No active plan. The runtime is providing guardrails only."
     });
@@ -260,8 +260,8 @@ describe("adapter integration", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-adapter-"));
     const planPath = await createPlan(root);
 
-    await handleClaudeHook("PreCompact", { session_id: "claude-compact" }, root, planPath);
-    const response = await handleClaudeHook("SessionStart", { session_id: "claude-resume" }, root, planPath);
+    await handleClaudeHook("PreCompact", { session_id: "claude-compact" }, { cwd: root, explicitPlanPath: planPath });
+    const response = await handleClaudeHook("SessionStart", { session_id: "claude-resume" }, { cwd: root, explicitPlanPath: planPath });
 
     expect(response).toMatchObject({
       hookSpecificOutput: {
@@ -522,7 +522,7 @@ describe("enriched milestone adapter integration", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-enriched-"));
     const planPath = await createEnrichedPlan(root);
 
-    const response = await handleClaudeHook("SessionStart", {}, root, planPath);
+    const response = await handleClaudeHook("SessionStart", {}, { cwd: root, explicitPlanPath: planPath });
     const additionalContext = String(
       (response as { hookSpecificOutput?: { additionalContext?: string } }).hookSpecificOutput?.additionalContext ?? ""
     );
@@ -553,7 +553,7 @@ describe("enriched milestone adapter integration", () => {
         }, null, 2),
         "```"
       ].join("\n")
-    }, root, planPath);
+    }, { cwd: root, explicitPlanPath: planPath });
 
     const runtime = new HybridLoopRuntime();
     const status = await runtime.hydrate(planPath);
@@ -571,7 +571,7 @@ describe("enriched milestone adapter integration", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-enriched-"));
     const planPath = await createEnrichedPlan(root, { checkFirstTwo: true });
 
-    const response = await handleClaudeHook("SessionStart", {}, root, planPath);
+    const response = await handleClaudeHook("SessionStart", {}, { cwd: root, explicitPlanPath: planPath });
     const additionalContext = String(
       (response as { hookSpecificOutput?: { additionalContext?: string } }).hookSpecificOutput?.additionalContext ?? ""
     );
@@ -839,7 +839,8 @@ describe("ESC-interrupt and agent-gating", () => {
 
     // session-other: has its own independent flags (defaults to false/false)
     const resultOther = await hooks["session.idle"]!({ sessionID: "session-other" });
-    expect(resultOther).toBeNull(); // non-hf agent (default), not interrupted
+    // non-hf agent (default), not interrupted
+    expect(resultOther).toBeNull();
   });
 
   test("session with no plan binding returns null from getRuntime — hooks no-op gracefully", async () => {
@@ -904,7 +905,7 @@ describe("protected config guardrail", () => {
     const response = await handleClaudeHook("PreToolUse", {
       tool_name: "Write",
       tool_input: { file_path: ".oxlintrc.json" }
-    }, root);
+    }, { cwd: root });
 
     expect(response.hookSpecificOutput).toMatchObject({
       permissionDecision: "deny"
@@ -921,7 +922,7 @@ describe("protected config guardrail", () => {
     const response = await handleClaudeHook("PreToolUse", {
       tool_name: "Edit",
       tool_input: { file_path: "sonar-project.properties" }
-    }, root);
+    }, { cwd: root });
 
     expect(response.hookSpecificOutput).toMatchObject({
       permissionDecision: "deny"
@@ -935,7 +936,7 @@ describe("protected config guardrail", () => {
     const response = await handleClaudeHook("PreToolUse", {
       tool_name: "Write",
       tool_input: { file_path: "src/foo.ts" }
-    }, root);
+    }, { cwd: root });
 
     expect((response as { decision?: string }).decision).toBe("allow");
   });
@@ -949,7 +950,7 @@ describe("protected config guardrail", () => {
       const response = await handleClaudeHook("PreToolUse", {
         tool_name: "Write",
         tool_input: { file_path: ".oxlintrc.json" }
-      }, root);
+      }, { cwd: root });
       expect((response as { decision?: string }).decision).toBe("allow");
     } finally {
       if (original === undefined) {

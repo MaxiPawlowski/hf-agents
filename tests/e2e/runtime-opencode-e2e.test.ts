@@ -51,13 +51,13 @@ describe("opencode plugin e2e", () => {
 
     // session.created must return an object (possibly with additionalContext)
     expect(result).toBeDefined();
-    expect(typeof result).toBe("object");
+    expect(result).toBeTypeOf("object");
     // The fixture plan has an unchecked milestone and is in planning phase (unapproved).
     // decideNext() returns a "continue" decision with a resume_prompt, which is
     // mapped to additionalContext.
     const asRecord = result as Record<string, unknown>;
     // additionalContext is present when a resume_prompt exists
-    expect(typeof asRecord.additionalContext).toBe("string");
+    expect(asRecord.additionalContext).toBeTypeOf("string");
     expect((asRecord.additionalContext as string).length).toBeGreaterThan(0);
   }, 15_000);
 
@@ -93,7 +93,7 @@ describe("opencode plugin e2e", () => {
     expect(firstResult).toBeDefined();
     const first = firstResult as Record<string, unknown>;
     expect(first.action).toBe("allow_stop");
-    expect(typeof first.reason).toBe("string");
+    expect(first.reason).toBeTypeOf("string");
     expect(first.reason as string).toContain("interrupted");
 
     // The interrupt flag must be cleared after consumption.
@@ -136,7 +136,7 @@ describe("opencode plugin e2e", () => {
     // Either way the call must have succeeded without throwing.
     if (result !== null) {
       const decision = result as Record<string, unknown>;
-      expect(typeof decision.action).toBe("string");
+      expect(decision.action).toBeTypeOf("string");
       // Valid actions from ContinueDecision
       const validActions = ["continue", "allow_stop", "pause", "escalate", "complete", "max_turns"];
       expect(validActions).toContain(decision.action);
@@ -170,7 +170,7 @@ describe("opencode plugin e2e", () => {
 
     const result = await tool.execute({ query: "semantic search" }, toolCtx);
 
-    expect(typeof result).toBe("string");
+    expect(result).toBeTypeOf("string");
     expect(result.length).toBeGreaterThan(0);
     // Must not claim "No index available" — the planless on-demand build should succeed.
     expect(result).not.toContain("No index available");
@@ -206,7 +206,7 @@ describe("opencode plugin e2e", () => {
 
     const result = await tool.execute({ query: "vault context" }, toolCtx);
 
-    expect(typeof result).toBe("string");
+    expect(result).toBeTypeOf("string");
     expect(result.length).toBeGreaterThan(0);
     // Must not claim "No index available" — the on-demand build should succeed
     // or at minimum return "No matching results found" (not the null-index message).
@@ -246,7 +246,7 @@ describe("opencode plugin e2e", () => {
     // (fixture may not have embedded docs if the index build timed out or the fixture is minimal).
     const result = await tool.execute({ query: "plan milestone harness" }, toolCtx);
 
-    expect(typeof result).toBe("string");
+    expect(result).toBeTypeOf("string");
     expect(result.length).toBeGreaterThan(0);
   }, 15_000);
 });

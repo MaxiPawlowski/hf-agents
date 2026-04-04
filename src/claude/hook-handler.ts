@@ -56,14 +56,149 @@ export function toRuntimeEvent(eventName: string, input: ClaudeHookInput): Runti
   };
 }
 
-// oxlint-disable max-params, max-lines-per-function -- eventName, input, cwd, explicitPlanPath are distinct hook dispatch params; exhaustive event-name dispatch with thin branches
+function handlePreToolUse(
+  eventName: string,
+  input: ClaudeHookInput
+): Record<string, unknown> | null {
+  if (input.tool_name === "Bash") {
+    const command = String(input.tool_input?.command ?? input.metadata?.command ?? "");
+    if (isDestructiveCommand(command)) {
+      return {
+        hookSpecificOutput: {
+          hookEventName: eventName,
+          permissionDecision: "deny",
+          permissionDecisionReason: "Hybrid runtime guardrail blocked a destructive command."
+        }
+      };
+    }
+  }
+  const writeEditTools = new Set(["Write", "Edit", "MultiEdit", "FileEdit"]);
+  if (writeEditTools.has(input.tool_name ?? "")) {
+    const filePath = String(input.tool_input?.file_path ?? input.metadata?.file_path ?? "");
+    if (filePath && isProtectedConfigEdit(filePath)) {
+      return {
+        hookSpecificOutput: {
+          hookEventName: eventName,
+          permissionDecision: "deny",
+          permissionDecisionReason: `Hybrid runtime guardrail blocked an edit to protected config file: ${filePath}. Set HF_ALLOW_CONFIG_EDIT=1 to allow intentional changes.`
+        }
+      };
+    }
+  }
+  return null;
+}
+
+async function handleSessionOrPrompt(
+  runtime: HybridLoopRuntime,
+  eventName: string
+): Promise<Record<string, unknown>> {
+  const decision = await runtime.decideNext();
+  hfLog({ tag: "claude-hook", msg: `${eventName} decision`, data: { action: decision.action } });
+  return {
+    hookSpecificOutput: {
+      hookEventName: eventName,
+      additionalContext: decision.resume_prompt
+    }
+  };
+}
+
+async function handlePreCompact(
+  runtime: HybridLoopRuntime,
+  eventName: string,
+  input: ClaudeHookInput
+): Promise<Record<string, unknown>> {
+  const decision = await runtime.decideNext();
+  await recordCompactionArchive(runtime, {
+    vendor: "claude",
+    eventType: "claude.pre_compact_archive",
+    ...(input.session_id ? { sessionId: input.session_id } : {})
+  });
+  return {
+    hookSpecificOutput: {
+      hookEventName: eventName,
+      additionalContext: decision.resume_prompt
+    }
+  };
+}
+
+function resolveSubagentStatus(
+  eventName: string,
+  input: ClaudeHookInput
+): "running" | "completed" | "failed" {
+  if (eventName === "SubagentStart") {
+    return "running";
+  }
+  if (input.metadata?.error !== undefined) {
+    return "failed";
+  }
+  return "completed";
+}
+
+async function handleSubagentEvent(
+  runtime: HybridLoopRuntime,
+  eventName: string,
+  input: ClaudeHookInput
+): Promise<Record<string, unknown>> {
+  const subagentId = String(input.metadata?.subagent_id ?? input.session_id ?? "unknown");
+  const subagentName = String(input.metadata?.subagent_name ?? input.tool_name ?? "unnamed");
+  await recordSubagentLifecycle(runtime, {
+    id: subagentId,
+    name: subagentName,
+    status: resolveSubagentStatus(eventName, input)
+  });
+  return { decision: "allow" };
+}
+
+async function handleStop(
+  runtime: HybridLoopRuntime,
+  eventName: string,
+  input: ClaudeHookInput
+): Promise<Record<string, unknown>> {
+  if (runtime.isPlanless()) {
+    await runtime.recordEvent(toRuntimeEvent(eventName, input));
+    const decision = await runtime.decideNext();
+    return mapDecisionToClaudeStopResponse(decision);
+  }
+
+  const detection = detectTurnOutcomeInPayload(input, "claude hook input");
+  await ingestTurnOutcome(runtime, {
+    vendor: "claude",
+    source: detection.source,
+    result: detection.result,
+    ...(input.session_id ? { sessionId: input.session_id } : {}),
+    countMissingAsAttempt: true
+  });
+
+  const decision = await runtime.decideNext();
+  return mapDecisionToClaudeStopResponse(decision);
+}
+
+async function hydrateOrTimeout(
+  opts: { cwd: string; explicitPlanPath?: string },
+  eventName: string
+): Promise<HybridLoopRuntime | null> {
+  try {
+    return await hydrateRuntimeWithTimeout({
+      cwd: opts.cwd,
+      timeoutMs: HOOK_TIMEOUT_MS,
+      timeoutMessage: "Hook hydration timed out",
+      tag: "claude-hook",
+      ...(opts.explicitPlanPath ? { explicitPlanPath: opts.explicitPlanPath } : {})
+    });
+  } catch (error) {
+    if (!(error instanceof Error && error.message === "Hook hydration timed out")) {
+      throw error;
+    }
+    hfLog({ tag: "claude-hook", msg: "hydration timed out", data: { eventName } });
+    return null;
+  }
+}
+
 export async function handleClaudeHook(
   eventName: string,
   input: ClaudeHookInput,
-  cwd: string,
-  explicitPlanPath?: string
+  opts: { cwd: string; explicitPlanPath?: string }
 ): Promise<Record<string, unknown>> {
-// oxlint-enable max-params, max-lines-per-function
   const hookDone = hfLogTimed({ tag: "claude-hook", msg: `handleClaudeHook(${eventName})` });
 
   if (eventName === "PostToolUse" || eventName === "Notification") {
@@ -72,139 +207,41 @@ export async function handleClaudeHook(
   }
 
   if (eventName === "PreToolUse") {
-    if (input.tool_name === "Bash") {
-      const command = String(input.tool_input?.command ?? input.metadata?.command ?? "");
-      if (isDestructiveCommand(command)) {
-        hookDone({ blocked: true });
-        return {
-          hookSpecificOutput: {
-            hookEventName: eventName,
-            permissionDecision: "deny",
-            permissionDecisionReason: "Hybrid runtime guardrail blocked a destructive command."
-          }
-        };
-      }
-    }
-    const writeEditTools = new Set(["Write", "Edit", "MultiEdit", "FileEdit"]);
-    if (writeEditTools.has(input.tool_name ?? "")) {
-      const filePath = String(input.tool_input?.file_path ?? input.metadata?.file_path ?? "");
-      if (filePath && isProtectedConfigEdit(filePath)) {
-        hookDone({ blocked: true });
-        return {
-          hookSpecificOutput: {
-            hookEventName: eventName,
-            permissionDecision: "deny",
-            permissionDecisionReason: `Hybrid runtime guardrail blocked an edit to protected config file: ${filePath}. Set HF_ALLOW_CONFIG_EDIT=1 to allow intentional changes.`
-          }
-        };
-      }
-    }
-    // All PreToolUse calls return immediately — no hydration needed
+    const denied = handlePreToolUse(eventName, input);
+    if (denied) { hookDone({ blocked: true }); return denied; }
     hookDone({ shortCircuit: true });
     return { decision: "allow" };
   }
 
-  let runtime: HybridLoopRuntime;
-  try {
-    runtime = await hydrateRuntimeWithTimeout({
-      cwd,
-      timeoutMs: HOOK_TIMEOUT_MS,
-      timeoutMessage: "Hook hydration timed out",
-      tag: "claude-hook",
-      ...(explicitPlanPath ? { explicitPlanPath } : {})
-    });
-  } catch (error) {
-    if (!(error instanceof Error && error.message === "Hook hydration timed out")) {
-      throw error;
-    }
-
-    hfLog({ tag: "claude-hook", msg: "hydration timed out", data: { eventName } });
-
-    if (eventName === "SessionStart" || eventName === "UserPromptSubmit" || eventName === "PreCompact") {
-      return {
-        hookSpecificOutput: {
-          hookEventName: eventName
-        }
-      };
-    }
-
-    return { decision: "allow" };
+  const runtime = await hydrateOrTimeout(opts, eventName);
+  if (!runtime) {
+    const isContextEvent = eventName === "SessionStart" || eventName === "UserPromptSubmit" || eventName === "PreCompact";
+    return isContextEvent ? { hookSpecificOutput: { hookEventName: eventName } } : { decision: "allow" };
   }
+
   if (eventName !== "Stop") {
     await runtime.recordEvent(toRuntimeEvent(eventName, input));
   }
 
   if (eventName === "SessionStart" || eventName === "UserPromptSubmit") {
-    const decision = await runtime.decideNext();
-    hfLog({ tag: "claude-hook", msg: `${eventName} decision`, data: { action: decision.action } });
-    hookDone({ action: decision.action });
-    return {
-      hookSpecificOutput: {
-        hookEventName: eventName,
-        additionalContext: decision.resume_prompt
-      }
-    };
+    const result = await handleSessionOrPrompt(runtime, eventName);
+    hookDone({ action: eventName });
+    return result;
   }
-
   if (eventName === "PreCompact") {
-    const decision = await runtime.decideNext();
-    await recordCompactionArchive(runtime, "claude", "claude.pre_compact_archive", input.session_id);
-    hookDone({ action: decision.action });
-    return {
-      hookSpecificOutput: {
-        hookEventName: eventName,
-        additionalContext: decision.resume_prompt
-      }
-    };
+    const result = await handlePreCompact(runtime, eventName, input);
+    hookDone({ action: eventName });
+    return result;
   }
-
-  if (eventName === "SubagentStart") {
-    const subagentId = String(input.metadata?.subagent_id ?? input.session_id ?? "unknown");
-    const subagentName = String(input.metadata?.subagent_name ?? input.tool_name ?? "unnamed");
-    await recordSubagentLifecycle(runtime, {
-      id: subagentId,
-      name: subagentName,
-      status: "running"
-    });
-    return { decision: "allow" };
+  if (eventName === "SubagentStart" || eventName === "SubagentStop") {
+    return handleSubagentEvent(runtime, eventName, input);
   }
-
-  if (eventName === "SubagentStop") {
-    const subagentId = String(input.metadata?.subagent_id ?? input.session_id ?? "unknown");
-    const subagentName = String(input.metadata?.subagent_name ?? input.tool_name ?? "unnamed");
-    const failed = input.metadata?.error !== undefined;
-    await recordSubagentLifecycle(runtime, {
-      id: subagentId,
-      name: subagentName,
-      status: failed ? "failed" : "completed"
-    });
-    return { decision: "allow" };
-  }
-
   if (eventName === "Stop") {
-    if (runtime.isPlanless()) {
-      await runtime.recordEvent(toRuntimeEvent(eventName, input));
-      const decision = await runtime.decideNext();
-      hookDone({ action: decision.action, planless: true });
-      return mapDecisionToClaudeStopResponse(decision);
-    }
-
-    const detection = detectTurnOutcomeInPayload(input, "claude hook input");
-    await ingestTurnOutcome(runtime, {
-      vendor: "claude",
-      source: detection.source,
-      result: detection.result,
-      ...(input.session_id ? { sessionId: input.session_id } : {}),
-      countMissingAsAttempt: true
-    });
-
-    const decision = await runtime.decideNext();
-    hookDone({ action: decision.action });
-    return mapDecisionToClaudeStopResponse(decision);
+    const result = await handleStop(runtime, eventName, input);
+    hookDone({ action: (result as Record<string, unknown>).decision });
+    return result;
   }
 
   hookDone({ fallthrough: true });
-  return {
-    decision: "allow"
-  };
+  return { decision: "allow" };
 }

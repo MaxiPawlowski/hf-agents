@@ -93,6 +93,16 @@ interface OpencodeLib {
   runAssetSync: (options: ParsedOptions, adapters: AdapterSelection) => void;
 }
 
+interface InstallContext {
+  helpers: HelpersLib;
+  claudeLib: ClaudeLib;
+  opencodeLib: OpencodeLib;
+  options: ParsedOptions;
+  manifest: Manifest;
+  adapters: AdapterSelection;
+  packageName: string;
+}
+
 // ---------------------------------------------------------------------------
 // Path resolution: dist/src/bin/hf-setup.js → project root is ../../../
 // ---------------------------------------------------------------------------
@@ -228,37 +238,90 @@ async function askPlatform(rl: ReturnType<typeof createInterface>): Promise<Plat
 }
 
 // ---------------------------------------------------------------------------
-// Execute helpers — replicates install-runtime.mjs logic via lib imports
+// Execute helpers — lifted to module level with explicit InstallContext param
 // ---------------------------------------------------------------------------
 
-// oxlint-disable max-lines-per-function -- sequential setup orchestration with platform variants; cannot be split without context loss
-async function runSetup(command: ActionChoice, platform: PlatformChoice, opts: WizardOptions): Promise<void> {
-// oxlint-enable max-lines-per-function
+function executeInstall(commandLabel: string, ctx: InstallContext): void {
+  const nextManifest: Manifest = {
+    version: 1,
+    packageName: ctx.packageName,
+    adapters: {
+      ...ctx.manifest.adapters
+    }
+  };
+
+  ctx.opencodeLib.runAssetSync(ctx.options, ctx.adapters);
+
+  if (ctx.adapters.claude) {
+    nextManifest.adapters["claude"] = ctx.claudeLib.installClaude(
+      ctx.options.platform,
+      ctx.options.targetDir,
+      ctx.packageName
+    );
+  }
+
+  if (ctx.adapters.opencode) {
+    nextManifest.adapters["opencode"] = ctx.opencodeLib.installOpenCode(
+      ctx.options.targetDir,
+      ctx.packageName
+    );
+  }
+
+  ctx.helpers.writeManifest(ctx.options.targetDir, nextManifest);
+  ctx.helpers.log(`Hybrid runtime ${commandLabel} complete.`);
+}
+
+function executeUninstall(ctx: InstallContext): void {
+  const nextManifest: Manifest = {
+    ...ctx.manifest,
+    adapters: {
+      ...ctx.manifest.adapters
+    }
+  };
+
+  if (ctx.adapters.claude) {
+    ctx.claudeLib.uninstallClaude(ctx.options.targetDir, ctx.manifest.adapters["claude"]);
+    delete nextManifest.adapters["claude"];
+  }
+
+  if (ctx.adapters.opencode) {
+    ctx.opencodeLib.uninstallOpenCode(ctx.options.targetDir, ctx.manifest.adapters["opencode"]);
+    delete nextManifest.adapters["opencode"];
+  }
+
+  ctx.helpers.writeManifest(ctx.options.targetDir, nextManifest);
+  ctx.helpers.log("Hybrid runtime uninstall complete.");
+}
+
+// ---------------------------------------------------------------------------
+// Context builder — loads libs and resolves parsed options + selections
+// ---------------------------------------------------------------------------
+
+interface SetupContext {
+  ctx: InstallContext;
+  config: ProjectConfig;
+  scaffold: ScaffoldSelection;
+  shouldScaffold: boolean;
+}
+
+async function buildSetupContext(
+  command: ActionChoice,
+  platform: PlatformChoice,
+  opts: WizardOptions
+): Promise<SetupContext> {
   // Dynamic imports of mjs lib files — resolved via file:// URL so Node ESM resolves correctly
   const helpers = (await import(`file://${path.join(libDir, "install-helpers.mjs")}`)) as HelpersLib;
   const claudeLib = (await import(`file://${path.join(libDir, "install-claude.mjs")}`)) as ClaudeLib;
   const opencodeLib = (await import(`file://${path.join(libDir, "install-opencode.mjs")}`)) as OpencodeLib;
 
-  // Map wizard platform choice to helpers tool value
-  const toolMap: Record<PlatformChoice, string> = {
-    both: "all",
-    claude: "claude",
-    opencode: "opencode"
-  };
+  const toolMap: Record<PlatformChoice, string> = { both: "all", claude: "claude", opencode: "opencode" };
 
   const cliBits: string[] = [command, "--tool", toolMap[platform]];
-  if (opts.targetDir !== null) {
-    cliBits.push("--target-dir", opts.targetDir);
-  }
-  if (opts.skipBuild) {
-    cliBits.push("--skip-build");
-  }
-  if (opts.configPath !== null) {
-    cliBits.push("--config", opts.configPath);
-  }
+  if (opts.targetDir !== null) cliBits.push("--target-dir", opts.targetDir);
+  if (opts.skipBuild) cliBits.push("--skip-build");
+  if (opts.configPath !== null) cliBits.push("--config", opts.configPath);
 
   const options = helpers.parseArgs(cliBits);
-
   helpers.ensureTargetDir(options.targetDir);
 
   const packageName = helpers.getPackageName();
@@ -266,8 +329,19 @@ async function runSetup(command: ActionChoice, platform: PlatformChoice, opts: W
   const manifest = helpers.readManifest(options.targetDir);
   const adapters = helpers.resolveAdapterSelection(options, config.value, manifest);
   const scaffold = helpers.resolveScaffoldSelection(options, config.value);
-
   const shouldScaffold = command === "init" && (scaffold.plans || scaffold.vault);
+  const ctx: InstallContext = { helpers, claudeLib, opencodeLib, options, manifest, adapters, packageName };
+
+  return { ctx, config, scaffold, shouldScaffold };
+}
+
+// ---------------------------------------------------------------------------
+// Setup orchestration — replicates install-runtime.mjs logic via lib imports
+// ---------------------------------------------------------------------------
+
+async function runSetup(command: ActionChoice, platform: PlatformChoice, opts: WizardOptions): Promise<void> {
+  const { ctx, config, scaffold, shouldScaffold } = await buildSetupContext(command, platform, opts);
+  const { helpers, adapters, options } = ctx;
 
   if (!adapters.claude && !adapters.opencode && command !== "uninstall" && !shouldScaffold) {
     helpers.log(`No adapters are enabled for ${command}.`);
@@ -287,77 +361,14 @@ async function runSetup(command: ActionChoice, platform: PlatformChoice, opts: W
     helpers.run("npm", ["run", "build"]);
   }
 
-  function executeInstall(commandLabel: string): void {
-    const nextManifest: Manifest = {
-      version: 1,
-      packageName,
-      adapters: {
-        ...manifest.adapters
-      }
-    };
-
-    opencodeLib.runAssetSync(options, adapters);
-
-    if (adapters.claude) {
-      nextManifest.adapters["claude"] = claudeLib.installClaude(
-        options.platform,
-        options.targetDir,
-        packageName
-      );
-    }
-
-    if (adapters.opencode) {
-      nextManifest.adapters["opencode"] = opencodeLib.installOpenCode(
-        options.targetDir,
-        packageName
-      );
-    }
-
-    helpers.writeManifest(options.targetDir, nextManifest);
-    helpers.log(`Hybrid runtime ${commandLabel} complete.`);
-  }
-
-  function executeUninstall(): void {
-    const nextManifest: Manifest = {
-      ...manifest,
-      adapters: {
-        ...manifest.adapters
-      }
-    };
-
-    if (adapters.claude) {
-      claudeLib.uninstallClaude(options.targetDir, manifest.adapters["claude"]);
-      delete nextManifest.adapters["claude"];
-    }
-
-    if (adapters.opencode) {
-      opencodeLib.uninstallOpenCode(options.targetDir, manifest.adapters["opencode"]);
-      delete nextManifest.adapters["opencode"];
-    }
-
-    helpers.writeManifest(options.targetDir, nextManifest);
-    helpers.log("Hybrid runtime uninstall complete.");
-  }
-
-  if (command === "install") {
-    executeInstall("install");
-    return;
-  }
-
-  if (command === "sync") {
-    executeInstall("sync");
-    return;
-  }
-
-  if (command === "uninstall") {
-    executeUninstall();
-    return;
-  }
+  if (command === "install") { executeInstall("install", ctx); return; }
+  if (command === "sync") { executeInstall("sync", ctx); return; }
+  if (command === "uninstall") { executeUninstall(ctx); return; }
 
   if (command === "init") {
     helpers.seedIndexConfig(config);
     helpers.scaffoldProject(options.targetDir, scaffold);
-    executeInstall("install");
+    executeInstall("install", ctx);
   }
 }
 

@@ -46,7 +46,7 @@ You are Builder.
 1. Load `hf-milestone-tracking`.
 2. Read the plan doc and identify the first unchecked milestone.
 3. If the plan's frontmatter `status` is `planning`, update it to `status: in-progress` using `hf-milestone-tracking` before dispatching any work.
-4. Read any injected vault context before dispatching work. If you discover new cross-milestone constraints, blocker resolutions, or design decisions during execution, write them back to `vault/plans/<plan-slug>/`.
+4. Review the vault context injected in the resume prompt — it already contains budget-capped vault and plan content. Only re-read specific vault files when cross-milestone constraints or prior discoveries need more detail than the injected snippet provided. If you discover new cross-milestone constraints, blocker resolutions, or design decisions during execution, write them back to `vault/plans/<plan-slug>/`.
 5. For each unchecked milestone, read its `review` policy (default: `required`):
 
    - Dispatch `hf-coder` with the milestone title, scope, acceptance criterion, enriched context (`scope`, `conventions`, `notes` when present), relevant plan context, and relevant vault context when it clarifies cross-milestone constraints or prior discoveries.
@@ -72,6 +72,7 @@ You are Builder.
 
    **Review: auto**:
     - Read the milestone's `Verify:` block and execute the appropriate verification for each step. If the milestone should have `Verify:` but the block is missing, stop and escalate instead of guessing.
+    - If a verify step cannot execute because it requires external infrastructure (Docker, live services, credentials, hardware) that is not available in the current environment, do not substitute a weaker check (install verification, config validation, dry-run). Use the `question` tool to escalate to the user, identifying the infrastructure needed and what the user must confirm manually (`manual-attestation`). Do not mark the milestone complete until that attestation is recorded.
     - If all verification passes, append evidence under the milestone and mark it complete with `hf-milestone-tracking`. Do not dispatch `hf-reviewer`.
      - If any verification fails or cannot run, use the `question` tool to escalate to the user with the failing step, captured output, and what is needed.
 
@@ -82,8 +83,11 @@ You are Builder.
 
 6. When all milestones are checked:
     - Load `hf-verification-before-completion`.
-    - Run the final verification steps and collect fresh evidence.
-    - If the final verification returns `completion_decision: ready` — meaning every artifact was verified at its appropriate tier (command-execution for code, browser-check for UI, static-read for config/docs) — record final evidence under the last completed milestone and update frontmatter to `status: complete`. Present the completion summary to the user after the transition.
+    - Run the final verification steps and collect fresh evidence. Three quality gates must pass before `completion_decision: ready` can be returned:
+      - `npm run lint` — full suite (oxlint + eslint across src/tests/scripts). Must exit 0.
+      - `npm test` — unit and integration suite (excludes e2e). Must exit 0 with no failing tests.
+      - `npm run sonar` — requires Docker running on port 9000 and `SONAR_TOKEN` set in `.env`. If either is unavailable, escalate to the user for manual attestation before proceeding.
+    - If the final verification returns `completion_decision: ready` — meaning every artifact was verified at its appropriate tier (command-execution for code, browser-check for UI, static-read for config/docs) — record final evidence under the last completed milestone and update frontmatter to `status: complete`. Then call `hf_plan_complete` (passing an optional one-sentence summary) to close the loop. Present the completion summary to the user after the transition.
     - If the final verification returns `completion_decision: blocked` — meaning artifacts that require command-execution or browser-check verification lack real evidence at that tier — do not set `status: complete`. Use the `question` tool to escalate to the user with what remains unverified and the smallest next action.
 
 ## Required Output

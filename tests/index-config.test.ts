@@ -56,22 +56,32 @@ describe("loadIndexConfig", () => {
       path.join(tmpDir, "hybrid-framework.json"),
       JSON.stringify({
         index: {
-          enabled: "yes",         // should be boolean
-          semanticTopK: -5,       // should be positive
-          planningSemanticTopK: "abc", // should be number
+          // should be boolean
+          enabled: "yes",
+          // should be positive
+          semanticTopK: -5,
+          // should be number
+          planningSemanticTopK: "abc",
           code: {
-            roots: 42,            // should be string[]
-            extensions: [123],    // elements should be strings
+            // should be string[]
+            roots: 42,
+            // elements should be strings
+            extensions: [123],
           },
         },
       }),
     );
     const config = await loadIndexConfig(tmpDir);
-    expect(config.enabled).toBe(true);           // fallback
-    expect(config.semanticTopK).toBe(5);          // fallback
-    expect(config.code.roots).toEqual(["src"]);   // fallback
-    expect(config.code.extensions).toEqual([".ts"]); // fallback
-    expect(config.planningSemanticTopK).toBe(5);     // fallback
+    // fallback
+    expect(config.enabled).toBe(true);
+    // fallback
+    expect(config.semanticTopK).toBe(5);
+    // fallback
+    expect(config.code.roots).toEqual(["src"]);
+    // fallback
+    expect(config.code.extensions).toEqual([".ts"]);
+    // fallback
+    expect(config.planningSemanticTopK).toBe(5);
   });
 
   it("handles malformed JSON gracefully", async () => {

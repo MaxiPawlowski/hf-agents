@@ -46,7 +46,7 @@ class EmbeddingIpcServer implements EmbeddingIpcServerHandle {
     readonly endpoint: string,
     readonly manifestPath: string,
     private readonly server: net.Server
-  // eslint-disable-next-line max-params -- repoRoot, transport, endpoint, manifestPath, server are distinct server-identity params; no natural grouping
+   
   ) {
     this.ownedSocketPath = transport === EMBEDDING_IPC_TRANSPORT_UNIX_SOCKET ? endpoint : null;
   }

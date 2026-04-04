@@ -9,6 +9,7 @@ import { describe, expect, test } from "vitest";
 import { buildClaudeHooks } from "../scripts/lib/install-claude.mjs";
 // @ts-ignore
 import { buildOpenCodePluginSource } from "../scripts/lib/install-opencode.mjs";
+import { isString } from "../src/runtime/utils.js";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
 
@@ -182,8 +183,8 @@ describe("install-runtime smoke tests", () => {
   }, 30_000);
 
   test("module exports are defined functions", () => {
-    expect(typeof buildClaudeHooks).toBe("function");
-    expect(typeof buildOpenCodePluginSource).toBe("function");
+    expect(buildClaudeHooks).toBeTypeOf("function");
+    expect(buildOpenCodePluginSource).toBeTypeOf("function");
   });
 
   test("buildClaudeHooks returns expected hook event keys for both platforms", () => {
@@ -259,7 +260,7 @@ describe("install-runtime smoke tests", () => {
     const installedStopCommands = settings.hooks?.Stop
       ?.flatMap((group) => group.hooks ?? [])
       .map((hook) => hook.command)
-      .filter((command): command is string => typeof command === "string" && command.includes("hf-claude-hook.js") && command.endsWith(" Stop")) ?? [];
+      .filter((command): command is string => isString(command) && command.includes("hf-claude-hook.js") && command.endsWith(" Stop")) ?? [];
     expect(installedStopCommands).toHaveLength(1);
   });
 
@@ -365,7 +366,7 @@ describe("install-runtime smoke tests", () => {
     const installedStopCommands = initialSettings.hooks?.Stop
       ?.flatMap((group) => group.hooks ?? [])
       .map((hook) => hook.command)
-      .filter((command): command is string => typeof command === "string" && command.includes("hf-claude-hook.js") && command.endsWith(" Stop")) ?? [];
+      .filter((command): command is string => isString(command) && command.includes("hf-claude-hook.js") && command.endsWith(" Stop")) ?? [];
     expect(installedStopCommands).toHaveLength(1);
 
     await writeFile(plansReadmePath, `${await readFile(plansReadmePath, "utf8")}\nMANUAL MARKER\n`, "utf8");
@@ -381,7 +382,7 @@ describe("install-runtime smoke tests", () => {
     const rerunStopCommands = rerunSettings.hooks?.Stop
       ?.flatMap((group) => group.hooks ?? [])
       .map((hook) => hook.command)
-      .filter((command): command is string => typeof command === "string" && command.includes("hf-claude-hook.js") && command.endsWith(" Stop")) ?? [];
+      .filter((command): command is string => isString(command) && command.includes("hf-claude-hook.js") && command.endsWith(" Stop")) ?? [];
     expect(rerunStopCommands).toHaveLength(1);
 
     runInstaller(["sync", "--target-dir", fixtureRoot]);
@@ -413,7 +414,7 @@ describe("install-runtime smoke tests", () => {
     const remainingStopCommands = postUninstallSettings.hooks?.Stop
       ?.flatMap((group) => group.hooks ?? [])
       .map((hook) => hook.command)
-      .filter((command): command is string => typeof command === "string" && command.includes("hf-claude-hook.js") && command.endsWith(" Stop")) ?? [];
+      .filter((command): command is string => isString(command) && command.includes("hf-claude-hook.js") && command.endsWith(" Stop")) ?? [];
     expect(remainingStopCommands).toHaveLength(0);
   });
 

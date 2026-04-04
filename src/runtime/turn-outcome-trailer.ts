@@ -1,5 +1,5 @@
 import type { RuntimeEvent, TurnOutcome } from "./types.js";
-import { isRecord } from "./utils.js";
+import { isRecord, isString } from "./utils.js";
 
 export const TURN_OUTCOME_TRAILER_LABEL = "turn_outcome:";
 
@@ -54,40 +54,87 @@ function describeType(value: unknown): string {
   if (Array.isArray(value)) {
     return "array";
   }
+  // eslint-disable-next-line no-restricted-syntax -- describeType returns the JS type name as a string; typeof is unavoidable here
   return typeof value;
 }
 
-// oxlint-disable max-params -- validation helper needs issues, value, allowed-set, and path; no natural grouping
+interface UnexpectedKeysSchema {
+  keys: Set<string>;
+  path: string;
+}
+
 function pushUnexpectedKeys(
   issues: TurnOutcomeValidationIssue[],
   value: Record<string, unknown>,
-  allowedKeys: Set<string>,
-  path: string
+  schema: UnexpectedKeysSchema,
 ): void {
-// oxlint-enable max-params
   for (const key of Object.keys(value)) {
-    if (!allowedKeys.has(key)) {
-      issues.push({ path, message: `unexpected property "${key}"` });
+    if (!schema.keys.has(key)) {
+      issues.push({ path: schema.path, message: `unexpected property "${key}"` });
     }
   }
 }
 
-// oxlint-disable-next-line max-lines-per-function -- validates a tree-shaped schema; extracting sub-validators would obscure the overall structure
+function validateTestsRun(issues: TurnOutcomeValidationIssue[], testsArray: unknown[]): void {
+  testsArray.forEach((test, index) => {
+    const testPath = `$.tests_run[${index}]`;
+    if (!isRecord(test)) {
+      issues.push({ path: testPath, message: `expected object, received ${describeType(test)}` });
+      return;
+    }
+    pushUnexpectedKeys(issues, test, { keys: TEST_KEYS, path: testPath });
+    if (!isString(test.command)) {
+      issues.push({ path: `${testPath}.command`, message: `expected string, received ${describeType(test.command)}` });
+    }
+    if (!isString(test.result)) {
+      issues.push({ path: `${testPath}.result`, message: `expected string, received ${describeType(test.result)}` });
+    } else if (!ALLOWED_RESULTS.has(test.result)) {
+      issues.push({ path: `${testPath}.result`, message: `expected one of ${Array.from(ALLOWED_RESULTS).join(", ")}` });
+    }
+    if (test.summary !== undefined && !isString(test.summary)) {
+      issues.push({ path: `${testPath}.summary`, message: `expected string, received ${describeType(test.summary)}` });
+    }
+  });
+}
+
+function validateBlocker(issues: TurnOutcomeValidationIssue[], blocker: unknown): void {
+  if (blocker === undefined || blocker === null) return;
+  if (!isRecord(blocker)) {
+    issues.push({ path: "$.blocker", message: `expected object or null, received ${describeType(blocker)}` });
+    return;
+  }
+  pushUnexpectedKeys(issues, blocker, { keys: BLOCKER_KEYS, path: "$.blocker" });
+  if (!isString(blocker.message)) {
+    issues.push({ path: "$.blocker.message", message: `expected string, received ${describeType(blocker.message)}` });
+  }
+  if (blocker.signature !== undefined && !isString(blocker.signature)) {
+    issues.push({ path: "$.blocker.signature", message: `expected string, received ${describeType(blocker.signature)}` });
+  }
+}
+
+function validateNextAction(issues: TurnOutcomeValidationIssue[], value: Record<string, unknown>): void {
+  if (!isString(value.next_action)) {
+    issues.push({ path: "$.next_action", message: `expected string, received ${describeType(value.next_action)}` });
+  } else if (value.next_action.length === 0) {
+    issues.push({ path: "$.next_action", message: "must not be empty" });
+  }
+}
+
 export function validateTurnOutcome(value: unknown): TurnOutcomeValidationIssue[] {
   const issues: TurnOutcomeValidationIssue[] = [];
   if (!isRecord(value)) {
     return [{ path: "$", message: `expected object, received ${describeType(value)}` }];
   }
 
-  pushUnexpectedKeys(issues, value, ROOT_KEYS, "$");
+  pushUnexpectedKeys(issues, value, { keys: ROOT_KEYS, path: "$" });
 
-  if (typeof value.state !== "string") {
+  if (!isString(value.state)) {
     issues.push({ path: "$.state", message: `expected string, received ${describeType(value.state)}` });
   } else if (!ALLOWED_STATES.has(value.state)) {
     issues.push({ path: "$.state", message: `expected one of ${Array.from(ALLOWED_STATES).join(", ")}` });
   }
 
-  if (typeof value.summary !== "string") {
+  if (!isString(value.summary)) {
     issues.push({ path: "$.summary", message: `expected string, received ${describeType(value.summary)}` });
   } else if (value.summary.length === 0) {
     issues.push({ path: "$.summary", message: "must not be empty" });
@@ -97,7 +144,7 @@ export function validateTurnOutcome(value: unknown): TurnOutcomeValidationIssue[
     issues.push({ path: "$.files_changed", message: `expected array, received ${describeType(value.files_changed)}` });
   } else {
     value.files_changed.forEach((entry, index) => {
-      if (typeof entry !== "string") {
+      if (!isString(entry)) {
         issues.push({ path: `$.files_changed[${index}]`, message: `expected string, received ${describeType(entry)}` });
       }
     });
@@ -106,46 +153,11 @@ export function validateTurnOutcome(value: unknown): TurnOutcomeValidationIssue[
   if (!Array.isArray(value.tests_run)) {
     issues.push({ path: "$.tests_run", message: `expected array, received ${describeType(value.tests_run)}` });
   } else {
-    value.tests_run.forEach((test, index) => {
-      const testPath = `$.tests_run[${index}]`;
-      if (!isRecord(test)) {
-        issues.push({ path: testPath, message: `expected object, received ${describeType(test)}` });
-        return;
-      }
-      pushUnexpectedKeys(issues, test, TEST_KEYS, testPath);
-      if (typeof test.command !== "string") {
-        issues.push({ path: `${testPath}.command`, message: `expected string, received ${describeType(test.command)}` });
-      }
-      if (typeof test.result !== "string") {
-        issues.push({ path: `${testPath}.result`, message: `expected string, received ${describeType(test.result)}` });
-      } else if (!ALLOWED_RESULTS.has(test.result)) {
-        issues.push({ path: `${testPath}.result`, message: `expected one of ${Array.from(ALLOWED_RESULTS).join(", ")}` });
-      }
-      if (test.summary !== undefined && typeof test.summary !== "string") {
-        issues.push({ path: `${testPath}.summary`, message: `expected string, received ${describeType(test.summary)}` });
-      }
-    });
+    validateTestsRun(issues, value.tests_run);
   }
 
-  if (value.blocker !== undefined && value.blocker !== null) {
-    if (!isRecord(value.blocker)) {
-      issues.push({ path: "$.blocker", message: `expected object or null, received ${describeType(value.blocker)}` });
-    } else {
-      pushUnexpectedKeys(issues, value.blocker, BLOCKER_KEYS, "$.blocker");
-      if (typeof value.blocker.message !== "string") {
-        issues.push({ path: "$.blocker.message", message: `expected string, received ${describeType(value.blocker.message)}` });
-      }
-      if (value.blocker.signature !== undefined && typeof value.blocker.signature !== "string") {
-        issues.push({ path: "$.blocker.signature", message: `expected string, received ${describeType(value.blocker.signature)}` });
-      }
-    }
-  }
-
-  if (typeof value.next_action !== "string") {
-    issues.push({ path: "$.next_action", message: `expected string, received ${describeType(value.next_action)}` });
-  } else if (value.next_action.length === 0) {
-    issues.push({ path: "$.next_action", message: "must not be empty" });
-  }
+  validateBlocker(issues, value.blocker);
+  validateNextAction(issues, value);
 
   return issues;
 }

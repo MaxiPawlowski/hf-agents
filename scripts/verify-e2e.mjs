@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const today = new Date().toISOString().slice(0, 10);
+const ISO_DATE_LENGTH = 10;
+const today = new Date().toISOString().slice(0, ISO_DATE_LENGTH);
 const proofSlug = `${today}-package-lifecycle-proof`;
 const proofDir = path.join(repoRoot, "plans", "evidence", proofSlug);
 

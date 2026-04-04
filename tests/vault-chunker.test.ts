@@ -59,7 +59,8 @@ describe("vault-chunker", () => {
 
     expect(chunks).toHaveLength(1);
     expect(chunks[0]!.text).toBe(content);
-    expect(chunks[0]!.metadata.sectionTitle).toBe("Test Notes"); // falls back to doc title
+    // falls back to doc title
+    expect(chunks[0]!.metadata.sectionTitle).toBe("Test Notes");
   });
 
   test("nested ### headers produce separate chunks", () => {

@@ -26,7 +26,7 @@ import type { SessionManager } from "./plugin-session.js";
  * so we pull `.z` off it.
  */
 const _req = createRequire(import.meta.url);
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-require-imports
+ 
 const _zodMod = _req(
   path.resolve(process.cwd(), ".opencode", "node_modules", "zod", "index.cjs")
 ) as {
@@ -153,26 +153,96 @@ async function executeSearchQuery(
         timeoutMessage: "Runtime hydration timed out",
         tag: "plugin/hf_search",
       });
-    } catch {
-      return "No index available — the unified index has not been built yet for this session.";
+    } catch (err) {
+      return `Index build failed: ${String(err instanceof Error ? err.message : err)}. Try again or check the runtime logs.`;
     }
   }
 
   const results = await runtime.queryIndex(query, topK, sourceFilter);
   if (results === null) {
-    return "No index available — the unified index has not been built yet for this session.";
+    return "No index available — the on-demand index build returned no results. Try again or check the runtime logs.";
   }
   return formatToolSearchResults(results);
 }
 
-export function createPluginTools(context: OpenCodePluginContext, manager: SessionManager): Record<string, unknown> {
-  const { sessionRuntimes, planBindings, sessionAccessOrder } = manager;
+type PlanCompleteArgs = { plan?: string; summary?: string };
+type BindingRequest = { planArg: string; sessionId: string; directory: string };
 
-  const hfPlanStartTool = {
+async function resolvePlanCompleteBinding(
+  req: BindingRequest,
+  manager: SessionManager
+): Promise<{ resolvedPath: string } | { error: string }> {
+  const { planArg, sessionId, directory } = req;
+  if (planArg) {
+    let resolvedPath: string;
+    try {
+      resolvedPath = await resolvePlanPath(planArg, directory);
+    } catch (err) {
+      return { error: String(err instanceof Error ? err.message : err) };
+    }
+    manager.planBindings.set(sessionId, resolvedPath);
+    manager.sessionRuntimes.delete(sessionId);
+    const orderIdx = manager.sessionAccessOrder.indexOf(sessionId);
+    if (orderIdx !== -1) manager.sessionAccessOrder.splice(orderIdx, 1);
+    return { resolvedPath };
+  }
+  const bound = manager.planBindings.get(sessionId);
+  if (!bound) {
+    return { error: "No plan is bound to this session. Call hf_plan_start first, or pass an explicit plan slug." };
+  }
+  return { resolvedPath: bound };
+}
+
+type OutcomeParams = { resolvedPath: string; summary: string; sessionId: string };
+
+async function evaluatePlanCompleteOutcome(params: OutcomeParams, runtime: HybridLoopRuntime): Promise<string> {
+  const { resolvedPath, summary, sessionId } = params;
+  let parsed: Awaited<ReturnType<typeof parsePlan>>;
+  try {
+    parsed = await parsePlan(resolvedPath);
+  } catch (err) {
+    return `Error: Could not parse plan doc: ${String(err)}`;
+  }
+  if (!parsed.completed) {
+    const unchecked = parsed.milestones.filter((m) => !m.checked);
+    const list = unchecked.map((m) => `  - M${m.index}: ${m.title}`).join("\n");
+    return [`Error: Plan is not complete — ${unchecked.length} milestone(s) are still unchecked.`, list, "", "Check all milestones and update the frontmatter to `status: complete` before calling hf_plan_complete."].join("\n");
+  }
+  const outcome = { state: "plan_complete" as const, summary: summary || `All milestones complete for plan: ${parsed.slug}`, files_changed: [] as string[], tests_run: [] as never[], next_action: "Plan loop closed." };
+  let status: Awaited<ReturnType<typeof runtime.evaluateTurn>>;
+  try {
+    status = await runtime.evaluateTurn(outcome);
+  } catch (err) {
+    return `Error: evaluateTurn failed: ${String(err)}`;
+  }
+  hfLog({ tag: "plugin", msg: "hf_plan_complete: loop closed", data: { sessionId, resolvedPath, loopState: status.loopState } });
+  return [`Plan loop closed: ${resolvedPath}`, `Loop state: ${status.loopState}`, `Plan slug: ${status.planSlug}`, `Total milestones: ${parsed.milestones.length} (all complete)`].join("\n");
+}
+
+async function executePlanComplete(args: PlanCompleteArgs, toolContext: ToolContext, manager: SessionManager): Promise<string> {
+  const sessionId = toolContext.sessionID;
+  const planArg = (args.plan ?? "").trim();
+  const bindResult = await resolvePlanCompleteBinding({ planArg, sessionId, directory: toolContext.directory }, manager);
+  if ("error" in bindResult) return `Error: ${bindResult.error}`;
+  const { resolvedPath } = bindResult;
+
+  let runtime: HybridLoopRuntime | null;
+  try {
+    runtime = await manager.getRuntime(sessionId);
+  } catch (err) {
+    return `Error: Runtime hydration failed: ${String(err)}`;
+  }
+  if (!runtime || runtime.isPlanless()) {
+    return `Error: Runtime is not bound to a plan (got planless or null). Make sure the plan doc has a ## Milestones section.`;
+  }
+  return evaluatePlanCompleteOutcome({ resolvedPath, summary: (args.summary ?? "").trim(), sessionId }, runtime);
+}
+
+function buildPlanStartTool(manager: SessionManager) {
+  const { planBindings, sessionRuntimes, sessionAccessOrder } = manager;
+  return {
     description: "Bind this OpenCode session to a specific hybrid-framework plan doc. Call this at the start of every builder or planner session before running any plan milestones. Pass a plan slug (e.g. 'my-feature') or a relative path (e.g. 'plans/2026-03-27-my-feature-plan.md').",
-    args: {
-      plan: pluginZ.string().describe("Plan slug or relative path (e.g. 'my-feature' or 'plans/2026-03-27-my-feature-plan.md')")
-    },
+    args: { plan: pluginZ.string().describe("Plan slug or relative path (e.g. 'my-feature' or 'plans/2026-03-27-my-feature-plan.md')") },
     execute: async (args: { plan: string }, toolContext: ToolContext): Promise<string> => {
       const planArg = args.plan ?? "";
       let resolvedPath: string;
@@ -194,8 +264,10 @@ export function createPluginTools(context: OpenCodePluginContext, manager: Sessi
       }
     }
   };
+}
 
-  const hfSearchTool = {
+function buildSearchTool(context: OpenCodePluginContext, manager: SessionManager) {
+  return {
     description: "Search the hybrid framework's unified semantic index (vault docs, code, and external files). Optionally filter by source: 'vault' for documentation, 'code' for source code, 'all' (default) for everything.",
     args: {
       query: pluginZ.string().describe("Natural language search query"),
@@ -204,16 +276,30 @@ export function createPluginTools(context: OpenCodePluginContext, manager: Sessi
     },
     execute: async (args: SearchArgs, toolContext: ToolContext): Promise<string> => {
       try {
-        return await executeSearchQuery(args, {
-          cwd: context.cwd ?? toolContext.directory,
-          sessionId: toolContext.sessionID,
-          getRuntime: manager.getRuntime
-        });
+        return await executeSearchQuery(args, { cwd: context.cwd ?? toolContext.directory, sessionId: toolContext.sessionID, getRuntime: manager.getRuntime });
       } catch (err) {
         return `Error querying index: ${String(err)}`;
       }
     }
   };
+}
 
-  return { hf_plan_start: hfPlanStartTool, hf_search: hfSearchTool };
+function buildPlanCompleteTool(manager: SessionManager) {
+  return {
+    description: "Close the hybrid-framework plan loop after all milestones are checked and status is set to complete. Call this as the final step of every builder session once the plan doc frontmatter has been updated to `status: complete`. Accepts an optional plan slug or path; defaults to the currently bound plan.",
+    args: {
+      plan: pluginZ.string().describe("Plan slug or relative path (e.g. 'my-feature' or 'plans/2026-03-27-my-feature-plan.md'). Omit to use the currently bound plan.").optional(),
+      summary: pluginZ.string().describe("One-sentence summary of what was accomplished across all milestones.").optional(),
+    },
+    execute: (args: PlanCompleteArgs, toolContext: ToolContext) =>
+      executePlanComplete(args, toolContext, manager)
+  };
+}
+
+export function createPluginTools(context: OpenCodePluginContext, manager: SessionManager): Record<string, unknown> {
+  return {
+    hf_plan_start: buildPlanStartTool(manager),
+    hf_search: buildSearchTool(context, manager),
+    hf_plan_complete: buildPlanCompleteTool(manager),
+  };
 }

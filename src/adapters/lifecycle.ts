@@ -25,19 +25,15 @@ export function isProtectedConfigEdit(filePath: string): boolean {
   return PROTECTED_CONFIG_FILES.some((f) => normalized === f || normalized.endsWith(`/${f}`));
 }
 
-// oxlint-disable max-params -- runtime, vendor, eventType, sessionId are distinct; collapsing to an object would require a breaking API change
 export async function recordCompactionArchive(
   runtime: HybridLoopRuntime,
-  vendor: RuntimeVendor,
-  eventType: string,
-  sessionId?: string
+  opts: { vendor: RuntimeVendor; eventType: string; sessionId?: string }
 ): Promise<void> {
-// oxlint-enable max-params
   await runtime.recordEvent({
-    vendor,
-    type: eventType,
+    vendor: opts.vendor,
+    type: opts.eventType,
     timestamp: new Date().toISOString(),
-    ...(sessionId ? { sessionId } : {}),
+    ...(opts.sessionId ? { sessionId: opts.sessionId } : {}),
     payload: {
       reason: "context_compaction",
       status_snapshot: runtime.getStatus() as unknown as Record<string, unknown>

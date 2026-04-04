@@ -1,4 +1,3 @@
-// oxlint-disable max-lines -- runtime.ts is a central orchestration class; splitting would fragment cohesive state management
 import path from "node:path";
 import { promises as fs } from "node:fs";
 
@@ -13,11 +12,9 @@ async function reParsePlanIfChanged(current: ParsedPlan): Promise<ParsedPlan> {
   if (stats.mtimeMs === current.mtimeMs) return current;
   return parsePlan(current.path);
 }
-import { DEFAULT_INDEX_CONFIG, appendEvent, ensureRuntimeDir, ensurePlanlessRuntimeDir, getPlanlessVaultPaths, getRepoRoot, getVaultPaths, loadIndexConfig, readStatus, readVaultContext, writeResumePrompt, writeStatus } from "./persistence.js";
+import { appendEvent, ensureRuntimeDir, ensurePlanlessRuntimeDir, getPlanlessVaultPaths, getRepoRoot, getVaultPaths, loadIndexConfig, readStatus, readVaultContext, writeResumePrompt, writeStatus } from "./persistence.js";
 import { buildPlanlessResumePrompt, buildResumePrompt } from "./prompt.js";
-import { buildUnifiedIndex } from "./unified-index-pipeline.js";
-import { queryItems, type UnifiedIndex as StoredUnifiedIndex } from "./unified-store.js";
-import { embed, warmupEmbeddingModel } from "./vault-embeddings.js";
+import { warmupEmbeddingModel } from "./vault-embeddings.js";
 import { hfLog, hfLogTimed } from "./logger.js";
 import {
   REPEATED_BLOCKER_THRESHOLD,
@@ -27,7 +24,6 @@ import {
   type IndexConfig,
   type LoopRuntime,
   type ParsedPlan,
-  type RuntimeRecoveryState,
   type RuntimeEvent,
   type RuntimeStatus,
   type SubagentRef,
@@ -35,29 +31,31 @@ import {
   type VaultContext,
   type VaultSearchResult,
 } from "./types.js";
+import {
+  type UnifiedIndexState,
+  type VaultIndexState,
+  type QueryIndexOpts,
+  queryIndexItems,
+  refreshVaultIndex,
+} from "./runtime-vault.js";
+import {
+  applyLoopState,
+  applyOutcomePhase,
+  applyOutcomeCounters,
+  computeDecision,
+  detectRecoveryTrigger,
+  isExplicitBuilderApprovalEvent,
+} from "./runtime-decisions.js";
 
 export { REPEATED_BLOCKER_THRESHOLD, VERIFICATION_FAILURE_THRESHOLD, NO_PROGRESS_THRESHOLD };
+export type { DecisionInput } from "./runtime-decisions.js";
+export { computeDecision } from "./runtime-decisions.js";
+
 /** Default max turns for planless mode. */
 const DEFAULT_PLANLESS_MAX_TURNS = 50;
 
 function nowIso(): string {
   return new Date().toISOString();
-}
-
-
-type UnifiedIndexState = {
-  index: StoredUnifiedIndex;
-  vectors: Float32Array;
-};
-
-function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<T>((resolve) => {
-    timer = setTimeout(() => resolve(fallback), ms);
-  });
-  return Promise.race([promise, timeout]).finally(() => {
-    if (timer) clearTimeout(timer);
-  });
 }
 
 function defaultStatus(plan: ParsedPlan): RuntimeStatus {
@@ -86,133 +84,6 @@ function defaultStatus(plan: ParsedPlan): RuntimeStatus {
   };
 }
 
-function isExplicitBuilderApprovalEvent(eventType: string): boolean {
-  return eventType === "claude.SessionStart"
-    || eventType === "claude.UserPromptSubmit"
-    || eventType === "opencode.session.created";
-}
-
-function blockerSignature(outcome: TurnOutcome): string | null {
-  if (outcome.state !== "blocked" || !outcome.blocker) {
-    return null;
-  }
-  return outcome.blocker.signature ?? outcome.blocker.message.trim().toLowerCase();
-}
-
-function isProgressState(outcome: TurnOutcome): boolean {
-  return outcome.state === "progress"
-    || outcome.state === "needs_review"
-    || outcome.state === "milestone_complete"
-    || outcome.state === "plan_complete";
-}
-
-function hasVerificationFailure(outcome: TurnOutcome): boolean {
-  return outcome.tests_run.some((test) => test.result === "fail");
-}
-
-function applyLoopState(plan: ParsedPlan, status: RuntimeStatus, outcome?: TurnOutcome): void {
-  if (plan.completed || outcome?.state === "plan_complete") {
-    status.loopState = "complete";
-  } else if (status.counters.totalAttempts >= status.counters.maxTotalTurns) {
-    status.loopState = "paused";
-  } else if (status.counters.repeatedBlocker >= REPEATED_BLOCKER_THRESHOLD) {
-    status.loopState = "escalated";
-  } else if (status.counters.noProgress >= NO_PROGRESS_THRESHOLD || status.counters.verificationFailures >= VERIFICATION_FAILURE_THRESHOLD) {
-    status.loopState = "paused";
-  } else {
-    status.loopState = "running";
-  }
-}
-
-function detectRecoveryTrigger(event: RuntimeEvent): RuntimeRecoveryState["trigger"] | null {
-  if (event.type === "claude.Stop") {
-    return "stop";
-  }
-
-  if (event.type === "opencode.session.idle") {
-    return "idle";
-  }
-
-  if (event.type === "claude.PreCompact" || event.type === "opencode.session.compacted") {
-    return "compact";
-  }
-
-  if (event.type === "claude.SessionStart" || event.type === "opencode.session.created") {
-    return "resume";
-  }
-
-  if (event.type.startsWith("turn_outcome.")) {
-    return event.vendor === "claude" ? "stop" : "idle";
-  }
-
-  return null;
-}
-
-export interface DecisionInput {
-  approved: boolean;
-  completed: boolean;
-  currentMilestone: ParsedPlan["currentMilestone"];
-  milestoneCount: number;
-  loopState: RuntimeStatus["loopState"];
-  counters: RuntimeStatus["counters"];
-  lastOutcome?: TurnOutcome | null | undefined;
-}
-
-/**
- * Pure decision function extracted from decideNext() for independent testability.
- * Returns the action and reason without any side effects.
- */
-export function computeDecision(input: DecisionInput): Omit<ContinueDecision, "resume_prompt"> {
-  const { approved, completed, currentMilestone, counters, lastOutcome } = input;
-
-  // Planning phase
-  if (!approved) {
-    if (counters.totalAttempts >= counters.maxTotalTurns) {
-      return { action: "max_turns", reason: `Hard attempt limit reached during planning review (${counters.totalAttempts}/${counters.maxTotalTurns}). Stop the loop and escalate the unresolved planning gap.` };
-    }
-    if (counters.repeatedBlocker >= REPEATED_BLOCKER_THRESHOLD) {
-      return { action: "escalate", reason: "The planning-review loop has repeated the same blocker three times without reaching approval." };
-    }
-    if (counters.noProgress >= NO_PROGRESS_THRESHOLD) {
-      return { action: "pause", reason: "The planning-review loop recorded three turns without progress. Pause and resolve the missing planning input." };
-    }
-    if (lastOutcome?.state === "milestone_complete" || lastOutcome?.state === "plan_complete") {
-      return { action: "allow_stop", reason: "The plan is approved and ready to hand off to the builder." };
-    }
-    if (lastOutcome?.state === "blocked") {
-      return { action: "allow_stop", reason: "Planning phase does not auto-continue. A blocker was recorded but the threshold has not been reached. The user may resume manually." };
-    }
-    return { action: "allow_stop", reason: "Planning phase does not auto-continue. The user may manually continue or the planner will resume on next user input." };
-  }
-
-  // Execution phase
-  if (completed || input.loopState === "complete") {
-    return { action: "complete", reason: "All milestones are checked and the plan has been marked complete." };
-  }
-  if (!currentMilestone && !completed) {
-    return { action: "continue", reason: "All milestones are checked, but final verification evidence is still required before plan completion." };
-  }
-  if (counters.totalAttempts >= counters.maxTotalTurns) {
-    return { action: "max_turns", reason: `Hard attempt limit reached (${counters.totalAttempts}/${counters.maxTotalTurns}). Stop the loop to prevent runaway execution.` };
-  }
-  if (counters.repeatedBlocker >= REPEATED_BLOCKER_THRESHOLD) {
-    return { action: "escalate", reason: "The same blocker has repeated three times without progress." };
-  }
-  if (counters.verificationFailures >= VERIFICATION_FAILURE_THRESHOLD) {
-    return { action: "pause", reason: "Verification failed twice. Pause the loop until the failure is addressed." };
-  }
-  if (counters.noProgress >= NO_PROGRESS_THRESHOLD) {
-    return { action: "pause", reason: "No progress was recorded for three turns." };
-  }
-  if (lastOutcome?.state === "milestone_complete") {
-    return { action: "allow_stop", reason: "The latest milestone was reported complete. The builder may stop or move to the next milestone." };
-  }
-  if (lastOutcome?.state === "blocked") {
-    return { action: "continue", reason: "A blocker was recorded, but the loop threshold has not been reached yet." };
-  }
-  return { action: "continue", reason: "The current milestone is still active and the loop is healthy." };
-}
-
 export function isManagedPlanUnavailable(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
@@ -231,6 +102,36 @@ export class HybridLoopRuntime implements LoopRuntime {
   private planlessCwd: string | null = null;
   private indexConfig: IndexConfig | null = null;
   private promptDirty = true;
+
+  private buildVaultIndexSnapshot(): VaultIndexState {
+    return {
+      unifiedIndex: this.unifiedIndex,
+      vaultSearchResults: this.vaultSearchResults,
+      plan: this.plan,
+      planlessCwd: this.planlessCwd,
+      vault: this.vault,
+      indexConfig: this.indexConfig,
+      lastIndexError: this.status?.lastIndexError,
+    };
+  }
+
+  private applyVaultIndexSnapshot(snapshot: VaultIndexState): void {
+    this.unifiedIndex = snapshot.unifiedIndex;
+    this.vaultSearchResults = snapshot.vaultSearchResults;
+    if (this.status) {
+      if (snapshot.lastIndexError !== undefined) {
+        this.status.lastIndexError = snapshot.lastIndexError;
+      } else {
+        delete this.status.lastIndexError;
+      }
+    }
+  }
+
+  private async doRefreshVaultIndex(): Promise<void> {
+    const snapshot = this.buildVaultIndexSnapshot();
+    await refreshVaultIndex(snapshot);
+    this.applyVaultIndexSnapshot(snapshot);
+  }
 
   public async hydrate(planRef: string): Promise<RuntimeStatus> {
     const done = hfLogTimed({ tag: "runtime", msg: "hydrate", data: { planRef } });
@@ -374,9 +275,7 @@ export class HybridLoopRuntime implements LoopRuntime {
     await this.recordEvent(event);
   }
 
-  // oxlint-disable max-lines-per-function -- evaluateTurn orchestrates outcome ingestion, plan re-parse, status update, and event recording; cannot be split without breaking transactional state
   public async evaluateTurn(outcome: TurnOutcome): Promise<RuntimeStatus> {
-  // oxlint-enable max-lines-per-function
     const done = hfLogTimed({ tag: "runtime", msg: "evaluateTurn", data: { state: outcome.state } });
     const status = this.requireStatus();
     const previousPhase = status.phase;
@@ -387,68 +286,8 @@ export class HybridLoopRuntime implements LoopRuntime {
     this.promptDirty = true;
     const now = nowIso();
 
-    status.planMtimeMs = plan.mtimeMs;
-    status.phase = plan.approved ? "execution" : "planning";
-    status.currentMilestone = plan.currentMilestone;
-    if (previousPhase === "planning" && plan.approved && !plan.completed) {
-      status.awaitingBuilderApproval = true;
-    } else if (plan.approved) {
-      status.awaitingBuilderApproval = status.awaitingBuilderApproval ?? false;
-    } else {
-      status.awaitingBuilderApproval = false;
-    }
-    status.counters.totalAttempts += 1;
-    status.counters.totalTurns += 1;
-    status.counters.turnsSinceLastOutcome = 0;
-    delete status.recovery;
-    status.lastOutcome = outcome;
-    status.lastTurnEvaluatedAt = now;
-    status.recommendedNextAction = outcome.next_action;
-    status.updatedAt = now;
-
-    if (isProgressState(outcome)) {
-      status.counters.noProgress = 0;
-      status.counters.repeatedBlocker = 0;
-      status.lastProgressAt = now;
-    } else {
-      status.counters.noProgress += 1;
-    }
-
-    const signature = blockerSignature(outcome);
-    if (signature) {
-      const isSameBlocker = status.lastBlocker?.signature === signature;
-      status.counters.repeatedBlocker = isSameBlocker ? status.counters.repeatedBlocker + 1 : 1;
-      status.lastBlocker = {
-        signature,
-        message: outcome.blocker?.message ?? outcome.summary,
-        at: now
-      };
-    } else if (isProgressState(outcome)) {
-      delete status.lastBlocker;
-    }
-
-    if (hasVerificationFailure(outcome)) {
-      status.counters.verificationFailures += 1;
-      status.lastVerification = {
-        status: "fail",
-        summary: outcome.tests_run
-          .filter((test) => test.result === "fail")
-          .map((test) => `${test.command}: ${test.summary ?? "failed"}`)
-          .join("; "),
-        at: now
-      };
-    } else if (outcome.tests_run.length > 0) {
-      status.lastVerification = {
-        status: "pass",
-        summary: outcome.tests_run
-          .filter((test) => test.result === "pass")
-          .map((test) => `${test.command}: ${test.summary ?? "passed"}`)
-          .join("; "),
-        at: now
-      };
-      status.counters.verificationFailures = 0;
-    }
-
+    applyOutcomePhase({ status, plan, outcome, previousPhase, now });
+    applyOutcomeCounters(status, outcome, now);
     applyLoopState(plan, status, outcome);
 
     await this.writeState();
@@ -507,48 +346,53 @@ export class HybridLoopRuntime implements LoopRuntime {
     return status;
   }
 
-  // oxlint-disable max-lines-per-function -- decideNext builds the full continuation decision from plan+vault+status; cannot be split without losing context
   public async decideNext(): Promise<ContinueDecision> {
-  // oxlint-enable max-lines-per-function
     const status = this.requireStatus();
 
     if (this.planlessCwd) {
-      hfLog({ tag: "runtime", msg: "decideNext planless" });
-      try {
-        await this.refreshVaultIndex();
-      } catch (error) {
-        hfLog({ tag: "runtime", msg: "vault index failed (planless)", data: { error: (error as Error).message } });
-        this.resetVaultState();
-      }
-
-      // Load vault shared context for planless compaction recovery
-      if (!this.vault) {
-        try {
-          const vaultPaths = getPlanlessVaultPaths(this.planlessCwd);
-          this.vault = await readVaultContext(vaultPaths);
-        } catch (error) {
-          hfLog({ tag: "runtime", msg: "vault load failed (planless)", data: { error: (error as Error).message } });
-          this.vault = null;
-        }
-      }
-
-      return {
-        action: "allow_stop",
-        reason: "No active plan. The runtime is providing guardrails only.",
-        resume_prompt: buildPlanlessResumePrompt(this.vault, this.vaultSearchResults, {
-          planningCharBudget: this.indexConfig?.planningCharBudget,
-        })
-      };
+      return this.buildPlanlessDecision();
     }
 
     const plan = this.requirePlan();
+    return this.buildPlannedDecision(plan, status);
+  }
 
+  private async buildPlanlessDecision(): Promise<ContinueDecision> {
+    hfLog({ tag: "runtime", msg: "decideNext planless" });
+    try {
+      await this.doRefreshVaultIndex();
+    } catch (error) {
+      hfLog({ tag: "runtime", msg: "vault index failed (planless)", data: { error: (error as Error).message } });
+      this.resetVaultState();
+    }
+
+    // Load vault shared context for planless compaction recovery
+    if (!this.vault && this.planlessCwd) {
+      try {
+        const vaultPaths = getPlanlessVaultPaths(this.planlessCwd);
+        this.vault = await readVaultContext(vaultPaths);
+      } catch (error) {
+        hfLog({ tag: "runtime", msg: "vault load failed (planless)", data: { error: (error as Error).message } });
+        this.vault = null;
+      }
+    }
+
+    return {
+      action: "allow_stop",
+      reason: "No active plan. The runtime is providing guardrails only.",
+      resume_prompt: buildPlanlessResumePrompt(this.vault, this.vaultSearchResults, {
+        planningCharBudget: this.indexConfig?.planningCharBudget,
+      })
+    };
+  }
+
+  private async buildPlannedDecision(plan: ParsedPlan, status: RuntimeStatus): Promise<ContinueDecision> {
     // Lazy vault loading — only when we actually need a resume prompt
     if (!this.vault) {
       const vaultDone = hfLogTimed({ tag: "runtime", msg: "lazy vault load" });
       try {
         this.vault = await readVaultContext(getVaultPaths(plan));
-        await this.refreshVaultIndex();
+        await this.doRefreshVaultIndex();
       } catch (error) {
         hfLog({ tag: "runtime", msg: "vault load failed", data: { error: (error as Error).message } });
         this.vault = null;
@@ -560,9 +404,13 @@ export class HybridLoopRuntime implements LoopRuntime {
       vaultDone({ hasVault: this.vault !== null, hasIndex: this.unifiedIndex !== null });
     }
 
-    const resume_prompt = buildResumePrompt(plan, status, this.vault, this.vaultSearchResults, {
-      charBudget: this.indexConfig?.charBudget,
-      planningCharBudget: this.indexConfig?.planningCharBudget,
+    const resume_prompt = buildResumePrompt(plan, status, {
+      vault: this.vault,
+      vaultSearchResults: this.vaultSearchResults,
+      budgets: {
+        charBudget: this.indexConfig?.charBudget,
+        planningCharBudget: this.indexConfig?.planningCharBudget,
+      },
     });
 
     if (status.awaitingBuilderApproval) {
@@ -599,9 +447,13 @@ export class HybridLoopRuntime implements LoopRuntime {
     const runtimePaths = await ensureRuntimeDir(plan);
 
     if (this.promptDirty) {
-      const prompt = buildResumePrompt(plan, status, this.vault, this.vaultSearchResults, {
-        charBudget: this.indexConfig?.charBudget,
-        planningCharBudget: this.indexConfig?.planningCharBudget,
+      const prompt = buildResumePrompt(plan, status, {
+        vault: this.vault,
+        vaultSearchResults: this.vaultSearchResults,
+        budgets: {
+          charBudget: this.indexConfig?.charBudget,
+          planningCharBudget: this.indexConfig?.planningCharBudget,
+        },
       });
       this.promptDirty = false;
 
@@ -639,7 +491,7 @@ export class HybridLoopRuntime implements LoopRuntime {
   public async queryIndex(query: string, topK?: number, sourceFilter?: "vault" | "code"): Promise<VaultSearchResult[] | null> {
     if (!this.unifiedIndex) {
       try {
-        await this.refreshVaultIndex();
+        await this.doRefreshVaultIndex();
       } catch (error) {
         hfLog({ tag: "runtime", msg: "queryIndex: on-demand index build failed", data: { error: (error as Error).message } });
         return null;
@@ -650,123 +502,18 @@ export class HybridLoopRuntime implements LoopRuntime {
       return null;
     }
 
-    let queryVector: number[];
-    try {
-      queryVector = await embed(query);
-    } catch (error) {
-      const msg = (error as Error).message;
-      hfLog({ tag: "runtime", msg: "queryIndex: embed failed", data: { error: msg } });
-      return null;
-    }
-
-    const results = queryItems(
-      this.unifiedIndex.index,
-      this.unifiedIndex.vectors,
-      queryVector,
-      topK ?? this.indexConfig?.semanticTopK ?? 5,
-      sourceFilter,
-    );
-
-    return results.map((result) => ({
-      score: result.score,
-      text: result.text,
-      metadata: {
-        sourcePath: result.metadata.sourcePath as string ?? "",
-        sectionTitle: result.metadata.sectionTitle as string ?? "",
-        documentTitle: result.metadata.documentTitle as string ?? "",
-        kind: result.metadata.kind === "code" ? "code" as const : "vault" as const
-      }
-    }));
+    const opts: QueryIndexOpts = {
+      query,
+      ...(topK !== undefined ? { topK } : {}),
+      ...(sourceFilter !== undefined ? { sourceFilter } : {}),
+    };
+    return queryIndexItems({ unifiedIndex: this.unifiedIndex, indexConfig: this.indexConfig }, opts);
   }
 
   private resetVaultState(): void {
     this.vault = null;
     this.unifiedIndex = null;
     this.vaultSearchResults = null;
-  }
-
-  // oxlint-disable max-lines-per-function -- refreshVaultIndex orchestrates scanning, embedding, and persisting the unified index; cannot be split without losing incremental state
-  private async refreshVaultIndex(): Promise<void> {
-  // oxlint-enable max-lines-per-function
-    const plan = this.plan;
-    const planlessCwd = this.planlessCwd;
-    const vaultPaths = plan ? getVaultPaths(plan) : null;
-    const cfg = this.indexConfig;
-    const status = this.status;
-
-    this.unifiedIndex = null;
-
-    if (cfg && !cfg.enabled) {
-      if (status) delete status.lastIndexError;
-      return;
-    }
-
-    try {
-      this.unifiedIndex = await withTimeout(
-        buildUnifiedIndex({
-          repoRoot: getRepoRoot(plan ?? undefined, planlessCwd ?? undefined),
-          ...(vaultPaths && this.vault ? { vaultPaths, vaultContext: this.vault } : {}),
-          codeConfig: cfg?.code.enabled !== false
-            ? {
-              roots: cfg?.code.roots ?? ["src"],
-              extensions: cfg?.code.extensions,
-              exclude: cfg?.code.exclude,
-            }
-            : undefined,
-          embeddingBatchSize: cfg?.embeddingBatchSize,
-          maxChunkChars: cfg?.maxChunkChars,
-        }),
-        cfg?.timeoutMs ?? DEFAULT_INDEX_CONFIG.timeoutMs,
-        null
-      );
-    } catch (error) {
-      const msg = (error as Error).message;
-      hfLog({ tag: "runtime", msg: "unified index build failed", data: { error: msg } });
-      if (status) status.lastIndexError = `index build: ${msg}`;
-      this.unifiedIndex = null;
-    }
-
-    if (this.unifiedIndex) {
-      if (status) delete status.lastIndexError;
-    }
-
-    if (this.unifiedIndex && plan?.currentMilestone) {
-      try {
-        this.vaultSearchResults = await withTimeout(
-          this.retrieveUnifiedChunks(plan.currentMilestone.text),
-          cfg?.timeoutMs ?? DEFAULT_INDEX_CONFIG.timeoutMs,
-          null
-        );
-      } catch (error) {
-        const msg = (error as Error).message;
-        hfLog({ tag: "runtime", msg: "vault search failed", data: { error: msg } });
-        if (status) status.lastIndexError = `vault search: ${msg}`;
-        this.vaultSearchResults = null;
-      }
-      return;
-    }
-
-    if (this.unifiedIndex && plan?.status === "planning" && !plan.currentMilestone && plan.userIntent) {
-      try {
-        this.vaultSearchResults = await withTimeout(
-          this.retrieveUnifiedChunks(plan.userIntent, cfg?.planningSemanticTopK ?? 5),
-          cfg?.timeoutMs ?? DEFAULT_INDEX_CONFIG.timeoutMs,
-          null
-        );
-      } catch (error) {
-        const msg = (error as Error).message;
-        hfLog({ tag: "runtime", msg: "vault search failed (planning)", data: { error: msg } });
-        if (status) status.lastIndexError = `vault search: ${msg}`;
-        this.vaultSearchResults = null;
-      }
-      return;
-    }
-
-    this.vaultSearchResults = null;
-  }
-
-  private async retrieveUnifiedChunks(queryText: string, topK?: number): Promise<VaultSearchResult[] | null> {
-    return this.queryIndex(queryText, topK);
   }
 
   private requirePlan(): ParsedPlan {

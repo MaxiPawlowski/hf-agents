@@ -70,7 +70,7 @@ describe("unified-store", () => {
 
   test("insertItem appends item and stores a normalized vector", () => {
     const index = makeIndex();
-    const result = insertItem(index, new Float32Array(), makeItem("a", { kind: "code" }), makeVector([3, 4]));
+    const result = insertItem({ index, vectors: new Float32Array() }, makeItem("a", { kind: "code" }), makeVector([3, 4]));
 
     expect(result.index.items).toHaveLength(1);
     expect(result.index.items[0]!.id).toBe("a");
@@ -81,15 +81,13 @@ describe("unified-store", () => {
 
   test("upsertItem replaces an existing item and vector", () => {
     const initial = insertItem(
-      makeIndex(),
-      new Float32Array(),
+      { index: makeIndex(), vectors: new Float32Array() },
       makeItem("a", { kind: "vault", rank: 1 }),
       makeVector([1, 0]),
     );
 
     const updated = upsertItem(
-      initial.index,
-      initial.vectors,
+      initial,
       makeItem("a", { kind: "code", rank: 2 }),
       makeVector([0, 5]),
     );
@@ -102,9 +100,9 @@ describe("unified-store", () => {
   });
 
   test("deleteItems removes matching ids and compacts vectors", () => {
-    let state = insertItem(makeIndex(), new Float32Array(), makeItem("a"), makeVector([1, 0, 0]));
-    state = insertItem(state.index, state.vectors, makeItem("b"), makeVector([0, 1, 0]));
-    state = insertItem(state.index, state.vectors, makeItem("c"), makeVector([0, 0, 1]));
+    let state = insertItem({ index: makeIndex(), vectors: new Float32Array() }, makeItem("a"), makeVector([1, 0, 0]));
+    state = insertItem(state, makeItem("b"), makeVector([0, 1, 0]));
+    state = insertItem(state, makeItem("c"), makeVector([0, 0, 1]));
 
     const updated = deleteItems(state.index, state.vectors, ["b"]);
 
@@ -116,25 +114,22 @@ describe("unified-store", () => {
 
   test("queryItems returns top-K results in score order", () => {
     let state = insertItem(
-      makeIndex(),
-      new Float32Array(),
+      { index: makeIndex(), vectors: new Float32Array() },
       { id: "low", text: "low similarity", metadata: { kind: "vault" } },
       makeVector([1, 0, 0]),
     );
     state = insertItem(
-      state.index,
-      state.vectors,
+      state,
       { id: "mid", text: "mid similarity", metadata: { kind: "vault" } },
       makeVector([1, 1, 1]),
     );
     state = insertItem(
-      state.index,
-      state.vectors,
+      state,
       { id: "high", text: "high similarity", metadata: { kind: "code" } },
       makeVector([0, 0, 1]),
     );
 
-    const results = queryItems(state.index, state.vectors, makeVector([0, 0, 1]), 2);
+    const results = queryItems(state, { queryVector: makeVector([0, 0, 1]), topK: 2 });
 
     expect(results).toHaveLength(2);
     expect(results[0]!.id).toBe("high");
@@ -144,25 +139,22 @@ describe("unified-store", () => {
 
   test("queryItems: sourceFilter='vault' returns only vault chunks", () => {
     let state = insertItem(
-      makeIndex(),
-      new Float32Array(),
+      { index: makeIndex(), vectors: new Float32Array() },
       { id: "vault-1", text: "vault chunk one", metadata: { kind: "vault" } },
       makeVector([1, 0, 0]),
     );
     state = insertItem(
-      state.index,
-      state.vectors,
+      state,
       { id: "code-1", text: "code chunk one", metadata: { kind: "code" } },
       makeVector([0, 1, 0]),
     );
     state = insertItem(
-      state.index,
-      state.vectors,
+      state,
       { id: "vault-2", text: "vault chunk two", metadata: { kind: "vault" } },
       makeVector([0, 0, 1]),
     );
 
-    const results = queryItems(state.index, state.vectors, makeVector([1, 1, 1]), 10, "vault");
+    const results = queryItems(state, { queryVector: makeVector([1, 1, 1]), topK: 10, sourceFilter: "vault" });
 
     expect(results.every((r) => r.metadata.kind === "vault")).toBe(true);
     expect(results.map((r) => r.id).sort()).toEqual(["vault-1", "vault-2"]);
@@ -170,25 +162,22 @@ describe("unified-store", () => {
 
   test("queryItems: sourceFilter='code' returns only code chunks", () => {
     let state = insertItem(
-      makeIndex(),
-      new Float32Array(),
+      { index: makeIndex(), vectors: new Float32Array() },
       { id: "vault-1", text: "vault chunk", metadata: { kind: "vault" } },
       makeVector([1, 0, 0]),
     );
     state = insertItem(
-      state.index,
-      state.vectors,
+      state,
       { id: "code-1", text: "code chunk one", metadata: { kind: "code" } },
       makeVector([0, 1, 0]),
     );
     state = insertItem(
-      state.index,
-      state.vectors,
+      state,
       { id: "code-2", text: "code chunk two", metadata: { kind: "code" } },
       makeVector([0, 0, 1]),
     );
 
-    const results = queryItems(state.index, state.vectors, makeVector([1, 1, 1]), 10, "code");
+    const results = queryItems(state, { queryVector: makeVector([1, 1, 1]), topK: 10, sourceFilter: "code" });
 
     expect(results.every((r) => r.metadata.kind === "code")).toBe(true);
     expect(results.map((r) => r.id).sort()).toEqual(["code-1", "code-2"]);
@@ -196,25 +185,22 @@ describe("unified-store", () => {
 
   test("queryItems: sourceFilter='code' also matches external chunks", () => {
     let state = insertItem(
-      makeIndex(),
-      new Float32Array(),
+      { index: makeIndex(), vectors: new Float32Array() },
       { id: "vault-1", text: "vault chunk", metadata: { kind: "vault" } },
       makeVector([1, 0, 0]),
     );
     state = insertItem(
-      state.index,
-      state.vectors,
+      state,
       { id: "code-1", text: "code chunk", metadata: { kind: "code" } },
       makeVector([0, 1, 0]),
     );
     state = insertItem(
-      state.index,
-      state.vectors,
+      state,
       { id: "external-1", text: "external chunk", metadata: { kind: "external" } },
       makeVector([0, 0, 1]),
     );
 
-    const results = queryItems(state.index, state.vectors, makeVector([1, 1, 1]), 10, "code");
+    const results = queryItems(state, { queryVector: makeVector([1, 1, 1]), topK: 10, sourceFilter: "code" });
 
     // Should include both code and external, but not vault
     expect(results.map((r) => r.id).sort()).toEqual(["code-1", "external-1"]);
@@ -223,19 +209,17 @@ describe("unified-store", () => {
 
   test("queryItems: sourceFilter='vault' does not match external chunks", () => {
     let state = insertItem(
-      makeIndex(),
-      new Float32Array(),
+      { index: makeIndex(), vectors: new Float32Array() },
       { id: "vault-1", text: "vault chunk", metadata: { kind: "vault" } },
       makeVector([1, 0, 0]),
     );
     state = insertItem(
-      state.index,
-      state.vectors,
+      state,
       { id: "external-1", text: "external chunk", metadata: { kind: "external" } },
       makeVector([0, 1, 0]),
     );
 
-    const results = queryItems(state.index, state.vectors, makeVector([1, 1, 1]), 10, "vault");
+    const results = queryItems(state, { queryVector: makeVector([1, 1, 1]), topK: 10, sourceFilter: "vault" });
 
     expect(results.map((r) => r.id)).toEqual(["vault-1"]);
     expect(results.every((r) => r.metadata.kind === "vault")).toBe(true);
@@ -243,40 +227,36 @@ describe("unified-store", () => {
 
   test("queryItems: no sourceFilter (or 'all') returns all chunks", () => {
     let state = insertItem(
-      makeIndex(),
-      new Float32Array(),
+      { index: makeIndex(), vectors: new Float32Array() },
       { id: "vault-1", text: "vault chunk", metadata: { kind: "vault" } },
       makeVector([1, 0, 0]),
     );
     state = insertItem(
-      state.index,
-      state.vectors,
+      state,
       { id: "code-1", text: "code chunk", metadata: { kind: "code" } },
       makeVector([0, 1, 0]),
     );
 
-    const resultsNoFilter = queryItems(state.index, state.vectors, makeVector([1, 1, 0]), 10);
+    const resultsNoFilter = queryItems(state, { queryVector: makeVector([1, 1, 0]), topK: 10 });
     expect(resultsNoFilter).toHaveLength(2);
 
-    const resultsAllFilter = queryItems(state.index, state.vectors, makeVector([1, 1, 0]), 10, undefined);
+    const resultsAllFilter = queryItems(state, { queryVector: makeVector([1, 1, 0]), topK: 10 });
     expect(resultsAllFilter).toHaveLength(2);
   });
 
   test("queryItems: sourceFilter with no matching kind returns empty array", () => {
     let state = insertItem(
-      makeIndex(),
-      new Float32Array(),
+      { index: makeIndex(), vectors: new Float32Array() },
       { id: "vault-1", text: "vault chunk", metadata: { kind: "vault" } },
       makeVector([1, 0, 0]),
     );
     state = insertItem(
-      state.index,
-      state.vectors,
+      state,
       { id: "vault-2", text: "another vault chunk", metadata: { kind: "vault" } },
       makeVector([0, 1, 0]),
     );
 
-    const results = queryItems(state.index, state.vectors, makeVector([1, 1, 0]), 10, "code");
+    const results = queryItems(state, { queryVector: makeVector([1, 1, 0]), topK: 10, sourceFilter: "code" });
     expect(results).toHaveLength(0);
   });
 
@@ -339,7 +319,7 @@ describe("unified-store", () => {
   });
 
   test("batchUpsertItems: mix of new and existing", () => {
-    const state = insertItem(makeIndex(), new Float32Array(0), makeItem("a", { v: 1 }), makeVector([1, 0]));
+    const state = insertItem({ index: makeIndex(), vectors: new Float32Array(0) }, makeItem("a", { v: 1 }), makeVector([1, 0]));
 
     const result = batchUpsertItems(state.index, state.vectors, [
       { item: makeItem("a", { v: 2 }), vector: makeVector([2, 0]) },
@@ -347,8 +327,10 @@ describe("unified-store", () => {
     ]);
 
     expect(result.index.items).toHaveLength(2);
-    expect(result.index.items[0]!.metadata.v).toBe(2); // updated
-    expect(result.index.items[1]!.id).toBe("b"); // new
+    // updated
+    expect(result.index.items[0]!.metadata.v).toBe(2);
+    // new
+    expect(result.index.items[1]!.id).toBe("b");
     expect(result.vectors.length).toBe(384 * 2);
   });
 
@@ -359,7 +341,8 @@ describe("unified-store", () => {
     const result = batchUpsertItems(index, vectors, []);
 
     expect(result.index.items).toHaveLength(1);
-    expect(result.vectors).toBe(vectors); // same reference
+    // same reference
+    expect(result.vectors).toBe(vectors);
   });
 
   test("loadUnifiedIndex returns null when JSON/binary item count mismatches", async () => {
@@ -442,25 +425,22 @@ describe("unified-store", () => {
 
   test("source filter code matches both code and external kind", () => {
     let state = insertItem(
-      makeIndex(),
-      new Float32Array(),
+      { index: makeIndex(), vectors: new Float32Array() },
       { id: "vault-1", text: "vault chunk", metadata: { kind: "vault" } },
       makeVector([1, 0, 0]),
     );
     state = insertItem(
-      state.index,
-      state.vectors,
+      state,
       { id: "code-1", text: "code chunk", metadata: { kind: "code" } },
       makeVector([0, 1, 0]),
     );
     state = insertItem(
-      state.index,
-      state.vectors,
+      state,
       { id: "external-1", text: "external chunk", metadata: { kind: "external" } },
       makeVector([0, 0, 1]),
     );
 
-    const results = queryItems(state.index, state.vectors, makeVector([1, 1, 1]), 10, "code");
+    const results = queryItems(state, { queryVector: makeVector([1, 1, 1]), topK: 10, sourceFilter: "code" });
 
     // vault should NOT appear
     expect(results.some((r) => r.id === "vault-1")).toBe(false);
@@ -472,25 +452,22 @@ describe("unified-store", () => {
 
   test("source filter vault matches only vault kind (not external)", () => {
     let state = insertItem(
-      makeIndex(),
-      new Float32Array(),
+      { index: makeIndex(), vectors: new Float32Array() },
       { id: "vault-1", text: "vault chunk", metadata: { kind: "vault" } },
       makeVector([1, 0, 0]),
     );
     state = insertItem(
-      state.index,
-      state.vectors,
+      state,
       { id: "code-1", text: "code chunk", metadata: { kind: "code" } },
       makeVector([0, 1, 0]),
     );
     state = insertItem(
-      state.index,
-      state.vectors,
+      state,
       { id: "external-1", text: "external chunk", metadata: { kind: "external" } },
       makeVector([0, 0, 1]),
     );
 
-    const results = queryItems(state.index, state.vectors, makeVector([1, 1, 1]), 10, "vault");
+    const results = queryItems(state, { queryVector: makeVector([1, 1, 1]), topK: 10, sourceFilter: "vault" });
 
     // only vault items
     expect(results.map((r) => r.id)).toEqual(["vault-1"]);

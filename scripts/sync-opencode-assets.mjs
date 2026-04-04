@@ -76,6 +76,7 @@ function readJson(filePath, fallback) {
   try {
     return JSON.parse(fs.readFileSync(filePath, "utf8"));
   } catch (error) {
+    // eslint-disable-next-line no-restricted-syntax -- plain JS script; typeof is unavoidable without TypeScript type guards
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
       return fallback;
     }
@@ -131,6 +132,7 @@ function trySymlink(sourcePath, targetPath, allowFallback) {
     if (
       allowFallback
       && error
+      // eslint-disable-next-line no-restricted-syntax -- plain JS script; typeof is unavoidable without TypeScript type guards
       && typeof error === "object"
       && "code" in error
       && ["EPERM", "EISDIR", "EXDEV", "UNKNOWN"].includes(error.code)
@@ -143,6 +145,7 @@ function trySymlink(sourcePath, targetPath, allowFallback) {
   }
 }
 
+// oxlint-disable-next-line max-params -- internal helper; params are positional and tightly coupled
 function materializeFile(options, sourceRelativePath, targetRelativePath, stats, transform) {
   const sourcePath = path.join(options.sourceRoot, sourceRelativePath);
   const targetPath = path.join(options.targetRoot, targetRelativePath);
@@ -221,6 +224,7 @@ function normalizeConfiguredAssets(configuredAssets) {
   }
 
   return [...new Set(configuredAssets.map((value) => {
+    // eslint-disable-next-line no-restricted-syntax -- plain JS script; typeof is unavoidable without TypeScript type guards
     if (typeof value !== "string") {
       throw new Error("Configured asset lists must contain only string paths.");
     }
@@ -276,6 +280,7 @@ function buildConfiguredMappings(adapter, configuredAssets) {
   return mappings;
 }
 
+// oxlint-disable-next-line max-params -- internal helper; params are positional and tightly coupled
 function syncMappings(options, mappings, label, transform) {
   const dedupedMappings = [];
   const seenTargets = new Set();

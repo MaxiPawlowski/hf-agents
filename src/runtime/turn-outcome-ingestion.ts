@@ -3,11 +3,17 @@ import {
   parseTurnOutcomeInput,
   type TurnOutcomeTrailerParseResult
 } from "./turn-outcome-trailer.js";
-import { isRecord } from "./utils.js";
+import { isRecord, isString } from "./utils.js";
 
 interface TurnOutcomeCandidate {
   source: string;
   text: string;
+}
+
+interface CandidateCollector {
+  source: string;
+  candidates: TurnOutcomeCandidate[];
+  seen: Set<unknown>;
 }
 
 export interface TurnOutcomePayloadDetection {
@@ -20,30 +26,23 @@ function shouldInspectString(value: string): boolean {
   return value.includes(TURN_OUTCOME_TRAILER_LABEL) || trimmed.startsWith("{");
 }
 
-// oxlint-disable max-params -- value, source, candidates, seen are all required for recursive traversal; no natural grouping
-function collectTurnOutcomeCandidates(
-  value: unknown,
-  source: string,
-  candidates: TurnOutcomeCandidate[],
-  seen: Set<unknown>
-): void {
-// oxlint-enable max-params
-  if (typeof value === "string") {
+function collectTurnOutcomeCandidates(value: unknown, collector: CandidateCollector): void {
+  if (isString(value)) {
     if (shouldInspectString(value)) {
-      candidates.push({ source, text: value });
+      collector.candidates.push({ source: collector.source, text: value });
     }
     return;
   }
 
-  if (value === null || value === undefined || seen.has(value)) {
+  if (value === null || value === undefined || collector.seen.has(value)) {
     return;
   }
 
-  seen.add(value);
+  collector.seen.add(value);
 
   if (Array.isArray(value)) {
     value.forEach((entry, index) => {
-      collectTurnOutcomeCandidates(entry, `${source}[${index}]`, candidates, seen);
+      collectTurnOutcomeCandidates(entry, { ...collector, source: `${collector.source}[${index}]` });
     });
     return;
   }
@@ -53,13 +52,14 @@ function collectTurnOutcomeCandidates(
   }
 
   for (const [key, entry] of Object.entries(value)) {
-    collectTurnOutcomeCandidates(entry, `${source}.${key}`, candidates, seen);
+    collectTurnOutcomeCandidates(entry, { ...collector, source: `${collector.source}.${key}` });
   }
 }
 
 export function detectTurnOutcomeInPayload(value: unknown, fallbackSource: string): TurnOutcomePayloadDetection {
-  const candidates: TurnOutcomeCandidate[] = [];
-  collectTurnOutcomeCandidates(value, fallbackSource, candidates, new Set());
+  const collector: CandidateCollector = { source: fallbackSource, candidates: [], seen: new Set() };
+  collectTurnOutcomeCandidates(value, collector);
+  const { candidates } = collector;
 
   let firstInvalid: TurnOutcomePayloadDetection | null = null;
   for (const candidate of candidates) {

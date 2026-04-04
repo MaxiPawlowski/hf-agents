@@ -42,115 +42,77 @@ function declarationName(
 }
 
 function splitOversizedCode(text: string, maxChars: number): string[] {
-  return splitOversized(text, maxChars, "\n", "\n");
+  return splitOversized(text, maxChars, { delimiter: "\n", rejoin: "\n" });
 }
 
-// oxlint-disable-next-line max-lines-per-function -- walks a TypeScript AST with multiple declaration-type branches; each branch is minimal; splitting would fragment the traversal logic
-export function chunkTypeScriptFile(
-  filePath: string,
+interface ClassifiedStatements {
+  imports: string[];
+  catchAll: string[];
+  declarations: NamedChunk[];
+}
+
+function classifyStatements(
   sourceText: string,
-  maxChunkChars?: number,
-): VaultChunk[] {
-  if (!sourceText.trim()) return [];
+  statements: ReadonlyArray<ts.Statement>,
+  sourceFile: ts.SourceFile,
+): ClassifiedStatements {
+  const imports: string[] = [];
+  const catchAll: string[] = [];
+  const declarations: NamedChunk[] = [];
 
-  const sourceFile = ts.createSourceFile(
-    filePath,
-    sourceText,
-    ts.ScriptTarget.Latest,
-    true,
-  );
-
-  const importExportTexts: string[] = [];
-  const catchAllTexts: string[] = [];
-  const declarationChunks: NamedChunk[] = [];
-
-  for (const statement of sourceFile.statements) {
+  for (const statement of statements) {
     if (
       ts.isImportDeclaration(statement) ||
       ts.isImportEqualsDeclaration(statement) ||
       ts.isExportDeclaration(statement) ||
       ts.isExportAssignment(statement)
     ) {
-      importExportTexts.push(getNodeText(sourceText, statement));
+      imports.push(getNodeText(sourceText, statement));
       continue;
     }
 
-    if (ts.isFunctionDeclaration(statement)) {
+    if (ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) {
       const name = declarationName(statement);
       if (name) {
-        declarationChunks.push({
-          name,
-          text: getNodeText(sourceText, statement),
-        });
+        declarations.push({ name, text: getNodeText(sourceText, statement) });
         continue;
       }
     }
 
-    if (ts.isClassDeclaration(statement)) {
-      const name = declarationName(statement);
-      if (name) {
-        declarationChunks.push({
-          name,
-          text: getNodeText(sourceText, statement),
-        });
-        continue;
-      }
-    }
-
-    if (ts.isInterfaceDeclaration(statement)) {
-      declarationChunks.push({
-        name: statement.name.text,
-        text: getNodeText(sourceText, statement),
-      });
-      continue;
-    }
-
-    if (ts.isTypeAliasDeclaration(statement)) {
-      declarationChunks.push({
-        name: statement.name.text,
-        text: getNodeText(sourceText, statement),
-      });
-      continue;
-    }
-
-    if (ts.isEnumDeclaration(statement)) {
-      declarationChunks.push({
-        name: statement.name.text,
-        text: getNodeText(sourceText, statement),
-      });
+    if (
+      ts.isInterfaceDeclaration(statement) ||
+      ts.isTypeAliasDeclaration(statement) ||
+      ts.isEnumDeclaration(statement)
+    ) {
+      declarations.push({ name: statement.name.text, text: getNodeText(sourceText, statement) });
       continue;
     }
 
     if (ts.isVariableStatement(statement) && isExported(statement)) {
       const statementText = getNodeText(sourceText, statement);
       for (const declaration of statement.declarationList.declarations) {
-        declarationChunks.push({
-          name: declaration.name.getText(sourceFile),
-          text: statementText,
-        });
+        declarations.push({ name: declaration.name.getText(sourceFile), text: statementText });
       }
       continue;
     }
 
-    catchAllTexts.push(getNodeText(sourceText, statement));
+    catchAll.push(getNodeText(sourceText, statement));
   }
 
+  return { imports, catchAll, declarations };
+}
+
+function assembleChunks(filePath: string, classified: ClassifiedStatements, maxChunkChars: number | undefined): VaultChunk[] {
   const rawChunks: NamedChunk[] = [];
 
-  if (importExportTexts.length > 0) {
-    rawChunks.push({
-      name: "imports",
-      text: importExportTexts.join("\n"),
-    });
+  if (classified.imports.length > 0) {
+    rawChunks.push({ name: "imports", text: classified.imports.join("\n") });
   }
 
-  rawChunks.push(...declarationChunks);
+  rawChunks.push(...classified.declarations);
 
-  if (catchAllTexts.length > 0) {
-    rawChunks.push({
-      name: "catch-all",
-      text: catchAllTexts.join("\n"),
-    });
+  if (classified.catchAll.length > 0) {
+    rawChunks.push({ name: "catch-all", text: classified.catchAll.join("\n") });
   }
 
   const merged = mergeThinChunks(rawChunks);
@@ -170,4 +132,16 @@ export function chunkTypeScriptFile(
   }
 
   return result;
+}
+
+export function chunkTypeScriptFile(
+  filePath: string,
+  sourceText: string,
+  maxChunkChars?: number,
+): VaultChunk[] {
+  if (!sourceText.trim()) return [];
+
+  const sourceFile = ts.createSourceFile(filePath, sourceText, ts.ScriptTarget.Latest, true);
+  const classified = classifyStatements(sourceText, sourceFile.statements, sourceFile);
+  return assembleChunks(filePath, classified, maxChunkChars);
 }

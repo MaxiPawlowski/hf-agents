@@ -1,9 +1,24 @@
 # Plan Discoveries
 
-## Confirmed findings
+## YYYY-MM-DD — <batch description>
 
-- 
+### Files examined
 
-## Blocker resolutions
+- File:
+- Pattern:
+- Lines:
 
-- 
+### Conventions observed
+
+- Convention:
+- Location:
+
+### Blocker resolutions
+
+- Blocker:
+- Resolution:
+
+### Cross-milestone notes
+
+- Note:
+- Affects:

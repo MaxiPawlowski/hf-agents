@@ -13,3 +13,6 @@ dist/
 vault/.vault-index.json
 .hf/
 .scannerwork/
+coverage/
+.env
+

@@ -44,7 +44,7 @@ async function tryIpcRequest<TResult>(
   method: typeof EMBEDDING_IPC_METHOD_EMBED | typeof EMBEDDING_IPC_METHOD_EMBED_BATCH,
   params: Record<string, unknown>,
   isExpectedResult: (value: unknown) => value is TResult
-// eslint-disable-next-line max-params -- repoRoot, method, params, isExpectedResult are all required for a typed JSON-RPC dispatch; no natural grouping
+ 
 ): Promise<TResult | null> {
   const manifest = await readCachedManifest(repoRoot);
   if (!manifest) {

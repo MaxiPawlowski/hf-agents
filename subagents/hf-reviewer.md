@@ -59,6 +59,7 @@ Checklist:
 - Technical optimality: reject avoidable complexity such as code duplication or unnecessary fallback chains.
 - Artifact consistency: required execution artifacts reflect the current milestone state.
 - Lint compliance: Oxlint-detectable structural violations (function length, file length, nesting depth, magic numbers, `any` type, unhandled promises) are blocking quality failures — reject if the builder's oxlint evidence shows violations or is absent for code-changing milestones. New suppression directives (`oxlint-ignore`, `oxlint-disable`) require a written justification comment and explicit milestone scope approval; flag and reject if either is missing.
+- Integration completeness: if the milestone delivers a script, npm script, or workflow that depends on external infrastructure (Docker, external APIs, credentials, live services), check whether that integration was exercised end-to-end. A passing install check (`--version`), a valid config file, or a structural wiring check is not sufficient proof. If end-to-end execution was not verified and no `manual-attestation` escalation is on record, set `next_action_owner: user` and flag the unverified integration as a blocking finding.
 
 ## Required Output
 

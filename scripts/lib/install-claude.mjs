@@ -16,6 +16,7 @@ import {
   writeJson
 } from "./install-helpers.mjs";
 
+// oxlint-disable-next-line max-params -- internal helper; params are positional and tightly coupled
 function buildClaudeCommand(platform, eventName, targetDir, packageName) {
   const packageRelativePath = buildPackageRelativePath(targetDir, packageName, ["dist", "src", "bin", "hf-claude-hook.js"]);
   return `node "$CLAUDE_PROJECT_DIR/${packageRelativePath}" ${eventName}`;
@@ -109,6 +110,7 @@ function removeHookGroups(existingGroups, commandsToRemove) {
     .map((group) => {
       const hooks = Array.isArray(group.hooks)
         ? group.hooks.filter(
+            // eslint-disable-next-line no-restricted-syntax -- plain-JS type guard; no TS narrowing available in .mjs
             (hook) => !(hook?.type === "command" && typeof hook.command === "string" && commandsToRemove.has(hook.command))
           )
         : [];
@@ -137,7 +139,7 @@ function installMcpConfig(platform, targetDir, packageName) {
   const next = {
     ...current,
     mcpServers: {
-      ...(current.mcpServers ?? {}),
+      ...current.mcpServers,
       "hf-search": {
         type: "stdio",
         command: "node",
@@ -159,6 +161,7 @@ function uninstallMcpConfig(targetDir, mcpRelativePath) {
   }
 
   const next = { ...current };
+  // eslint-disable-next-line no-restricted-syntax -- plain-JS type guard; no TS narrowing available in .mjs
   if (next.mcpServers && typeof next.mcpServers === "object") {
     const { "hf-search": _removed, ...remainingServers } = next.mcpServers;
     if (Object.keys(remainingServers).length === 0) {
@@ -184,7 +187,7 @@ function installClaude(platform, targetDir, packageName) {
   const next = {
     ...current,
     hooks: {
-      ...(current.hooks ?? {})
+      ...current.hooks
     }
   };
 
@@ -214,11 +217,13 @@ function uninstallClaude(targetDir, claudeState) {
     return false;
   }
 
+  // eslint-disable-next-line no-restricted-syntax -- plain-JS type guard; no TS narrowing available in .mjs
   const mcpConfigPath = typeof claudeState.mcpConfigPath === "string"
     ? claudeState.mcpConfigPath
     : ".mcp.json";
   uninstallMcpConfig(targetDir, mcpConfigPath);
 
+  // eslint-disable-next-line no-restricted-syntax -- plain-JS type guard; no TS narrowing available in .mjs
   const settingsRelativePath = typeof claudeState.settingsPath === "string"
     ? claudeState.settingsPath
     : ".claude/settings.local.json";
@@ -236,7 +241,7 @@ function uninstallClaude(targetDir, claudeState) {
 
   const commandsToRemove = new Set(Array.isArray(claudeState.commands) ? claudeState.commands : []);
   const next = { ...current };
-  const nextHooks = { ...(current.hooks ?? {}) };
+  const nextHooks = { ...current.hooks };
 
   for (const eventName of Object.keys(nextHooks)) {
     const groups = removeHookGroups(nextHooks[eventName], commandsToRemove);

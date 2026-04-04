@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { embed, embedBatch, disposeEmbeddingModel, EmbeddingModelError } from "../src/runtime/vault-embeddings.js";
+import { isNumber } from "../src/runtime/utils.js";
 
 function cosine(a: number[], b: number[]): number {
   let dot = 0;
@@ -44,7 +45,7 @@ describe.skipIf(!process.env.HF_RUN_SLOW)("vault-embeddings (model integration)"
     const vec = await embed("The quick brown fox jumps over the lazy dog.");
 
     expect(vec).toHaveLength(384);
-    expect(vec.every((v) => typeof v === "number" && isFinite(v))).toBe(true);
+    expect(vec.every((v) => isNumber(v) && isFinite(v))).toBe(true);
 
     const norm = vectorNorm(vec);
     expect(norm).toBeCloseTo(1.0, 2);

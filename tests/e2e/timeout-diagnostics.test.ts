@@ -7,6 +7,7 @@ import { describe, test } from "vitest";
 
 import { assertSuccessfulExit, cleanupFixtureWithRetry, createFixtureProject } from "./helpers/harness.js";
 import { FIXTURE_PLAN_PATH, PROVIDER_SKIP_MESSAGE, hasProviderApiKey } from "./helpers/fixtures.js";
+import { isNumber } from "../../src/runtime/utils.js";
 
 const RUN_TIMEOUT_MS = 240_000;
 const TEST_TIMEOUT_MS = 480_000;
@@ -565,7 +566,7 @@ function buildSubprocessEnv(): NodeJS.ProcessEnv {
 }
 
 function toNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+  return isNumber(value) && Number.isFinite(value) ? value : null;
 }
 
 function buildSummaryRows(runs: RunDiagnostics[]): SummaryRow[] {

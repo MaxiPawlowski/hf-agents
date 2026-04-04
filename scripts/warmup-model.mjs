@@ -11,7 +11,9 @@
 import { pipeline } from "@huggingface/transformers";
 
 const MODEL_ID = "Xenova/all-MiniLM-L6-v2";
-const TIMEOUT_MS = 120_000; // 2 minutes for first download
+// 2 minutes for first download
+const TIMEOUT_MS = 120_000;
+const MS_PER_SECOND = 1000;
 
 async function warmup() {
   const start = Date.now();
@@ -19,15 +21,16 @@ async function warmup() {
 
   const timer = setTimeout(() => {
     console.error(
-      `[warmup-model] Timed out after ${TIMEOUT_MS / 1000}s. The model will be downloaded on first use instead.`,
+      `[warmup-model] Timed out after ${TIMEOUT_MS / MS_PER_SECOND}s. The model will be downloaded on first use instead.`,
     );
-    process.exit(0); // non-fatal — runtime will retry
+    // non-fatal — runtime will retry
+    process.exit(0);
   }, TIMEOUT_MS);
 
   try {
     await pipeline("feature-extraction", MODEL_ID, { dtype: "fp32" });
     clearTimeout(timer);
-    const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+    const elapsed = ((Date.now() - start) / MS_PER_SECOND).toFixed(1);
     console.log(`[warmup-model] Model cached successfully (${elapsed}s).`);
   } catch (error) {
     clearTimeout(timer);

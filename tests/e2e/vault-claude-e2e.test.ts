@@ -7,7 +7,8 @@ import {
   runClaudeCode
 } from "./helpers/claude-harness.js";
 
-const RUN_TIMEOUT_MS = 300_000; // 5 min — embedding model may need to warm up
+// 5 min — embedding model may need to warm up
+const RUN_TIMEOUT_MS = 300_000;
 
 // Claude e2e contract for the slow managed-plan layer:
 // - This file is the highest-confidence Claude parity layer in the suite. It requires a
