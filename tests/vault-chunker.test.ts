@@ -1,6 +1,7 @@
+import assert from "node:assert";
 import { describe, expect, test } from "vitest";
 
-import { chunkVaultDocument } from "../src/runtime/vault-chunker.js";
+import { chunkVaultDocument } from "../src/index/vault-chunker.js";
 import type { VaultDocument } from "../src/runtime/types.js";
 
 function doc(
@@ -29,18 +30,22 @@ describe("vault-chunker", () => {
     const chunks = chunkVaultDocument(doc(md));
 
     expect(chunks.length).toBe(3);
-    expect(chunks[0]!.metadata.sectionTitle).toBe("Context");
-    expect(chunks[1]!.metadata.sectionTitle).toBe("Decisions");
-    expect(chunks[2]!.metadata.sectionTitle).toBe("References");
+    const [c0, c1, c2] = chunks;
+    assert(c0 !== undefined, "Expected chunk at index 0");
+    assert(c1 !== undefined, "Expected chunk at index 1");
+    assert(c2 !== undefined, "Expected chunk at index 2");
+    expect(c0.metadata.sectionTitle).toBe("Context");
+    expect(c1.metadata.sectionTitle).toBe("Decisions");
+    expect(c2.metadata.sectionTitle).toBe("References");
 
     // Each chunk starts with its header
-    expect(chunks[0]!.text).toContain("## Context");
-    expect(chunks[1]!.text).toContain("## Decisions");
-    expect(chunks[2]!.text).toContain("## References");
+    expect(c0.text).toContain("## Context");
+    expect(c1.text).toContain("## Decisions");
+    expect(c2.text).toContain("## References");
 
     // Body text is included
-    expect(chunks[0]!.text).toContain("Brief context about the plan");
-    expect(chunks[1]!.text).toContain("We decided to use TypeScript");
+    expect(c0.text).toContain("Brief context about the plan");
+    expect(c1.text).toContain("We decided to use TypeScript");
   });
 
   test("empty file returns empty array", () => {
@@ -58,9 +63,11 @@ describe("vault-chunker", () => {
     const chunks = chunkVaultDocument(doc(content));
 
     expect(chunks).toHaveLength(1);
-    expect(chunks[0]!.text).toBe(content);
+    const [singleChunk] = chunks;
+    assert(singleChunk !== undefined, "Expected chunk at index 0");
+    expect(singleChunk.text).toBe(content);
     // falls back to doc title
-    expect(chunks[0]!.metadata.sectionTitle).toBe("Test Notes");
+    expect(singleChunk.metadata.sectionTitle).toBe("Test Notes");
   });
 
   test("nested ### headers produce separate chunks", () => {
@@ -78,9 +85,13 @@ describe("vault-chunker", () => {
     const chunks = chunkVaultDocument(doc(md));
 
     expect(chunks.length).toBe(3);
-    expect(chunks[0]!.metadata.sectionTitle).toBe("Decisions");
-    expect(chunks[1]!.metadata.sectionTitle).toBe("Decision 1: Use TypeScript");
-    expect(chunks[2]!.metadata.sectionTitle).toBe("Decision 2: Use Vitest");
+    const [d0, d1, d2] = chunks;
+    assert(d0 !== undefined, "Expected chunk at index 0");
+    assert(d1 !== undefined, "Expected chunk at index 1");
+    assert(d2 !== undefined, "Expected chunk at index 2");
+    expect(d0.metadata.sectionTitle).toBe("Decisions");
+    expect(d1.metadata.sectionTitle).toBe("Decision 1: Use TypeScript");
+    expect(d2.metadata.sectionTitle).toBe("Decision 2: Use Vitest");
   });
 
   test("sections shorter than 20 chars body text merge with next section", () => {
@@ -100,12 +111,15 @@ describe("vault-chunker", () => {
     // "Short" section body ("Tiny.") < 20 chars, should merge with "Details"
     // So we get 2 chunks instead of 3
     expect(chunks.length).toBe(2);
-    expect(chunks[0]!.metadata.sectionTitle).toBe("Overview");
+    const [mergeC0, mergeC1] = chunks;
+    assert(mergeC0 !== undefined, "Expected chunk at index 0");
+    assert(mergeC1 !== undefined, "Expected chunk at index 1");
+    expect(mergeC0.metadata.sectionTitle).toBe("Overview");
 
     // Merged chunk uses the short section's header but includes both bodies
-    expect(chunks[1]!.text).toContain("Tiny.");
-    expect(chunks[1]!.text).toContain("## Details");
-    expect(chunks[1]!.text).toContain("plenty of detail");
+    expect(mergeC1.text).toContain("Tiny.");
+    expect(mergeC1.text).toContain("## Details");
+    expect(mergeC1.text).toContain("plenty of detail");
   });
 
   test("last short section merges backward", () => {
@@ -121,8 +135,10 @@ describe("vault-chunker", () => {
 
     // "End" body ("Fin.") is < 20 chars → merges backward into "Main"
     expect(chunks.length).toBe(1);
-    expect(chunks[0]!.text).toContain("## Main");
-    expect(chunks[0]!.text).toContain("Fin.");
+    const [mainChunk] = chunks;
+    assert(mainChunk !== undefined, "Expected chunk at index 0");
+    expect(mainChunk.text).toContain("## Main");
+    expect(mainChunk.text).toContain("Fin.");
   });
 
   test("id is deterministic based on path and section title", () => {
@@ -132,8 +148,12 @@ describe("vault-chunker", () => {
     const chunks1 = chunkVaultDocument(d);
     const chunks2 = chunkVaultDocument(d);
 
-    expect(chunks1[0]!.id).toBe(chunks2[0]!.id);
-    expect(chunks1[0]!.id).toBe("vault/plans/my-plan/notes.md#Context");
+    const [c1first] = chunks1;
+    const [c2first] = chunks2;
+    assert(c1first !== undefined, "Expected chunk1 at index 0");
+    assert(c2first !== undefined, "Expected chunk2 at index 0");
+    expect(c1first.id).toBe(c2first.id);
+    expect(c1first.id).toBe("vault/plans/my-plan/notes.md#Context");
   });
 
   test("metadata fields are populated correctly", () => {
@@ -143,7 +163,8 @@ describe("vault-chunker", () => {
     const chunks = chunkVaultDocument(d);
 
     expect(chunks).toHaveLength(1);
-    const chunk = chunks[0]!;
+    const [chunk] = chunks;
+    assert(chunk !== undefined, "Expected chunk at index 0");
     expect(chunk.metadata.sourcePath).toBe("vault/shared/conventions.md");
     expect(chunk.metadata.sectionTitle).toBe("Section A");
     expect(chunk.metadata.documentTitle).toBe("Conventions");
@@ -154,7 +175,9 @@ describe("vault-chunker", () => {
     const d = doc(md, "vault\\plans\\test\\notes.md", "Notes");
 
     const chunks = chunkVaultDocument(d);
-    expect(chunks[0]!.id).toBe("vault/plans/test/notes.md#Test");
+    const [firstChunk] = chunks;
+    assert(firstChunk !== undefined, "Expected chunk at index 0");
+    expect(firstChunk.id).toBe("vault/plans/test/notes.md#Test");
   });
 
   test("preamble before first header is included as its own chunk", () => {
@@ -169,10 +192,13 @@ describe("vault-chunker", () => {
     const chunks = chunkVaultDocument(doc(md));
 
     expect(chunks.length).toBe(2);
+    const [preambleChunk, firstSectionChunk] = chunks;
+    assert(preambleChunk !== undefined, "Expected chunk at index 0");
+    assert(firstSectionChunk !== undefined, "Expected chunk at index 1");
     // Preamble chunk uses document title as section title
-    expect(chunks[0]!.metadata.sectionTitle).toBe("Test Notes");
-    expect(chunks[0]!.text).toContain("preamble text");
-    expect(chunks[1]!.metadata.sectionTitle).toBe("First Section");
+    expect(preambleChunk.metadata.sectionTitle).toBe("Test Notes");
+    expect(preambleChunk.text).toContain("preamble text");
+    expect(firstSectionChunk.metadata.sectionTitle).toBe("First Section");
   });
 
   test("markdown formatting is preserved in chunk text", () => {
@@ -188,7 +214,9 @@ describe("vault-chunker", () => {
 
     const chunks = chunkVaultDocument(doc(md));
 
-    expect(chunks[0]!.text).toContain("**bold**");
-    expect(chunks[0]!.text).toContain("```ts");
+    const [formattedChunk] = chunks;
+    assert(formattedChunk !== undefined, "Expected chunk at index 0");
+    expect(formattedChunk.text).toContain("**bold**");
+    expect(formattedChunk.text).toContain("```ts");
   });
 });

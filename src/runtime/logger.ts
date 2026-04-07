@@ -16,9 +16,7 @@ let resolvedLogPath: string | null = null;
 let enabled: boolean | null = null;
 
 function isEnabled(): boolean {
-  if (enabled === null) {
-    enabled = process.env.HF_DEBUG === "1" || process.env.HF_DEBUG === "true";
-  }
+  enabled ??= process.env.HF_DEBUG === "1" || process.env.HF_DEBUG === "true";
   return enabled;
 }
 
@@ -67,7 +65,7 @@ export function hfLog(entry: LogEntry): void {
   });
 
   try {
-    appendFileSync(getLogPath(), line + "\n");
+    appendFileSync(getLogPath(), `${line  }\n`);
   } catch {
     // Logging must never throw — swallow silently.
   }

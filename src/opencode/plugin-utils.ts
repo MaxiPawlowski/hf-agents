@@ -1,6 +1,6 @@
 import { hydrateRuntimeWithTimeout, ingestTurnOutcome } from "../adapters/lifecycle.js";
 import type { HybridLoopRuntime } from "../runtime/runtime.js";
-import { detectTurnOutcomeInPayload } from "../runtime/turn-outcome-ingestion.js";
+import { detectTurnOutcomeInPayload } from "../prompt/turn-outcome-ingestion.js";
 import { hfLogTimed } from "../runtime/logger.js";
 import type { ContinueDecision, RuntimeEvent } from "../runtime/types.js";
 import { isString } from "../runtime/utils.js";
@@ -87,11 +87,11 @@ export function toPayload(input?: HookInput, output?: HookInput): Record<string,
 }
 
 export function withHookDeadline<T>(promise: Promise<T>, fallback: T): Promise<T> {
-  let timer: ReturnType<typeof setTimeout>;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<T>((resolve) => {
     timer = setTimeout(() => resolve(fallback), HOOK_DEADLINE_MS);
   });
-  return Promise.race([promise, deadline]).finally(() => clearTimeout(timer!));
+  return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
 }
 
 export async function hydrateRuntime(context: OpenCodePluginContext, explicitPlanPath?: string): Promise<HybridLoopRuntime> {

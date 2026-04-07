@@ -1,6 +1,6 @@
 # Hybrid Framework — Quality Stack
 
-This document describes the three-layer quality enforcement stack used by the hybrid framework. Each layer addresses a different point in the development lifecycle: prompt guidance shapes code at generation time, Oxlint enforces structural rules at edit and commit time, and SonarQube Community catches cross-file and cognitive-complexity issues that static line-level analysis cannot see. Together the three layers form a graduated, redundant quality pipeline that catches problems as early as possible — before they reach a reviewer or a permanent record in the plan doc.
+This document describes the three-layer quality enforcement stack used by the hybrid framework. Each layer addresses a different point in the development lifecycle: prompt guidance shapes code at generation time, Oxlint enforces structural rules at edit and commit time, and ESLint with sonarjs catches cognitive-complexity issues, duplication patterns, and code smells that structural linting cannot see. Together the three layers form a graduated, redundant quality pipeline that catches problems as early as possible — before they reach a reviewer or a permanent record in the plan doc.
 
 ---
 
@@ -8,7 +8,7 @@ This document describes the three-layer quality enforcement stack used by the hy
 
 - [Layer 1 — Prompt Guidance](#layer-1--prompt-guidance)
 - [Layer 2 — Oxlint](#layer-2--oxlint)
-- [Layer 3 — SonarQube Community (Local)](#layer-3--sonarqube-community-local)
+- [Layer 3 — ESLint + SonarJS](#layer-3--eslint--sonarjs)
 - [Config Protection Guardrail](#config-protection-guardrail)
 - [npm Scripts Reference](#npm-scripts-reference)
 - [Windows / Git Bash Note](#windows--git-bash-note)
@@ -103,55 +103,33 @@ For real-time feedback during editing, install the `oxc.oxc-vscode` extension. I
 
 ---
 
-## Layer 3 — SonarQube Community (Local)
+## Layer 3 — ESLint + SonarJS
 
-SonarQube Community covers the quality signals that line-level linting cannot produce: cross-file duplication, cognitive complexity scores, and code smell categories that require multi-file analysis. It is run locally against the full codebase rather than per-file.
+ESLint with `eslint-plugin-sonarjs` and `typescript-eslint` covers the quality signals that Oxlint cannot produce: cognitive complexity, code smell patterns, copy-paste detection, redundant boolean logic, and type-aware checks that require the full TypeScript type graph.
 
-Config file: [`sonar-project.properties`](../sonar-project.properties) at the repo root.
-Docker setup: [`docker-compose.sonar.yml`](../docker-compose.sonar.yml).
+Config file: [`eslint.config.js`](../eslint.config.js) at the repo root.
 
-SonarQube is local-only for this project. It does not gate CI runs or pull requests; its role is to surface structural debt during active development so that it can be addressed before it accumulates.
+ESLint runs after Oxlint in both the `npm run lint` script and the pre-commit hook via lint-staged. Because Oxlint handles the fast structural checks, ESLint focuses on the higher-level semantic rules.
 
-### First-Time Setup
+### Active Rule Categories
 
-```sh
-# Start the SonarQube server
-docker compose -f docker-compose.sonar.yml up -d
+- **SonarJS code smells** — cognitive complexity ≤ 10, no duplicate strings, no redundant booleans, no collapsible ifs, no immediately-returned variables, prefer single boolean return
+- **SonarJS copy-paste detection** — flags identical function bodies within a file
+- **Type-aware TypeScript** — no unnecessary type assertions, no unnecessary conditions, prefer nullish coalescing and optional chaining, no redundant type constituents
+- **Core ESLint** — object shorthand, template literals, destructuring, no useless returns
 
-# Open http://localhost:9000 — default login: admin / admin
-# Change the password when prompted
-# Create a project with key "hybrid-framework"
-# Go to My Account > Security > Generate Tokens — create a token named "local-scan"
-export SONAR_TOKEN=<your-token>
-
-# Run a full scan
-npm run sonar
-```
-
-Results appear in the SonarQube UI under the `hybrid-framework` project. The scan reads source paths and exclusions from `sonar-project.properties`; edit that file to add or remove analysis scope.
-
-### Quality Gate Configuration
-
-Configure the following thresholds in the SonarQube UI under **Quality Gates**:
-
-| Metric | Recommended threshold |
-|---|---|
-| Duplicated Lines | max 3% |
-| Code Smells | Rating A |
-| Bugs | Rating A |
-| Cognitive Complexity | max 15 per function |
-
-These values are guidelines, not hard gates. Adjust them to the current state of the codebase when the project is first configured, then tighten over time as the baseline improves.
-
-### Pre-Commit Integration (Opt-In)
-
-The SonarQube scan is opt-in at pre-commit via the `HF_SONAR_PRECOMMIT` environment variable. Oxlint always runs first; SonarQube runs only when the variable is set, which requires a running Docker instance and `SONAR_TOKEN` to be exported in the shell.
+### Running ESLint
 
 ```sh
-HF_SONAR_PRECOMMIT=1 git commit -m "feat: add new adapter hook"
-```
+# Full lint suite (oxlint + eslint)
+npm run lint
 
-Use this mode when you want end-to-end quality feedback on a commit that touches cross-file structure, not as a default workflow. The scan adds 30–90 seconds depending on repo size.
+# Auto-fix pass
+npm run lint:fix
+
+# ESLint only — useful for diagnosing sonarjs or type-aware violations
+npx eslint src/ tests/ scripts/
+```
 
 ---
 
@@ -161,7 +139,6 @@ The runtime guardrail in `src/adapters/lifecycle.ts` — specifically the `isPro
 
 Protected files:
 - `.oxlintrc.json`
-- `sonar-project.properties`
 - `.husky/pre-commit`
 
 The protected file list is stored in the `PROTECTED_CONFIG_FILES` constant in [`src/adapters/lifecycle.ts`](../src/adapters/lifecycle.ts). The guard is wired into both the Claude adapter (PreToolUse hook) and the OpenCode adapter (tool.execute.before hook), so it applies regardless of which platform the agent is running on.
@@ -180,9 +157,8 @@ Any change made under this override should be reviewed in the plan doc or a pull
 
 | Script | Command | Purpose |
 |---|---|---|
-| `npm run lint` | `npx oxlint src/ tests/` | Strict check — exits non-zero on errors |
-| `npm run lint:fix` | `npx oxlint --fix src/ tests/` | Auto-fix trivial violations |
-| `npm run sonar` | `sonar-scanner ...` | Run local SonarQube scan |
+| `npm run lint` | `npx oxlint … && npx eslint …` | Strict check — exits non-zero on errors |
+| `npm run lint:fix` | `npx oxlint --fix … && npx eslint --fix …` | Auto-fix trivial violations |
 | `npm run precommit` | `npm run lint` | Manual pre-commit check |
 
 Run `npm run precommit` before committing when Husky hooks are not firing — for example, when committing from a GUI client or a terminal that does not source the Git Bash environment.

@@ -31,6 +31,27 @@ function log(message) {
   process.stdout.write(`${message}\n`);
 }
 
+function applyArgToOptions(argv, index, options) {
+  const arg = argv[index];
+  if (arg === "--source-root" && argv[index + 1]) {
+    options.sourceRoot = path.resolve(argv[index + 1]);
+    return index + 1;
+  }
+  if (arg === "--target-root" && argv[index + 1]) {
+    options.targetRoot = path.resolve(argv[index + 1]);
+    return index + 1;
+  }
+  if (arg === "--config" && argv[index + 1]) {
+    options.configPath = path.resolve(argv[index + 1]);
+    return index + 1;
+  }
+  if (arg === "--tool" && argv[index + 1]) {
+    options.tool = argv[index + 1];
+    return index + 1;
+  }
+  return index;
+}
+
 function parseArgs(argv) {
   const options = {
     sourceRoot,
@@ -39,30 +60,10 @@ function parseArgs(argv) {
     tool: "all"
   };
 
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === "--source-root" && argv[index + 1]) {
-      options.sourceRoot = path.resolve(argv[index + 1]);
-      index += 1;
-      continue;
-    }
-
-    if (arg === "--target-root" && argv[index + 1]) {
-      options.targetRoot = path.resolve(argv[index + 1]);
-      index += 1;
-      continue;
-    }
-
-    if (arg === "--config" && argv[index + 1]) {
-      options.configPath = path.resolve(argv[index + 1]);
-      index += 1;
-      continue;
-    }
-
-    if (arg === "--tool" && argv[index + 1]) {
-      options.tool = argv[index + 1];
-      index += 1;
-    }
+  let index = 0;
+  while (index < argv.length) {
+    const consumed = applyArgToOptions(argv, index, options);
+    index = consumed + 1;
   }
 
   if (!["all", "claude", "opencode"].includes(options.tool)) {
@@ -188,12 +189,10 @@ function resolveAssetMode(config) {
 }
 
 function resolveAdapters(config) {
-  const enabledByConfig = {
+  return {
     claude: config.adapters?.claude?.enabled ?? true,
     opencode: config.adapters?.opencode?.enabled ?? true
   };
-
-  return enabledByConfig;
 }
 
 function applyToolSelection(adapters, tool) {
@@ -303,15 +302,34 @@ function syncMappings(options, mappings, label, transform) {
   log(`${label}: ${dedupedMappings.length} files (${stats.symlinked} symlinked, ${stats.copied} copied).`);
 }
 
+function buildGeneratedAgentMappings() {
+  return generatedOpenCodeAgentSources.map((sourceRelativePath) => ({
+    sourceRelativePath,
+    targetRelativePath: path.posix.join(".opencode", "agents", path.basename(sourceRelativePath))
+  }));
+}
+
+function buildGeneratedSkillMappings(sourceRoot) {
+  const skillMappings = [];
+  for (const sourceDir of generatedOpenCodeSkillDirectories) {
+    const sourcePath = path.join(sourceRoot, sourceDir);
+    for (const filePath of walkFiles(sourcePath)) {
+      const relativePath = path.relative(sourceRoot, filePath).split(path.sep).join("/");
+      skillMappings.push({
+        sourceRelativePath: relativePath,
+        targetRelativePath: path.posix.join(".opencode", relativePath)
+      });
+    }
+  }
+  return skillMappings;
+}
+
 function syncOpenCode(options, config) {
   const shouldSyncGenerated = config.assets?.opencode?.syncGenerated ?? true;
   const configuredMappings = buildConfiguredMappings("opencode", config.assets?.opencode?.copy);
   const opencodeRoot = path.join(options.targetRoot, ".opencode");
 
   fs.mkdirSync(opencodeRoot, { recursive: true });
-
-  const agentMappings = [];
-  const skillMappings = [];
 
   if (shouldSyncGenerated || configuredMappings.some((mapping) => mapping.targetRelativePath.startsWith(".opencode/agents/"))) {
     resetDir(path.join(opencodeRoot, "agents"));
@@ -321,25 +339,8 @@ function syncOpenCode(options, config) {
     resetDir(path.join(opencodeRoot, "skills"));
   }
 
-  if (shouldSyncGenerated) {
-    for (const sourceRelativePath of generatedOpenCodeAgentSources) {
-      agentMappings.push({
-        sourceRelativePath,
-        targetRelativePath: path.posix.join(".opencode", "agents", path.basename(sourceRelativePath))
-      });
-    }
-
-    for (const sourceDir of generatedOpenCodeSkillDirectories) {
-      const sourcePath = path.join(options.sourceRoot, sourceDir);
-      for (const filePath of walkFiles(sourcePath)) {
-        const relativePath = path.relative(options.sourceRoot, filePath).split(path.sep).join("/");
-        skillMappings.push({
-          sourceRelativePath: relativePath,
-          targetRelativePath: path.posix.join(".opencode", relativePath)
-        });
-      }
-    }
-  }
+  const agentMappings = shouldSyncGenerated ? buildGeneratedAgentMappings() : [];
+  const skillMappings = shouldSyncGenerated ? buildGeneratedSkillMappings(options.sourceRoot) : [];
 
   for (const mapping of configuredMappings) {
     if (mapping.targetRelativePath.startsWith(".opencode/skills/")) {

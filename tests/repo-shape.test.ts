@@ -5,6 +5,13 @@ import { describe, expect, test } from "vitest";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
 
+async function discoverSkillDirs(rootPath: string): Promise<string[]> {
+  const entries = await readdir(rootPath, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(rootPath, entry.name));
+}
+
 /** Resolve directories that must carry REVIEW.md + evals/evals.json. */
 async function discoverReviewableDirs(): Promise<string[]> {
   const roots = ["agents", "subagents", "skills"] as const;
@@ -21,12 +28,7 @@ async function discoverReviewableDirs(): Promise<string[]> {
 
     if (root === "skills") {
       // skills/ has nested subdirectories — each is a reviewable unit
-      const entries = await readdir(rootPath, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.isDirectory()) {
-          dirs.push(path.join(rootPath, entry.name));
-        }
-      }
+      dirs.push(...(await discoverSkillDirs(rootPath)));
     } else {
       // agents/ and subagents/ are themselves the reviewable unit
       dirs.push(rootPath);
@@ -40,10 +42,10 @@ describe("lean-core repo shape", () => {
   test("agents and subagents stay collapsed to the lean-core set", async () => {
     const agentFiles = (await readdir(path.join(repoRoot, "agents")))
       .filter((entry) => entry.endsWith(".md") && entry !== "REVIEW.md")
-      .sort();
+      .sort((a, b) => a.localeCompare(b));
     const subagentFiles = (await readdir(path.join(repoRoot, "subagents")))
       .filter((entry) => entry.endsWith(".md") && entry !== "REVIEW.md")
-      .sort();
+      .sort((a, b) => a.localeCompare(b));
 
     expect(agentFiles).toEqual(["hf-builder.md", "hf-planner.md"]);
     expect(subagentFiles).toEqual(["hf-coder.md", "hf-plan-reviewer.md", "hf-reviewer.md"]);
@@ -78,7 +80,7 @@ describe("lean-core repo shape", () => {
     const exposedPromptPaths = registry.assets
       .map((asset) => asset.path)
       .filter((assetPath) => assetPath.includes("/agents/") || assetPath.includes("/subagents/"))
-      .sort();
+      .sort((a, b) => a.localeCompare(b));
 
     expect(exposedPromptPaths).toEqual([
       "../agents/hf-builder.md",
@@ -145,12 +147,12 @@ describe("adapter README drift detection", () => {
       "utf8",
     );
     const settings = JSON.parse(settingsRaw) as { hooks: Record<string, unknown> };
-    const hookKeys = Object.keys(settings.hooks).sort();
+    const hookKeys = Object.keys(settings.hooks).sort((a, b) => a.localeCompare(b));
 
     // The README lists hook events as "- `EventName`" bullets
     const readmeHookEvents = [...readme.matchAll(/^- `(\w+)`$/gm)]
-      .map((m) => m[1])
-      .sort();
+      .map((m) => m[1] ?? "")
+      .sort((a, b) => a.localeCompare(b));
 
     expect(readmeHookEvents.length).toBeGreaterThan(0);
     expect(readmeHookEvents).toEqual(hookKeys);
@@ -233,16 +235,10 @@ describe("code quality guardrails", () => {
     expect(extensions).toContain("oxc.oxc-vscode");
   });
 
-  test("sonar-project.properties exists with expected project key", async () => {
-    const sonarProps = await readFile(path.join(repoRoot, "sonar-project.properties"), "utf8");
-    expect(sonarProps).toContain("sonar.projectKey=hybrid-framework");
-  });
-
-  test("package.json contains lint and sonar scripts", async () => {
+  test("package.json contains lint script", async () => {
     const pkg = JSON.parse(
       await readFile(path.join(repoRoot, "package.json"), "utf8")
     ) as { scripts?: Record<string, string> };
     expect(pkg.scripts?.["lint"]).toBeDefined();
-    expect(pkg.scripts?.["sonar"]).toBeDefined();
   });
 });

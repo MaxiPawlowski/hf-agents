@@ -215,7 +215,7 @@ function computeExecutionDecision(
   if (completed || loopState === "complete") {
     return { action: "complete", reason: "All milestones are checked and the plan has been marked complete." };
   }
-  if (!currentMilestone && !completed) {
+  if (!currentMilestone) {
     return { action: "continue", reason: "All milestones are checked, but final verification evidence is still required before plan completion." };
   }
   if (counters.totalAttempts >= counters.maxTotalTurns) {

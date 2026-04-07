@@ -7,9 +7,9 @@ import { HybridLoopRuntime, resolveManagedPlanPath } from "../runtime/runtime.js
 import { DEFAULT_INDEX_CONFIG, getRuntimePaths, loadIndexConfig, readEventLines } from "../runtime/persistence.js";
 import { parsePlan } from "../runtime/plan-doc.js";
 import { runDoctor } from "../runtime/doctor.js";
-import { buildTurnOutcomeIngestionEvent, parseTurnOutcomeInput } from "../runtime/turn-outcome-trailer.js";
-import { formatToolSearchResults } from "../runtime/prompt.js";
-import { buildUnifiedIndex } from "../runtime/unified-index-pipeline.js";
+import { buildTurnOutcomeIngestionEvent, parseTurnOutcomeInput } from "../prompt/turn-outcome-trailer.js";
+import { formatToolSearchResults } from "../prompt/prompt.js";
+import { buildUnifiedIndex } from "../index/unified-index-pipeline.js";
 import type { RuntimeVendor } from "../runtime/types.js";
 import { isRecord, isString } from "../runtime/utils.js";
 
@@ -29,10 +29,13 @@ interface IndexContext {
 const DEFAULT_SEARCH_TOP_K = 5;
 
 function formatStatus(planPath: string, status: Awaited<ReturnType<HybridLoopRuntime["hydrate"]>>): string {
+  const milestoneLabel = status.currentMilestone
+    ? `${status.currentMilestone.index}. ${status.currentMilestone.title}`
+    : "none";
   return [
     `plan: ${planPath}`,
     `state: ${status.loopState}`,
-    `milestone: ${status.currentMilestone ? `${status.currentMilestone.index}. ${status.currentMilestone.title}` : "none"}`,
+    `milestone: ${milestoneLabel}`,
     `loop_attempts: ${status.counters.totalAttempts}/${status.counters.maxTotalTurns}`,
     `evaluated_outcomes: ${status.counters.totalTurns}`,
     `no_progress: ${status.counters.noProgress}`,
@@ -57,7 +60,7 @@ function parsePlanArg(argv: string[]): string | undefined {
     }
 
     const previous = argv[index - 1];
-    return previous === undefined || !previous.startsWith("--");
+    return !previous?.startsWith("--");
   });
 }
 
@@ -100,7 +103,7 @@ function getExternalRoots(config: Record<string, unknown>): string[] {
   if (!isRecord(idx)) return [];
   const ext = idx.external;
   if (!isRecord(ext)) return [];
-  const roots = ext.roots;
+  const {roots} = ext;
   if (!Array.isArray(roots)) return [];
   return roots.filter(isString);
 }
@@ -136,13 +139,13 @@ async function runIndexRebuild(ctx: IndexContext, overrideExtensions?: string[])
 
   const result = await buildUnifiedIndex({
     repoRoot: ctx.repoRoot,
-    codeConfig: indexConfig.code.enabled !== false
-      ? {
+    codeConfig: indexConfig.code.enabled === false
+      ? undefined
+      : {
         roots: indexConfig.code.roots,
         extensions: indexConfig.code.extensions,
         exclude: indexConfig.code.exclude,
-      }
-      : undefined,
+      },
     externalConfig: externalRoots.length > 0
       ? {
         roots: externalRoots,
@@ -348,7 +351,7 @@ async function handleSearch(runtime: HybridLoopRuntime, argv: string[]): Promise
   }
 
   const topKRaw = parseFlag(argv, "--top-k");
-  const topK = topKRaw !== undefined ? Number.parseInt(topKRaw, 10) : DEFAULT_SEARCH_TOP_K;
+  const topK = topKRaw === undefined ? DEFAULT_SEARCH_TOP_K : Number.parseInt(topKRaw, 10);
 
   const sourceRaw = parseFlag(argv, "--source");
   let sourceFilter: "vault" | "code" | undefined;

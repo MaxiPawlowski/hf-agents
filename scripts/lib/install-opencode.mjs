@@ -17,9 +17,13 @@ import {
   writeJson
 } from "./install-helpers.mjs";
 
+const OPENCODE_DIR = ".opencode";
+const PACKAGE_JSON = "package.json";
+const REGISTRY_JSON = "registry.json";
+
 function buildOpenCodeRegistry(targetDir, packageName) {
   if (isSelfInstall(targetDir)) {
-    return readJson(path.join(sourceRoot, ".opencode", "registry.json"), {});
+    return readJson(path.join(sourceRoot, OPENCODE_DIR, REGISTRY_JSON), {});
   }
 
   const packagePrefix = `../node_modules/${packageName}`;
@@ -50,22 +54,22 @@ function buildOpenCodePluginSource(targetDir = sourceRoot, packageName = getPack
 }
 
 function installOpenCode(targetDir, packageName) {
-  const opencodeRoot = path.join(targetDir, ".opencode");
+  const opencodeRoot = path.join(targetDir, OPENCODE_DIR);
   const pluginPath = path.join(opencodeRoot, "plugins", "hybrid-runtime.js");
   const pluginSource = buildOpenCodePluginSource(targetDir, packageName);
   fs.mkdirSync(path.dirname(pluginPath), { recursive: true });
   fs.writeFileSync(pluginPath, pluginSource, "utf8");
-  writeJson(path.join(opencodeRoot, "registry.json"), buildOpenCodeRegistry(targetDir, packageName));
+  writeJson(path.join(opencodeRoot, REGISTRY_JSON), buildOpenCodeRegistry(targetDir, packageName));
 
-  copyIfPresent(path.join(sourceRoot, ".opencode", "README.md"), path.join(opencodeRoot, "README.md"));
+  copyIfPresent(path.join(sourceRoot, OPENCODE_DIR, "README.md"), path.join(opencodeRoot, "README.md"));
 
   const copiedPackageJson = copyIfPresent(
-    path.join(sourceRoot, ".opencode", "package.json"),
-    path.join(opencodeRoot, "package.json")
+    path.join(sourceRoot, OPENCODE_DIR, PACKAGE_JSON),
+    path.join(opencodeRoot, PACKAGE_JSON)
   );
 
   if (!copiedPackageJson) {
-    writeJson(path.join(opencodeRoot, "package.json"), {
+    writeJson(path.join(opencodeRoot, PACKAGE_JSON), {
       private: true,
       dependencies: {
         "@opencode-ai/plugin": "1.2.24"
@@ -75,12 +79,12 @@ function installOpenCode(targetDir, packageName) {
 
   log(`OpenCode plugin installed at ${path.relative(targetDir, pluginPath)}`);
 
-  const assetState = collectGeneratedAssetState(targetDir, [".opencode/agents", ".opencode/skills"]);
+  const assetState = collectGeneratedAssetState(targetDir, [`${OPENCODE_DIR}/agents`, `${OPENCODE_DIR}/skills`]);
 
   const generatedPaths = [
     toProjectRelative(targetDir, pluginPath),
-    toProjectRelative(targetDir, path.join(opencodeRoot, "registry.json")),
-    toProjectRelative(targetDir, path.join(opencodeRoot, "package.json"))
+    toProjectRelative(targetDir, path.join(opencodeRoot, REGISTRY_JSON)),
+    toProjectRelative(targetDir, path.join(opencodeRoot, PACKAGE_JSON))
   ];
 
   if (fs.existsSync(path.join(opencodeRoot, "README.md"))) {
@@ -92,7 +96,7 @@ function installOpenCode(targetDir, packageName) {
   return {
     generatedPaths: [...new Set(generatedPaths)],
     managedDirectories: [
-      ".opencode/plugins",
+      `${OPENCODE_DIR}/plugins`,
       ...assetState.managedDirectories
     ]
   };

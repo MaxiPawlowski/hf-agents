@@ -53,6 +53,7 @@ When asking the user clarifying questions that shape the plan, use the `question
 
 Explore the repo in focused batches. Each batch writes to vault before the next begins.
 
+0. Call `hf_plan_status` to confirm whether this session already has a plan binding. If a plan is already bound, verify it matches the user's request before proceeding. If the wrong plan is bound, call `hf_plan_unbind` to release it before starting exploration.
 1. **Identify the next batch**: determine the next focused set of `local_search_targets` needed to shape the plan. On the first pass, start with root docs (`README.md`, active plan docs) and likely source directories. On subsequent passes, target gaps revealed by prior findings.
 2. **Follow the `hf-local-context` skill protocol** with those targets.
 3. **Write findings to vault**: after completing the exploration batch, confirm that findings are written to `vault/plans/<plan-slug>/discoveries.md` as a dated section. If the skill did not write them, write them yourself.
@@ -90,8 +91,9 @@ Explore the repo in focused batches. Each batch writes to vault before the next 
    - the requirement-to-milestone coverage map
 2. Do NOT re-send the full context bundle. The reviewer reads the plan doc and vault directly.
 3. If the reviewer returns `approved: no`, revise the draft plan and re-run review.
-4. Only after reviewer approval, stop and tell the user the plan is ready.
-5. Tell the user that `hf-builder` must be started manually after explicit human approval; never ask the runtime loop to start it automatically.
+4. After reviewer approval, call `hf_plan_approve` to atomically transition the plan from `status: planning` to `status: in-progress`. Do not use a raw `Edit` call to update the frontmatter status.
+5. Only after reviewer approval, stop and tell the user the plan is ready.
+6. Tell the user that `hf-builder` must be started manually after explicit human approval; never ask the runtime loop to start it automatically.
 
 ### Compaction safety
 

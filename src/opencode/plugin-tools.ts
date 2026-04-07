@@ -6,12 +6,14 @@ import { hydrateRuntimeWithTimeout } from "../adapters/lifecycle.js";
 import type { HybridLoopRuntime } from "../runtime/runtime.js";
 import { parsePlan } from "../runtime/plan-doc.js";
 import { hfLog } from "../runtime/logger.js";
-import { formatToolSearchResults } from "../runtime/prompt.js";
+import { formatToolSearchResults } from "../prompt/prompt.js";
 import {
   type ToolContext,
   type OpenCodePluginContext
 } from "./plugin-utils.js";
 import type { SessionManager } from "./plugin-session.js";
+
+const ALL_COMPLETE_LABEL = "(all complete)";
 
 /**
  * Lazily load `z` from the bundled zod that ships with @opencode-ai/plugin.
@@ -54,21 +56,21 @@ async function listAvailablePlans(baseDir: string): Promise<string[]> {
   }
 }
 
-async function resolvePlanPath(planArg: string, baseDir: string): Promise<string> {
-  if (planArg.includes("/") || planArg.includes("\\") || planArg.endsWith(".md")) {
-    const resolved = path.resolve(baseDir, planArg);
-    try {
-      await fs.access(resolved);
-    } catch {
-      const available = await listAvailablePlans(baseDir);
-      const listStr = available.length > 0
-        ? available.map((p) => `  - ${p}`).join("\n")
-        : "  (no plans found)";
-      throw new Error(`Plan file not found: ${planArg}\n\nAvailable plans:\n${listStr}`);
-    }
-    return resolved;
+async function resolveByPath(planArg: string, baseDir: string): Promise<string> {
+  const resolved = path.resolve(baseDir, planArg);
+  try {
+    await fs.access(resolved);
+  } catch {
+    const available = await listAvailablePlans(baseDir);
+    const listStr = available.length > 0
+      ? available.map((p) => `  - ${p}`).join("\n")
+      : "  (no plans found)";
+    throw new Error(`Plan file not found: ${planArg}\n\nAvailable plans:\n${listStr}`);
   }
+  return resolved;
+}
 
+async function resolveBySlug(planArg: string, baseDir: string): Promise<string> {
   const plansDir = path.join(baseDir, "plans");
   let entries: string[] = [];
   try {
@@ -95,7 +97,14 @@ async function resolvePlanPath(planArg: string, baseDir: string): Promise<string
     throw new Error(`Ambiguous plan slug "${planArg}" — matches ${candidates.length} files. Be more specific:\n${listStr}`);
   }
 
-  return path.join(plansDir, candidates[0]!);
+  return path.join(plansDir, candidates[0] ?? "");
+}
+
+async function resolvePlanPath(planArg: string, baseDir: string): Promise<string> {
+  if (planArg.includes("/") || planArg.includes("\\") || planArg.endsWith(".md")) {
+    return resolveByPath(planArg, baseDir);
+  }
+  return resolveBySlug(planArg, baseDir);
 }
 
 async function buildPlanSummary(resolvedPath: string, manager: SessionManager, sessionId: string): Promise<string> {
@@ -113,13 +122,14 @@ async function buildPlanSummary(resolvedPath: string, manager: SessionManager, s
         : path.basename(resolvedPath);
     const totalMilestones = parsed.milestones.length;
     const currentIdx = parsed.currentMilestone?.index ?? null;
-    const currentTitle = parsed.currentMilestone?.title ?? "(all complete)";
+    const currentTitle = parsed.currentMilestone?.title ?? ALL_COMPLETE_LABEL;
+    const currentMilestoneLabel = currentIdx === null ? ALL_COMPLETE_LABEL : `M${currentIdx} — ${currentTitle}`;
     return [
       `Plan bound: ${resolvedPath}`,
       `Title: ${planTitle}`,
       `Status: ${parsed.status}`,
       `Loop state: ${status.loopState}`,
-      `Current milestone: ${currentIdx !== null ? `M${currentIdx} — ${currentTitle}` : "(all complete)"}`,
+      `Current milestone: ${currentMilestoneLabel}`,
       `Total milestones: ${totalMilestones} (${parsed.milestones.filter((m) => m.checked).length} complete)`
     ].join("\n");
   } catch {
@@ -136,9 +146,7 @@ async function executeSearchQuery(
   args: SearchArgs,
   params: SearchParams
 ): Promise<string> {
-  const query = args.query ?? "";
-  const topK = args.top_k !== undefined ? args.top_k : undefined;
-  const sourceArg = args.source;
+  const { query, top_k: topK, source: sourceArg } = args;
   let sourceFilter: "vault" | "code" | undefined;
   if (sourceArg === "vault") sourceFilter = "vault";
   else if (sourceArg === "code") sourceFilter = "code";
@@ -216,7 +224,7 @@ async function evaluatePlanCompleteOutcome(params: OutcomeParams, runtime: Hybri
     return `Error: evaluateTurn failed: ${String(err)}`;
   }
   hfLog({ tag: "plugin", msg: "hf_plan_complete: loop closed", data: { sessionId, resolvedPath, loopState: status.loopState } });
-  return [`Plan loop closed: ${resolvedPath}`, `Loop state: ${status.loopState}`, `Plan slug: ${status.planSlug}`, `Total milestones: ${parsed.milestones.length} (all complete)`].join("\n");
+  return [`Plan loop closed: ${resolvedPath}`, `Loop state: ${status.loopState}`, `Plan slug: ${status.planSlug}`, `Total milestones: ${parsed.milestones.length} ${ALL_COMPLETE_LABEL}`].join("\n");
 }
 
 async function executePlanComplete(args: PlanCompleteArgs, toolContext: ToolContext, manager: SessionManager): Promise<string> {
@@ -244,7 +252,7 @@ function buildPlanStartTool(manager: SessionManager) {
     description: "Bind this OpenCode session to a specific hybrid-framework plan doc. Call this at the start of every builder or planner session before running any plan milestones. Pass a plan slug (e.g. 'my-feature') or a relative path (e.g. 'plans/2026-03-27-my-feature-plan.md').",
     args: { plan: pluginZ.string().describe("Plan slug or relative path (e.g. 'my-feature' or 'plans/2026-03-27-my-feature-plan.md')") },
     execute: async (args: { plan: string }, toolContext: ToolContext): Promise<string> => {
-      const planArg = args.plan ?? "";
+      const planArg = args.plan;
       let resolvedPath: string;
       try {
         resolvedPath = await resolvePlanPath(planArg, toolContext.directory);
@@ -296,10 +304,237 @@ function buildPlanCompleteTool(manager: SessionManager) {
   };
 }
 
+function buildPlanStatusTool(manager: SessionManager) {
+  return {
+    description: "Show the active plan binding and current plan state for this session. Call this at the start of any session to confirm you are working on the correct plan before executing milestones.",
+    args: {},
+    execute: async (_args: Record<string, never>, toolContext: ToolContext): Promise<string> => {
+      const sessionId = toolContext.sessionID;
+      const resolvedPath = manager.planBindings.get(sessionId);
+      if (!resolvedPath) {
+        return "No plan is bound to this session. Call hf_plan_start to bind one.";
+      }
+      return buildPlanSummary(resolvedPath, manager, sessionId);
+    }
+  };
+}
+
+const PLAN_LIST_TIMEOUT_MS = 200;
+
+function buildPlanListTool(manager: SessionManager) {
+  return {
+    description: "List all active plan bindings across all sessions in this process. Use this to diagnose cross-session plan confusion when multiple sessions are running simultaneously.",
+    args: {},
+    execute: async (_args: Record<string, never>): Promise<string> => {
+      const { planBindings, sessionRuntimes } = manager;
+      if (planBindings.size === 0) {
+        return "No active plan bindings in this process.";
+      }
+      const lines: string[] = [`Active plan bindings (${planBindings.size} sessions):`];
+      for (const [sessionId, resolvedPath] of planBindings) {
+        const filename = path.basename(resolvedPath);
+        const loopState = await resolveLoopState(sessionRuntimes, sessionId);
+        lines.push(`  session ${sessionId} → plans/${filename} (loopState: ${loopState})`);
+      }
+      return lines.join("\n");
+    }
+  };
+}
+
+async function resolveLoopState(
+  sessionRuntimes: Map<string, Promise<HybridLoopRuntime | null>>,
+  sessionId: string
+): Promise<string> {
+  const runtimePromise = sessionRuntimes.get(sessionId);
+  if (!runtimePromise) return "not hydrated";
+  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), PLAN_LIST_TIMEOUT_MS));
+  const result = await Promise.race([runtimePromise, timeout]);
+  if (!result) return "not hydrated";
+  if (result.isPlanless()) return "planless";
+  return result.getStatus().loopState;
+}
+
+function buildPlanUnbindTool(manager: SessionManager) {
+  return {
+    description: "Remove the active plan binding from this session without completing the plan loop. Use when pivoting to a different task or when the session should become planless. The plan doc is not modified.",
+    args: {},
+    execute: (_args: Record<string, never>, toolContext: ToolContext): string => {
+      const sessionId = toolContext.sessionID;
+      const resolvedPath = manager.planBindings.get(sessionId);
+      if (!resolvedPath) {
+        return "No plan is bound to this session — nothing to unbind.";
+      }
+      manager.planBindings.delete(sessionId);
+      manager.sessionRuntimes.delete(sessionId);
+      const orderIdx = manager.sessionAccessOrder.indexOf(sessionId);
+      if (orderIdx !== -1) manager.sessionAccessOrder.splice(orderIdx, 1);
+      hfLog({ tag: "plugin", msg: "hf_plan_unbind: binding removed", data: { sessionId, resolvedPath } });
+      return `Plan unbound: ${resolvedPath}\nThis session is now planless. Call hf_plan_start to bind a new plan.`;
+    }
+  };
+}
+
+function formatMilestoneLabel(milestone: { index: number; title: string } | null): string {
+  if (milestone === null) return ALL_COMPLETE_LABEL;
+  return `M${milestone.index} — ${milestone.title}`;
+}
+
+function formatLastVerification(
+  lastVerification: { status: "pass" | "fail" | "unknown"; summary?: string; at: string } | undefined
+): string {
+  if (!lastVerification) return "none";
+  return `${lastVerification.status} — ${lastVerification.summary ?? ""}`;
+}
+
+function buildRuntimeStatusTool(manager: SessionManager) {
+  return {
+    description: "Show live loop counters, phase, and recommended next action for the plan bound to this session. Use this to inspect runtime state before thresholds are crossed and escalation is triggered.",
+    args: {},
+    execute: async (_args: Record<string, never>, toolContext: ToolContext): Promise<string> => {
+      const sessionId = toolContext.sessionID;
+      if (!manager.planBindings.get(sessionId)) {
+        return "No plan is bound to this session. Call hf_plan_start to bind one before checking runtime status.";
+      }
+      const runtime = await manager.getRuntime(sessionId);
+      if (!runtime || runtime.isPlanless()) {
+        return "Runtime not yet initialized for this session.";
+      }
+      const status = runtime.getStatus();
+      const { counters } = status;
+      const planLabel = `plans/${path.basename(status.planPath)}`;
+      const milestoneLabel = formatMilestoneLabel(status.currentMilestone);
+      const nextAction = status.recommendedNextAction ?? "none";
+      const lastBlocker = status.lastBlocker?.message ?? "none";
+      const lastVerification = formatLastVerification(status.lastVerification);
+      return [
+        `Runtime status for: ${planLabel}`,
+        `Loop state:    ${status.loopState}`,
+        `Phase:         ${status.phase}`,
+        `Milestone:     ${milestoneLabel}`,
+        "",
+        "Counters:",
+        `  Total attempts:           ${counters.totalAttempts}`,
+        `  Total turns:              ${counters.totalTurns} / ${counters.maxTotalTurns}`,
+        `  Turns since last outcome: ${counters.turnsSinceLastOutcome}`,
+        `  No-progress count:        ${counters.noProgress}`,
+        `  Repeated blocker count:   ${counters.repeatedBlocker}`,
+        `  Verification failures:    ${counters.verificationFailures}`,
+        "",
+        `Recommended action: ${nextAction}`,
+        `Last blocker:       ${lastBlocker}`,
+        `Last verification:  ${lastVerification}`,
+      ].join("\n");
+    }
+  };
+}
+
+const VAULT_PREFIX = "vault/";
+const ISO_DATE_LENGTH = 10;
+
+function buildVaultWriteTool() {
+  return {
+    description: "Append a dated section to a vault file. Path must be under vault/. Creates the file if it does not exist. Existing content is never overwritten — each call adds a new dated block at the end.",
+    args: {
+      path: pluginZ.string().describe("Relative path under vault/ (e.g. vault/plans/my-plan/context.md)"),
+      content: pluginZ.string().describe("Content to append as a new dated section"),
+    },
+    execute: async (args: { path: string; content: string }): Promise<string> => {
+      const { path: vaultPath, content } = args;
+      if (!vaultPath.startsWith(VAULT_PREFIX)) {
+        return `Invalid path: vault writes must target paths under vault/. Received: ${vaultPath}`;
+      }
+      const fullPath = path.resolve(process.cwd(), vaultPath);
+      const vaultRoot = path.resolve(process.cwd(), VAULT_PREFIX);
+      if (!fullPath.startsWith(vaultRoot + path.sep)) {
+        return `Invalid path: resolved path escapes vault/ root. Received: ${vaultPath}`;
+      }
+      const today = new Date().toISOString().slice(0, ISO_DATE_LENGTH);
+      const datedBlock = `_Dated: ${today}_\n\n${content}`;
+      let existing = "";
+      try {
+        existing = await fs.readFile(fullPath, "utf-8");
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+          return `Write failed: ${(err as Error).message}`;
+        }
+      }
+      const combined = existing.length > 0 ? `${existing}\n\n${datedBlock}` : datedBlock;
+      try {
+        await fs.writeFile(fullPath, combined, "utf-8");
+      } catch (err) {
+        return `Write failed: ${(err as Error).message}`;
+      }
+      return `Written to ${vaultPath} (${datedBlock.length} bytes appended).`;
+    }
+  };
+}
+
+function buildPlanApproveTool(manager: SessionManager) {
+  return {
+    description: "Atomically transition the bound plan from status: planning to status: in-progress. Validates that the plan doc contains a ## Milestones section before approving. Use this as the final planner act after all milestones are defined and reviewed.",
+    args: {},
+    execute: async (_args: Record<string, never>, toolContext: ToolContext): Promise<string> => {
+      const sessionId = toolContext.sessionID;
+      const resolvedPath = manager.planBindings.get(sessionId);
+      if (!resolvedPath) {
+        return "No plan is bound to this session. Call hf_plan_start to bind one before approving.";
+      }
+      let raw: string;
+      try {
+        raw = await fs.readFile(resolvedPath, "utf-8");
+      } catch (err) {
+        return `Read failed: ${(err as Error).message}`;
+      }
+      if (!raw.includes("## Milestones")) {
+        return "Plan doc is missing a ## Milestones section. Cannot approve a malformed plan.";
+      }
+      const statusPattern = /^status:\s*(planning|in-progress|complete)\s*$/m;
+      const statusMatch = statusPattern.exec(raw);
+      const currentStatus = statusMatch ? statusMatch[1] : null;
+      if (currentStatus !== "planning") {
+        return `Plan is already in status '${currentStatus ?? "unknown"}' — nothing to approve. Only plans with status: planning can be approved.`;
+      }
+      const updated = raw.replace(/^(status:\s*)planning(\s*)$/m, "$1in-progress$2");
+      try {
+        await fs.writeFile(resolvedPath, updated, "utf-8");
+      } catch (err) {
+        return `Write failed: ${(err as Error).message}`;
+      }
+      hfLog({ tag: "plugin", msg: "hf_plan_approve: plan approved", data: { sessionId, resolvedPath } });
+
+      // Notify the runtime so awaitingBuilderApproval is set immediately,
+      // preventing the auto-continue loop from firing a builder handoff
+      // before the user explicitly starts the builder.
+      try {
+        const runtime = await manager.getRuntime(sessionId);
+        if (runtime) {
+          const status = runtime.getStatus();
+          status.awaitingBuilderApproval = true;
+          status.phase = "execution";
+          await runtime.writeState();
+          hfLog({ tag: "plugin", msg: "hf_plan_approve: awaitingBuilderApproval set on runtime", data: { sessionId } });
+        } else {
+          hfLog({ tag: "plugin", msg: "hf_plan_approve: runtime not available — awaitingBuilderApproval will be set by noteStopWithoutOutcome fallback", data: { sessionId } });
+        }
+      } catch (runtimeErr) {
+        hfLog({ tag: "plugin", msg: "hf_plan_approve: failed to set awaitingBuilderApproval on runtime", data: { sessionId, error: (runtimeErr as Error).message } });
+      }
+
+      return `Plan approved: ${resolvedPath}\nStatus updated from planning → in-progress. The plan is now ready for builder execution.`;
+    }
+  };
+}
+
 export function createPluginTools(context: OpenCodePluginContext, manager: SessionManager): Record<string, unknown> {
   return {
     hf_plan_start: buildPlanStartTool(manager),
     hf_search: buildSearchTool(context, manager),
     hf_plan_complete: buildPlanCompleteTool(manager),
+    hf_plan_status: buildPlanStatusTool(manager),
+    hf_plan_list: buildPlanListTool(manager),
+    hf_plan_unbind: buildPlanUnbindTool(manager),
+    hf_runtime_status: buildRuntimeStatusTool(manager),
+    hf_vault_write: buildVaultWriteTool(),
+    hf_plan_approve: buildPlanApproveTool(manager),
   };
 }

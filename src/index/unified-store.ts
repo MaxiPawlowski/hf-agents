@@ -1,7 +1,8 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-import { isRecord, isString } from "./utils.js";
+import { hfLog } from "../runtime/logger.js";
+import { isRecord, isString } from "../runtime/utils.js";
 
 // ---------------------------------------------------------------------------
 // File-level locking for the shared .hf/ index store
@@ -12,6 +13,10 @@ const LOCK_FILE = "index.lock";
 const LOCK_TIMEOUT_MS = 1500;
 /** Interval (ms) between successive acquisition attempts. */
 const LOCK_RETRY_INTERVAL_MS = 50;
+/** Exponential back-off multiplier for lock retry. */
+const LOCK_BACKOFF_FACTOR = 1.5;
+/** Maximum back-off interval (ms) between lock retries. */
+const LOCK_MAX_INTERVAL_MS = 200;
 
 /**
  * Try to create the lock file exclusively.
@@ -20,8 +25,7 @@ const LOCK_RETRY_INTERVAL_MS = 50;
  */
 async function tryCreateLock(lockPath: string): Promise<fs.FileHandle | null> {
   try {
-    const handle = await fs.open(lockPath, "wx");
-    return handle;
+    return await fs.open(lockPath, "wx");
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "EEXIST") {
       return null;
@@ -39,13 +43,14 @@ async function acquireLock(lockPath: string): Promise<fs.FileHandle | null> {
   const deadline = Date.now() + LOCK_TIMEOUT_MS;
   let interval = LOCK_RETRY_INTERVAL_MS;
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- intentional retry loop with explicit returns
   while (true) {
     const handle = await tryCreateLock(lockPath);
     if (handle !== null) {
       // Write PID + timestamp for debuggability, ignore write errors.
       await handle
         .writeFile(`${JSON.stringify({ pid: process.pid, ts: new Date().toISOString() })}\n`, "utf8")
-        .catch(() => undefined);
+        .catch(() => {});
       return handle;
     }
 
@@ -57,7 +62,7 @@ async function acquireLock(lockPath: string): Promise<fs.FileHandle | null> {
     // Wait the smaller of the retry interval and the remaining budget.
     await new Promise<void>((resolve) => setTimeout(resolve, Math.min(interval, remaining)));
     // Mild back-off, capped so we don't stall too long on the last attempt.
-    interval = Math.min(interval * 1.5, 200);
+    interval = Math.min(interval * LOCK_BACKOFF_FACTOR, LOCK_MAX_INTERVAL_MS);
   }
 }
 
@@ -67,8 +72,8 @@ async function acquireLock(lockPath: string): Promise<fs.FileHandle | null> {
  * writer after the timeout, or cleaned up on the next successful save.
  */
 async function releaseLock(handle: fs.FileHandle, lockPath: string): Promise<void> {
-  await handle.close().catch(() => undefined);
-  await fs.unlink(lockPath).catch(() => undefined);
+  await handle.close().catch(() => {});
+  await fs.unlink(lockPath).catch(() => {});
 }
 
 export type MetadataValue = string | number | boolean;
@@ -108,6 +113,7 @@ export interface IndexItem {
 
 export interface UnifiedIndex {
   version: 2;
+  // oxlint-disable-next-line no-magic-numbers -- 384 is the fixed embedding dimension; it is a type-level literal, not a runtime constant
   embeddingDim: 384;
   items: IndexItem[];
   fileHashes: Record<string, string>;
@@ -162,6 +168,7 @@ function writeVector(target: Float32Array, index: number, vector: number[]): voi
 
 function readVector(vectors: Float32Array, index: number): number[] {
   const offset = index * EMBEDDING_DIM;
+  // oxlint-disable-next-line prefer-spread -- Float32Array.slice() returns a typed array; Array.from() is the correct conversion to number[]
   return Array.from(vectors.slice(offset, offset + EMBEDDING_DIM));
 }
 
@@ -175,7 +182,6 @@ function isUnifiedIndex(value: unknown): value is UnifiedIndex {
     candidate.version === INDEX_VERSION &&
     candidate.embeddingDim === EMBEDDING_DIM &&
     Array.isArray(candidate.items) &&
-    candidate.fileHashes !== null &&
     isRecord(candidate.fileHashes) &&
     isString(candidate.timestamp)
   );
@@ -220,9 +226,7 @@ export async function loadUnifiedIndex(
       return null;
     }
     if (error instanceof SyntaxError) {
-      console.error(
-        `[unified-store] Corrupted index file, rebuilding from scratch: ${jsonPath}`,
-      );
+      hfLog({ tag: "unified-store", msg: "Corrupted index file, rebuilding from scratch", data: { jsonPath } });
       return null;
     }
     throw error;
@@ -245,9 +249,7 @@ export async function saveUnifiedIndex(
     // Another concurrent writer holds the lock. The index is a content-
     // addressable cache, so skipping this save is safe — it will be rebuilt
     // on the next invocation.
-    console.warn(
-      `[unified-store] Could not acquire index lock within ${LOCK_TIMEOUT_MS}ms — skipping save (index will be rebuilt next run).`,
-    );
+    hfLog({ tag: "unified-store", msg: "Could not acquire index lock — skipping save (index will be rebuilt next run)", data: { lockTimeoutMs: LOCK_TIMEOUT_MS } });
     return;
   }
 
@@ -330,7 +332,8 @@ export function batchUpsertItems(
   // Build a map of existing item positions
   const idToIndex = new Map<string, number>();
   for (let i = 0; i < index.items.length; i++) {
-    idToIndex.set(index.items[i]!.id, i);
+    const item = index.items[i] as IndexItem;
+    idToIndex.set(item.id, i);
   }
 
   // Count truly new items
@@ -352,14 +355,14 @@ export function batchUpsertItems(
 
   for (const entry of entries) {
     const existingIdx = idToIndex.get(entry.item.id);
-    if (existingIdx !== undefined) {
-      nextItems[existingIdx] = entry.item;
-      writeVector(nextVectors, existingIdx, entry.vector);
-    } else {
+    if (existingIdx === undefined) {
       nextItems.push(entry.item);
       writeVector(nextVectors, appendIndex, entry.vector);
       idToIndex.set(entry.item.id, appendIndex);
       appendIndex++;
+    } else {
+      nextItems[existingIdx] = entry.item;
+      writeVector(nextVectors, existingIdx, entry.vector);
     }
   }
 
@@ -386,7 +389,7 @@ export function deleteItems(
   const keptVectors: number[] = [];
 
   for (let i = 0; i < index.items.length; i++) {
-    const item = index.items[i]!;
+    const item = index.items[i] as IndexItem;
     if (idSet.has(item.id)) {
       continue;
     }
@@ -413,7 +416,7 @@ export function queryItems(state: StoreState, query: QueryOptions): QueryItemRes
   const scored: QueryItemResult[] = [];
 
   for (let i = 0; i < state.index.items.length; i++) {
-    const item = state.index.items[i]!;
+    const item = state.index.items[i] as IndexItem;
     if (sourceFilter && !matchesSourceFilter(String(item.metadata.kind ?? ""), sourceFilter)) continue;
     scored.push({
       id: item.id,

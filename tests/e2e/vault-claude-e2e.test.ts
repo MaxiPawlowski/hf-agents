@@ -1,3 +1,4 @@
+import assert from "node:assert";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import {
@@ -74,8 +75,8 @@ describe("claude vault e2e", () => {
     expect(result.parsed?.is_error).toBeFalsy();
 
     const managedSidecar = getManagedPlanSidecar(result.runtime.sidecars);
-    expect(managedSidecar.resumePromptPath.replace(/\\/g, "/")).toContain("plans/runtime/test/resume-prompt.txt");
-    expect(managedSidecar.statusPath.replace(/\\/g, "/")).toContain("plans/runtime/test/status.json");
+    expect(managedSidecar.resumePromptPath.replaceAll("\\", "/")).toContain("plans/runtime/test/resume-prompt.txt");
+    expect(managedSidecar.statusPath.replaceAll("\\", "/")).toContain("plans/runtime/test/status.json");
 
     // OpenCode's managed-plan parity check reads the runtime-injected
     // resume-prompt sidecar directly. Claude writes the same documented
@@ -122,7 +123,7 @@ describe("claude vault e2e", () => {
     expect(result.parsed?.is_error).toBeFalsy();
 
     const managedSidecar = getManagedPlanSidecar(result.runtime.sidecars);
-    expect(managedSidecar.eventsPath.replace(/\\/g, "/")).toContain("plans/runtime/test/events.jsonl");
+    expect(managedSidecar.eventsPath.replaceAll("\\", "/")).toContain("plans/runtime/test/events.jsonl");
     expect(managedSidecar.eventTypes).toContain("claude.UserPromptSubmit");
     expect(
       hasManagedTurnClosureEvidence(managedSidecar.eventTypes),
@@ -161,7 +162,8 @@ function getManagedPlanSidecar(sidecars: Array<{
 } {
   const managedSidecar = sidecars.find((sidecar) => sidecar.planSlug === "test");
   expect(managedSidecar, "Expected Claude managed-plan runtime sidecar for plan slug 'test'.").toBeDefined();
-  return managedSidecar!;
+  assert(managedSidecar !== undefined, "Expected managed sidecar for plan slug 'test'");
+  return managedSidecar;
 }
 
 function findVaultTerm(text: string): string | undefined {

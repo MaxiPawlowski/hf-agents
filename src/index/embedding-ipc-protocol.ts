@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 
+const HASH_PREFIX_LENGTH = 16;
+
 export const EMBEDDING_IPC_JSONRPC_VERSION = "2.0" as const;
 export const EMBEDDING_IPC_PROTOCOL_VERSION = 1 as const;
 
@@ -102,7 +104,7 @@ export const EMBEDDING_IPC_MAX_UNIX_SOCKET_PATH_LENGTH = 103;
 
 function normalizeRepoRootForHash(repoRoot: string, platform: NodeJS.Platform): string {
   const resolved = path.resolve(repoRoot);
-  const normalized = resolved.replace(/\\/g, "/");
+  const normalized = resolved.replaceAll("\\", "/");
   return platform === "win32" ? normalized.toLowerCase() : normalized;
 }
 
@@ -110,7 +112,7 @@ export function hashEmbeddingIpcRepoRoot(repoRoot: string, platform: NodeJS.Plat
   return createHash("sha256")
     .update(normalizeRepoRootForHash(repoRoot, platform))
     .digest("hex")
-    .slice(0, 16);
+    .slice(0, HASH_PREFIX_LENGTH);
 }
 
 export function getEmbeddingIpcManifestPath(repoRoot: string): string {

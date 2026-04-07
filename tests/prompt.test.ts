@@ -1,6 +1,7 @@
+import assert from "node:assert";
 import { describe, expect, test } from "vitest";
 
-import { buildResumePrompt, buildPlanlessResumePrompt, formatSemanticVaultContext, formatToolSearchResults } from "../src/runtime/prompt.js";
+import { buildResumePrompt, buildPlanlessResumePrompt, formatSemanticVaultContext, formatToolSearchResults } from "../src/prompt/prompt.js";
 import type { ParsedPlan, RuntimeStatus, VaultContext, VaultSearchResult } from "../src/runtime/types.js";
 
 function makePlan(overrides?: Partial<ParsedPlan>): ParsedPlan {
@@ -126,7 +127,8 @@ describe("formatSemanticVaultContext", () => {
 
   test("uses knowledge context header for mixed vault and code results", () => {
     const [vaultResult] = makeSearchResults(1);
-    const lines = formatSemanticVaultContext([vaultResult!, makeCodeSearchResult()]);
+    assert(vaultResult !== undefined, "Expected a search result");
+    const lines = formatSemanticVaultContext([vaultResult, makeCodeSearchResult()]);
 
     expect(lines[0]).toBe("## Knowledge context");
   });

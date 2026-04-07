@@ -18,7 +18,9 @@ export async function withDeadline<T>(
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<T>((resolve, reject) => {
     timer = setTimeout(() => {
-      Promise.resolve()
+      // void: the promise resolves/rejects the outer `deadline` promise via .then(resolve, reject).
+      // The chain is intentionally not returned since we're inside a setTimeout callback.
+      void Promise.resolve()
         .then(onDeadline)
         .then(resolve, reject);
     }, ms);

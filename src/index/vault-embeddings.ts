@@ -2,11 +2,12 @@ import { pipeline } from "@huggingface/transformers";
 import type { FeatureExtractionPipeline } from "@huggingface/transformers";
 
 import { tryIpcEmbed, tryIpcEmbedBatch } from "./embedding-ipc-client.js";
-import { hfLogTimed } from "./logger.js";
+import { hfLogTimed } from "../runtime/logger.js";
 
 const MODEL_ID = "Xenova/all-MiniLM-L6-v2";
 const EMBEDDING_DIM = 384;
 const MODEL_LOAD_TIMEOUT_MS = 60_000;
+const EMBEDDING_LOG_TAG = "embedding-model";
 
 export class EmbeddingModelError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
@@ -29,19 +30,19 @@ async function getExtractor(): Promise<FeatureExtractionPipeline> {
   if (loadingPromise) return loadingPromise;
 
   loadingPromise = (async () => {
-    const done = hfLogTimed({ tag: "embedding-model", msg: "loadExtractor", data: { model: MODEL_ID } });
+    const done = hfLogTimed({ tag: EMBEDDING_LOG_TAG, msg: "loadExtractor", data: { model: MODEL_ID } });
     try {
       const loadPromise = pipeline("feature-extraction", MODEL_ID, {
         dtype: "fp32",
       });
-      let timer: ReturnType<typeof setTimeout>;
+      let timer: ReturnType<typeof setTimeout> | undefined;
       const timeout = new Promise<never>((_resolve, reject) => {
         timer = setTimeout(
           () => reject(new EmbeddingModelError(`Embedding model load timed out after ${MODEL_LOAD_TIMEOUT_MS}ms`)),
           MODEL_LOAD_TIMEOUT_MS,
         );
       });
-      const ext = await Promise.race([loadPromise, timeout]).finally(() => clearTimeout(timer!));
+      const ext = await Promise.race([loadPromise, timeout]).finally(() => clearTimeout(timer));
       extractor = ext;
       done({ status: "loaded" });
       return ext;
@@ -95,7 +96,7 @@ export async function disposeEmbeddingModel(): Promise<void> {
 export async function embed(text: string): Promise<number[]> {
   if (extractor) {
     const output = await extractor(text, { pooling: "mean", normalize: true });
-    return Array.from(output.data as Float32Array).slice(0, EMBEDDING_DIM);
+    return [...(output.data as Float32Array)].slice(0, EMBEDDING_DIM);
   }
 
   if (embeddingIpcRoot) {
@@ -105,8 +106,7 @@ export async function embed(text: string): Promise<number[]> {
 
   const ext = await getExtractor();
   const output = await ext(text, { pooling: "mean", normalize: true });
-  const vec = Array.from(output.data as Float32Array).slice(0, EMBEDDING_DIM);
-  return vec;
+  return [...(output.data as Float32Array)].slice(0, EMBEDDING_DIM);
 }
 
 /**
@@ -116,10 +116,10 @@ export async function embedBatch(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return [];
 
   if (extractor) {
-    const done = hfLogTimed({ tag: "embedding-model", msg: "embedBatch", data: { text_count: texts.length } });
+    const done = hfLogTimed({ tag: EMBEDDING_LOG_TAG, msg: "embedBatch", data: { text_count: texts.length } });
     const output = await extractor(texts, { pooling: "mean", normalize: true });
     done({ text_count: texts.length });
-    const flat = Array.from(output.data as Float32Array);
+    const flat = [...(output.data as Float32Array)];
 
     const results: number[][] = [];
     for (let i = 0; i < texts.length; i++) {
@@ -135,10 +135,10 @@ export async function embedBatch(texts: string[]): Promise<number[][]> {
   }
 
   const ext = await getExtractor();
-  const done = hfLogTimed({ tag: "embedding-model", msg: "embedBatch", data: { text_count: texts.length } });
+  const done = hfLogTimed({ tag: EMBEDDING_LOG_TAG, msg: "embedBatch", data: { text_count: texts.length } });
   const output = await ext(texts, { pooling: "mean", normalize: true });
   done({ text_count: texts.length });
-  const flat = Array.from(output.data as Float32Array);
+  const flat = [...(output.data as Float32Array)];
 
   const results: number[][] = [];
   for (let i = 0; i < texts.length; i++) {

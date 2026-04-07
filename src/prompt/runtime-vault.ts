@@ -1,14 +1,16 @@
-import { DEFAULT_INDEX_CONFIG, getRepoRoot, getVaultPaths } from "./persistence.js";
-import { buildUnifiedIndex } from "./unified-index-pipeline.js";
-import { queryItems, type UnifiedIndex as StoredUnifiedIndex } from "./unified-store.js";
-import { embed } from "./vault-embeddings.js";
-import { hfLog } from "./logger.js";
+import { DEFAULT_INDEX_CONFIG, getRepoRoot, getVaultPaths } from "../runtime/persistence.js";
+import { buildUnifiedIndex } from "../index/unified-index-pipeline.js";
+import { queryItems, type UnifiedIndex as StoredUnifiedIndex } from "../index/unified-store.js";
+import { embed } from "../index/vault-embeddings.js";
+import { hfLog } from "../runtime/logger.js";
 import type {
   IndexConfig,
   ParsedPlan,
   VaultContext,
   VaultSearchResult,
-} from "./types.js";
+} from "../runtime/types.js";
+
+const DEFAULT_SEMANTIC_TOP_K = 5;
 
 export type UnifiedIndexState = {
   index: StoredUnifiedIndex;
@@ -48,13 +50,22 @@ export function buildIndexOptions(opts: IndexOpts): Parameters<typeof buildUnifi
   return {
     repoRoot: getRepoRoot(plan ?? undefined, planlessCwd ?? undefined),
     ...(vaultPaths && vault ? { vaultPaths, vaultContext: vault } : {}),
-    codeConfig: cfg?.code.enabled !== false
-      ? {
+    codeConfig: cfg?.code.enabled === false
+      ? undefined
+      : {
         roots: cfg?.code.roots ?? ["src"],
         extensions: cfg?.code.extensions,
         exclude: cfg?.code.exclude,
+      },
+    ...(cfg?.external?.roots && cfg.external.roots.length > 0
+      ? {
+        externalConfig: {
+          roots: cfg.external.roots,
+          ...(cfg.external.extensions ? { extensions: cfg.external.extensions } : {}),
+          ...(cfg.external.exclude ? { exclude: cfg.external.exclude } : {}),
+        },
       }
-      : undefined,
+      : {}),
     embeddingBatchSize: cfg?.embeddingBatchSize,
     maxChunkChars: cfg?.maxChunkChars,
   };
@@ -88,8 +99,8 @@ export async function queryIndexItems(
     state.unifiedIndex,
     {
       queryVector,
-      topK: topK ?? state.indexConfig?.semanticTopK ?? 5,
-      ...(sourceFilter !== undefined ? { sourceFilter } : {}),
+      topK: topK ?? state.indexConfig?.semanticTopK ?? DEFAULT_SEMANTIC_TOP_K,
+      ...(sourceFilter === undefined ? {} : { sourceFilter }),
     },
   );
 
@@ -97,9 +108,9 @@ export async function queryIndexItems(
     score: result.score,
     text: result.text,
     metadata: {
-      sourcePath: result.metadata.sourcePath as string ?? "",
-      sectionTitle: result.metadata.sectionTitle as string ?? "",
-      documentTitle: result.metadata.documentTitle as string ?? "",
+      sourcePath: (result.metadata.sourcePath as string | undefined) ?? "",
+      sectionTitle: (result.metadata.sectionTitle as string | undefined) ?? "",
+      documentTitle: (result.metadata.documentTitle as string | undefined) ?? "",
       kind: result.metadata.kind === "code" ? "code" as const : "vault" as const
     }
   }));
@@ -160,10 +171,10 @@ export async function refreshVaultSearchResults(state: VaultIndexState): Promise
   }
 
   const isPlanning = plan?.status === "planning" && !plan.currentMilestone && plan.userIntent;
-  if (state.unifiedIndex && isPlanning && plan?.userIntent) {
+  if (state.unifiedIndex && isPlanning && plan.userIntent) {
     try {
       state.vaultSearchResults = await withTimeout(
-        queryIndexItems(state, { query: plan.userIntent, topK: cfg?.planningSemanticTopK ?? 5 }),
+        queryIndexItems(state, { query: plan.userIntent, topK: cfg?.planningSemanticTopK ?? DEFAULT_SEMANTIC_TOP_K }),
         cfg?.timeoutMs ?? DEFAULT_INDEX_CONFIG.timeoutMs,
         null
       );

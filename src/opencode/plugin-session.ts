@@ -38,7 +38,8 @@ function touchSession(maps: SessionMaps, sessionId: string): void {
   sessionAccessOrder.push(sessionId);
 
   while (sessionRuntimes.size >= SESSION_MAP_MAX && sessionAccessOrder.length > 0) {
-    const oldest = sessionAccessOrder.shift()!;
+    const oldest = sessionAccessOrder.shift();
+    if (!oldest) break;
     if (oldest !== sessionId) {
       sessionRuntimes.delete(oldest);
       sessionFlags.delete(oldest);

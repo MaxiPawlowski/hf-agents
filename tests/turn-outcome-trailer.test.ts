@@ -1,3 +1,4 @@
+import assert from "node:assert";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -7,7 +8,7 @@ import {
   buildTurnOutcomeIngestionEvent,
   TURN_OUTCOME_TRAILER_LABEL,
   type TurnOutcomeTrailerParseResult
-} from "../src/runtime/turn-outcome-trailer.js";
+} from "../src/prompt/turn-outcome-trailer.js";
 
 function makeValidOutcome(): Record<string, unknown> {
   return {
@@ -48,8 +49,10 @@ describe("validateTurnOutcome", () => {
     for (const value of [null, [1, 2], "string", 42, true]) {
       const issues = validateTurnOutcome(value);
       expect(issues).toHaveLength(1);
-      expect(issues[0]!.path).toBe("$");
-      expect(issues[0]!.message).toContain("expected object");
+      const [firstIssue] = issues;
+      assert(firstIssue !== undefined, "Expected an issue");
+      expect(firstIssue.path).toBe("$");
+      expect(firstIssue.message).toContain("expected object");
     }
   });
 
@@ -198,7 +201,9 @@ describe("extractTurnOutcomeTrailer", () => {
     const result = extractTurnOutcomeTrailer(text);
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
-      expect(result.errors[0]!.message).toContain("empty");
+      const [firstError] = result.errors;
+      assert(firstError !== undefined, "Expected an error");
+      expect(firstError.message).toContain("empty");
     }
   });
 
@@ -207,7 +212,9 @@ describe("extractTurnOutcomeTrailer", () => {
     const result = extractTurnOutcomeTrailer(text);
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
-      expect(result.errors[0]!.message).toContain("invalid JSON");
+      const [firstError] = result.errors;
+      assert(firstError !== undefined, "Expected an error");
+      expect(firstError.message).toContain("invalid JSON");
     }
   });
 
@@ -225,7 +232,7 @@ describe("extractTurnOutcomeTrailer", () => {
     }
 
     // Two trailers concatenated → the regex matches a blob that isn't valid JSON
-    const doubled = singleTrailer + `\n\nturn_outcome:\n\`\`\`json\n${JSON.stringify(outcome)}\n\`\`\``;
+    const doubled = `${singleTrailer  }\n\nturn_outcome:\n\`\`\`json\n${JSON.stringify(outcome)}\n\`\`\``;
     const doubledResult = extractTurnOutcomeTrailer(doubled);
     expect(doubledResult.kind).toBe("invalid");
   });

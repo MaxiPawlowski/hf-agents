@@ -78,12 +78,14 @@ function parseArgs(argv, { forcedTool = null } = {}) {
     help: false
   };
 
-  for (let index = 0; index < argv.length; index += 1) {
+  let index = 0;
+  while (index < argv.length) {
     if (index === 0 && lifecycleCommands.includes(argv[index])) {
+      index += 1;
       continue;
     }
 
-    index = applyArgToOptions(options, argv, index);
+    index = applyArgToOptions(options, argv, index) + 1;
   }
 
   if (!["all", "claude", "opencode"].includes(options.tool)) {

@@ -69,33 +69,37 @@ function buildClaudeHooks(platform, targetDir = sourceRoot, packageName = getPac
   };
 }
 
+function mergeDesiredGroup(groups, desiredGroup) {
+  const matcher = desiredGroup.matcher ?? null;
+  const existingIndex = groups.findIndex((group) => (group.matcher ?? null) === matcher);
+
+  if (existingIndex === -1) {
+    groups.push(desiredGroup);
+    return;
+  }
+
+  const existingGroup = groups[existingIndex];
+  const existingHooks = Array.isArray(existingGroup.hooks) ? [...existingGroup.hooks] : [];
+
+  for (const desiredHook of desiredGroup.hooks) {
+    const duplicate = existingHooks.some((hook) => hook.type === desiredHook.type && hook.command === desiredHook.command);
+    if (!duplicate) {
+      existingHooks.push(desiredHook);
+    }
+  }
+
+  groups[existingIndex] = {
+    ...existingGroup,
+    ...(matcher ? { matcher } : {}),
+    hooks: existingHooks
+  };
+}
+
 function mergeHookGroups(existingGroups, desiredGroups) {
   const groups = Array.isArray(existingGroups) ? [...existingGroups] : [];
 
   for (const desiredGroup of desiredGroups) {
-    const matcher = desiredGroup.matcher ?? null;
-    const existingIndex = groups.findIndex((group) => (group.matcher ?? null) === matcher);
-
-    if (existingIndex === -1) {
-      groups.push(desiredGroup);
-      continue;
-    }
-
-    const existingGroup = groups[existingIndex];
-    const existingHooks = Array.isArray(existingGroup.hooks) ? [...existingGroup.hooks] : [];
-
-    for (const desiredHook of desiredGroup.hooks) {
-      const duplicate = existingHooks.some((hook) => hook.type === desiredHook.type && hook.command === desiredHook.command);
-      if (!duplicate) {
-        existingHooks.push(desiredHook);
-      }
-    }
-
-    groups[existingIndex] = {
-      ...existingGroup,
-      ...(matcher ? { matcher } : {}),
-      hooks: existingHooks
-    };
+    mergeDesiredGroup(groups, desiredGroup);
   }
 
   return groups;
@@ -163,7 +167,8 @@ function uninstallMcpConfig(targetDir, mcpRelativePath) {
   const next = { ...current };
   // eslint-disable-next-line no-restricted-syntax -- plain-JS type guard; no TS narrowing available in .mjs
   if (next.mcpServers && typeof next.mcpServers === "object") {
-    const { "hf-search": _removed, ...remainingServers } = next.mcpServers;
+    const remainingServers = { ...next.mcpServers };
+    delete remainingServers["hf-search"];
     if (Object.keys(remainingServers).length === 0) {
       delete next.mcpServers;
     } else {
@@ -212,6 +217,30 @@ function installClaude(platform, targetDir, packageName) {
   };
 }
 
+function pruneClaudeHooks(current, commandsToRemove) {
+  const nextHooks = { ...current.hooks };
+
+  for (const eventName of Object.keys(nextHooks)) {
+    const groups = removeHookGroups(nextHooks[eventName], commandsToRemove);
+    if (groups.length === 0) {
+      delete nextHooks[eventName];
+      continue;
+    }
+    nextHooks[eventName] = groups;
+  }
+
+  return nextHooks;
+}
+
+function writeOrRemoveSettings(settingsPath, targetDir, next) {
+  if (isObjectEmpty(next)) {
+    fs.rmSync(settingsPath, { force: true });
+    removeEmptyParents(path.dirname(settingsPath), targetDir);
+  } else {
+    writeJson(settingsPath, next);
+  }
+}
+
 function uninstallClaude(targetDir, claudeState) {
   if (!claudeState) {
     return false;
@@ -240,17 +269,8 @@ function uninstallClaude(targetDir, claudeState) {
   }
 
   const commandsToRemove = new Set(Array.isArray(claudeState.commands) ? claudeState.commands : []);
+  const nextHooks = pruneClaudeHooks(current, commandsToRemove);
   const next = { ...current };
-  const nextHooks = { ...current.hooks };
-
-  for (const eventName of Object.keys(nextHooks)) {
-    const groups = removeHookGroups(nextHooks[eventName], commandsToRemove);
-    if (groups.length === 0) {
-      delete nextHooks[eventName];
-      continue;
-    }
-    nextHooks[eventName] = groups;
-  }
 
   if (isObjectEmpty(nextHooks)) {
     delete next.hooks;
@@ -258,13 +278,7 @@ function uninstallClaude(targetDir, claudeState) {
     next.hooks = nextHooks;
   }
 
-  if (isObjectEmpty(next)) {
-    fs.rmSync(settingsPath, { force: true });
-    removeEmptyParents(path.dirname(settingsPath), targetDir);
-  } else {
-    writeJson(settingsPath, next);
-  }
-
+  writeOrRemoveSettings(settingsPath, targetDir, next);
   log(`Claude hooks removed from ${path.relative(targetDir, settingsPath)}`);
   return true;
 }

@@ -1,4 +1,4 @@
-import type { VaultDocument, VaultChunk } from "./types.js";
+import type { VaultDocument, VaultChunk } from "../runtime/types.js";
 import { MIN_BODY_CHARS, makeChunkId, splitOversized } from "./chunk-utils.js";
 
 /**
@@ -66,32 +66,44 @@ function mergeThinSections(sections: RawSection[]): RawSection[] {
   const merged: RawSection[] = [];
 
   for (let i = 0; i < input.length; i++) {
-    const section = input[i]!;
+    const section = input[i];
+    if (!section) continue;
 
     if (merged.length > 0 && bodyTextLength(section) < MIN_BODY_CHARS) {
-      const next = input[i + 1];
-      if (next) {
-        // Merge forward: prepend this section's content onto the next section.
-        input[i + 1] = {
-          headerLine: section.headerLine || next.headerLine,
-          bodyLines: [...section.bodyLines, next.headerLine, ...next.bodyLines],
-        };
-        continue;
-      } else {
-        // Last section is short — merge backward into the previous merged section.
-        const prev = merged[merged.length - 1]!;
-        prev.bodyLines.push(
-          ...(section.headerLine ? [section.headerLine] : []),
-          ...section.bodyLines,
-        );
-        continue;
-      }
+      mergeOrAppendSection(section, { input, i, merged });
+      continue;
     }
 
     merged.push(section);
   }
 
   return merged;
+}
+
+interface MergeContext {
+  input: RawSection[];
+  i: number;
+  merged: RawSection[];
+}
+
+function mergeOrAppendSection(section: RawSection, ctx: MergeContext): void {
+  const { input, i, merged } = ctx;
+  const next = input[i + 1];
+  if (next) {
+    // Merge forward: prepend this section's content onto the next section.
+    input[i + 1] = {
+      headerLine: section.headerLine || next.headerLine,
+      bodyLines: [...section.bodyLines, next.headerLine, ...next.bodyLines],
+    };
+  } else {
+    // Last section is short — merge backward into the previous merged section.
+    const prev = merged.at(-1);
+    if (!prev) return;
+    prev.bodyLines.push(
+      ...(section.headerLine ? [section.headerLine] : []),
+      ...section.bodyLines,
+    );
+  }
 }
 
 /**
@@ -102,6 +114,26 @@ function sectionText(section: RawSection): string {
   if (section.headerLine) parts.push(section.headerLine);
   parts.push(...section.bodyLines);
   return parts.join("\n");
+}
+
+interface ChunkContext {
+  filePath: string;
+  documentTitle: string;
+  maxChunkChars?: number;
+}
+
+function sectionToChunks(section: RawSection, ctx: ChunkContext): VaultChunk[] {
+  const { filePath, documentTitle, maxChunkChars } = ctx;
+  const title = section.headerLine ? extractTitle(section.headerLine) : documentTitle;
+  const text = sectionText(section);
+  if (maxChunkChars && text.length > maxChunkChars) {
+    return splitOversized(text, maxChunkChars).map((part, i) => ({
+      id: `${makeChunkId(filePath, title)}:${i}`,
+      text: part,
+      metadata: { sourcePath: filePath, sectionTitle: title, documentTitle },
+    }));
+  }
+  return [{ id: makeChunkId(filePath, title), text, metadata: { sourcePath: filePath, sectionTitle: title, documentTitle } }];
 }
 
 /**
@@ -130,44 +162,15 @@ export function chunkVaultDocument(document: VaultDocument, maxChunkChars?: numb
   // If there are no headers at all, return the whole document as one chunk
   const hasHeaders = nonEmpty.some((s) => s.headerLine);
   if (!hasHeaders) {
-    const text = content;
     const sectionTitle = documentTitle;
-    return [
-      {
-        id: makeChunkId(filePath, sectionTitle),
-        text,
-        metadata: { sourcePath: filePath, sectionTitle, documentTitle },
-      },
-    ];
+    return [{ id: makeChunkId(filePath, sectionTitle), text: content, metadata: { sourcePath: filePath, sectionTitle, documentTitle } }];
   }
 
-  // Merge thin sections
+  // Merge thin sections then convert to chunks
   const merged = mergeThinSections(nonEmpty);
-
   const chunks: VaultChunk[] = [];
   for (const section of merged) {
-    const title = section.headerLine
-      ? extractTitle(section.headerLine)
-      : documentTitle;
-    const text = sectionText(section);
-
-    if (maxChunkChars && text.length > maxChunkChars) {
-      const parts = splitOversized(text, maxChunkChars);
-      for (let i = 0; i < parts.length; i++) {
-        chunks.push({
-          id: `${makeChunkId(filePath, title)}:${i}`,
-          text: parts[i]!,
-          metadata: { sourcePath: filePath, sectionTitle: title, documentTitle },
-        });
-      }
-    } else {
-      chunks.push({
-        id: makeChunkId(filePath, title),
-        text,
-        metadata: { sourcePath: filePath, sectionTitle: title, documentTitle },
-      });
-    }
+    chunks.push(...sectionToChunks(section, { filePath, documentTitle, ...(maxChunkChars === undefined ? {} : { maxChunkChars }) }));
   }
-
   return chunks;
 }

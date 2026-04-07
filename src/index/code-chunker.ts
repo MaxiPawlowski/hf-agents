@@ -1,6 +1,6 @@
 import ts from "typescript";
 
-import type { VaultChunk } from "./types.js";
+import type { VaultChunk } from "../runtime/types.js";
 import { makeChunkId, mergeThinChunks, normalizePath, splitOversized, type NamedChunk } from "./chunk-utils.js";
 
 function getNodeText(sourceText: string, node: ts.Node): string {
@@ -51,55 +51,80 @@ interface ClassifiedStatements {
   declarations: NamedChunk[];
 }
 
+function isImportLike(statement: ts.Statement): boolean {
+  return (
+    ts.isImportDeclaration(statement) ||
+    ts.isImportEqualsDeclaration(statement) ||
+    ts.isExportDeclaration(statement) ||
+    ts.isExportAssignment(statement)
+  );
+}
+
+interface ClassifyContext {
+  sourceText: string;
+  sourceFile: ts.SourceFile;
+  out: ClassifiedStatements;
+}
+
+function classifyOneStatement(statement: ts.Statement, ctx: ClassifyContext): void {
+  const { sourceText, sourceFile, out } = ctx;
+  if (isImportLike(statement)) {
+    out.imports.push(getNodeText(sourceText, statement));
+    return;
+  }
+
+  if (ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) {
+    const name = declarationName(statement);
+    if (name) {
+      out.declarations.push({ name, text: getNodeText(sourceText, statement) });
+      return;
+    }
+  }
+
+  if (
+    ts.isInterfaceDeclaration(statement) ||
+    ts.isTypeAliasDeclaration(statement) ||
+    ts.isEnumDeclaration(statement)
+  ) {
+    out.declarations.push({ name: statement.name.text, text: getNodeText(sourceText, statement) });
+    return;
+  }
+
+  if (ts.isVariableStatement(statement) && isExported(statement)) {
+    const statementText = getNodeText(sourceText, statement);
+    for (const declaration of statement.declarationList.declarations) {
+      out.declarations.push({ name: declaration.name.getText(sourceFile), text: statementText });
+    }
+    return;
+  }
+
+  out.catchAll.push(getNodeText(sourceText, statement));
+}
+
 function classifyStatements(
   sourceText: string,
   statements: ReadonlyArray<ts.Statement>,
   sourceFile: ts.SourceFile,
 ): ClassifiedStatements {
-  const imports: string[] = [];
-  const catchAll: string[] = [];
-  const declarations: NamedChunk[] = [];
-
+  const out: ClassifiedStatements = { imports: [], catchAll: [], declarations: [] };
+  const ctx: ClassifyContext = { sourceText, sourceFile, out };
   for (const statement of statements) {
-    if (
-      ts.isImportDeclaration(statement) ||
-      ts.isImportEqualsDeclaration(statement) ||
-      ts.isExportDeclaration(statement) ||
-      ts.isExportAssignment(statement)
-    ) {
-      imports.push(getNodeText(sourceText, statement));
-      continue;
-    }
-
-    if (ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) {
-      const name = declarationName(statement);
-      if (name) {
-        declarations.push({ name, text: getNodeText(sourceText, statement) });
-        continue;
-      }
-    }
-
-    if (
-      ts.isInterfaceDeclaration(statement) ||
-      ts.isTypeAliasDeclaration(statement) ||
-      ts.isEnumDeclaration(statement)
-    ) {
-      declarations.push({ name: statement.name.text, text: getNodeText(sourceText, statement) });
-      continue;
-    }
-
-    if (ts.isVariableStatement(statement) && isExported(statement)) {
-      const statementText = getNodeText(sourceText, statement);
-      for (const declaration of statement.declarationList.declarations) {
-        declarations.push({ name: declaration.name.getText(sourceFile), text: statementText });
-      }
-      continue;
-    }
-
-    catchAll.push(getNodeText(sourceText, statement));
+    classifyOneStatement(statement, ctx);
   }
+  return out;
+}
 
-  return { imports, catchAll, declarations };
+function splitChunkIntoParts(filePath: string, chunk: NamedChunk, maxChunkChars: number): VaultChunk[] {
+  const parts = splitOversizedCode(chunk.text, maxChunkChars);
+  const result: VaultChunk[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    if (!part) continue;
+    const base = createVaultChunk(filePath, { name: chunk.name, text: part });
+    base.id = `${base.id}:${i}`;
+    result.push(base);
+  }
+  return result;
 }
 
 function assembleChunks(filePath: string, classified: ClassifiedStatements, maxChunkChars: number | undefined): VaultChunk[] {
@@ -120,12 +145,7 @@ function assembleChunks(filePath: string, classified: ClassifiedStatements, maxC
 
   for (const chunk of merged) {
     if (maxChunkChars && chunk.text.length > maxChunkChars) {
-      const parts = splitOversizedCode(chunk.text, maxChunkChars);
-      for (let i = 0; i < parts.length; i++) {
-        const base = createVaultChunk(filePath, { name: chunk.name, text: parts[i]! });
-        base.id = `${base.id}:${i}`;
-        result.push(base);
-      }
+      result.push(...splitChunkIntoParts(filePath, chunk, maxChunkChars));
     } else {
       result.push(createVaultChunk(filePath, chunk));
     }

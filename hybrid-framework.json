@@ -15,7 +15,10 @@
       ]
     },
     "external": {
-      "roots": [],
+      "roots": [
+        "skills",
+        "agents"
+      ],
       "extensions": [
         ".ts",
         ".js",

@@ -1,16 +1,17 @@
+import assert from "node:assert";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { VaultPaths } from "../src/runtime/types.js";
-import { loadUnifiedIndex } from "../src/runtime/unified-store.js";
-import { buildUnifiedIndex, scanExternalFiles } from "../src/runtime/unified-index-pipeline.js";
+import { loadUnifiedIndex } from "../src/index/unified-store.js";
+import { buildUnifiedIndex, chunkExternalFile, scanExternalFiles } from "../src/index/unified-index-pipeline.js";
 
-import type * as VaultEmbeddings from "../src/runtime/vault-embeddings.js";
+import type * as VaultEmbeddings from "../src/index/vault-embeddings.js";
 
-vi.mock("../src/runtime/vault-embeddings.js", async () => {
-  const actual = await vi.importActual<typeof VaultEmbeddings>("../src/runtime/vault-embeddings.js");
+vi.mock("../src/index/vault-embeddings.js", async () => {
+  const actual = await vi.importActual<typeof VaultEmbeddings>("../src/index/vault-embeddings.js");
 
   return {
     EmbeddingModelError: actual.EmbeddingModelError,
@@ -19,7 +20,7 @@ vi.mock("../src/runtime/vault-embeddings.js", async () => {
   };
 });
 
-import { EmbeddingModelError, embedBatch } from "../src/runtime/vault-embeddings.js";
+import { EmbeddingModelError, embedBatch } from "../src/index/vault-embeddings.js";
 
 const mockedEmbedBatch = vi.mocked(embedBatch);
 
@@ -83,13 +84,14 @@ describe("unified-index-pipeline", () => {
     });
 
     expect(result).not.toBeNull();
+    assert(result !== null, "Expected result to be non-null");
     expect(mockedEmbedBatch).toHaveBeenCalledTimes(1);
-    expect(Object.keys(result!.index.fileHashes)).toHaveLength(2);
-    expect(result!.index.items.some((item) => item.metadata.kind === "vault")).toBe(true);
-    expect(result!.index.items.some((item) => item.metadata.kind === "code")).toBe(true);
+    expect(Object.keys(result.index.fileHashes)).toHaveLength(2);
+    expect(result.index.items.some((item) => item.metadata.kind === "vault")).toBe(true);
+    expect(result.index.items.some((item) => item.metadata.kind === "code")).toBe(true);
 
     const persisted = await loadUnifiedIndex(tmpDir);
-    expect(persisted?.index.fileHashes).toEqual(result!.index.fileHashes);
+    expect(persisted?.index.fileHashes).toEqual(result.index.fileHashes);
   });
 
   test("incremental skip for unchanged files", async () => {
@@ -120,7 +122,9 @@ describe("unified-index-pipeline", () => {
     });
 
     expect(second).not.toBeNull();
-    expect(second!.index.fileHashes).toEqual(first!.index.fileHashes);
+    assert(second !== null, "Expected second to be non-null");
+    assert(first !== null, "Expected first to be non-null");
+    expect(second.index.fileHashes).toEqual(first.index.fileHashes);
     expect(mockedEmbedBatch).not.toHaveBeenCalled();
   });
 
@@ -152,14 +156,15 @@ describe("unified-index-pipeline", () => {
     });
 
     expect(second).not.toBeNull();
+    assert(second !== null, "Expected second to be non-null");
     expect(mockedEmbedBatch).toHaveBeenCalledTimes(1);
     expect(mockedEmbedBatch.mock.calls[0]?.[0]).toHaveLength(1);
     expect(mockedEmbedBatch.mock.calls[0]?.[0]?.[0]).toContain("three");
     expect(
-      second!.index.items.find((item) => String(item.metadata.sourcePath).endsWith("b.ts"))?.text,
+      second.index.items.find((item) => String(item.metadata.sourcePath).endsWith("b.ts"))?.text,
     ).toContain("three");
     expect(
-      second!.index.items.find((item) => String(item.metadata.sourcePath).endsWith("a.ts"))?.text,
+      second.index.items.find((item) => String(item.metadata.sourcePath).endsWith("a.ts"))?.text,
     ).toContain("one");
   });
 
@@ -188,11 +193,12 @@ describe("unified-index-pipeline", () => {
     });
 
     expect(second).not.toBeNull();
+    assert(second !== null, "Expected second to be non-null");
     expect(mockedEmbedBatch).not.toHaveBeenCalled();
     expect(
-      second!.index.items.some((item) => String(item.metadata.sourcePath).endsWith("b.ts")),
+      second.index.items.some((item) => String(item.metadata.sourcePath).endsWith("b.ts")),
     ).toBe(false);
-    expect(Object.keys(second!.index.fileHashes).some((filePath) => filePath.endsWith("b.ts"))).toBe(false);
+    expect(Object.keys(second.index.fileHashes).some((filePath) => filePath.endsWith("b.ts"))).toBe(false);
   });
 
   test("batched embedding splits into sub-batches", async () => {
@@ -235,9 +241,10 @@ describe("unified-index-pipeline", () => {
     });
 
     expect(result).not.toBeNull();
-    expect(Object.keys(result!.index.fileHashes)).toHaveLength(3);
-    expect(result!.index.items.filter((item) => item.metadata.kind === "vault")).toHaveLength(2);
-    expect(result!.index.items.filter((item) => item.metadata.kind === "code")).toHaveLength(1);
+    assert(result !== null, "Expected result to be non-null");
+    expect(Object.keys(result.index.fileHashes)).toHaveLength(3);
+    expect(result.index.items.filter((item) => item.metadata.kind === "vault")).toHaveLength(2);
+    expect(result.index.items.filter((item) => item.metadata.kind === "code")).toHaveLength(1);
   });
 
   test("stores relative paths in fileHashes and sourcePath metadata", async () => {
@@ -258,15 +265,16 @@ describe("unified-index-pipeline", () => {
     });
 
     expect(result).not.toBeNull();
+    assert(result !== null, "Expected result to be non-null");
 
     // fileHashes keys should be relative
-    for (const key of Object.keys(result!.index.fileHashes)) {
+    for (const key of Object.keys(result.index.fileHashes)) {
       expect(path.isAbsolute(key)).toBe(false);
       expect(key).not.toContain("\\");
     }
 
     // sourcePath metadata should be relative
-    for (const item of result!.index.items) {
+    for (const item of result.index.items) {
       const sourcePath = String(item.metadata.sourcePath);
       expect(path.isAbsolute(sourcePath)).toBe(false);
       expect(sourcePath).not.toContain("\\");
@@ -289,14 +297,15 @@ describe("unified-index-pipeline", () => {
     });
 
     expect(result).not.toBeNull();
+    assert(result !== null, "Expected result to be non-null");
     // The single section should be split into multiple chunks
-    expect(result!.index.items.length).toBeGreaterThan(1);
+    expect(result.index.items.length).toBeGreaterThan(1);
     // Each chunk's text should be <= 100 chars
-    for (const item of result!.index.items) {
+    for (const item of result.index.items) {
       expect(item.text.length).toBeLessThanOrEqual(100);
     }
     // All chunks should reference the same source
-    const sourcePaths = new Set(result!.index.items.map((i) => String(i.metadata.sourcePath)));
+    const sourcePaths = new Set(result.index.items.map((i) => String(i.metadata.sourcePath)));
     expect(sourcePaths.size).toBe(1);
   });
 
@@ -319,12 +328,13 @@ describe("unified-index-pipeline", () => {
     });
 
     expect(result).not.toBeNull();
-    const codeItems = result!.index.items.filter((item) => item.metadata.kind === "code");
-    const vaultItems = result!.index.items.filter((item) => item.metadata.kind === "vault");
+    assert(result !== null, "Expected result to be non-null");
+    const codeItems = result.index.items.filter((item) => item.metadata.kind === "code");
+    const vaultItems = result.index.items.filter((item) => item.metadata.kind === "vault");
     expect(codeItems).toHaveLength(0);
     expect(vaultItems.length).toBeGreaterThan(0);
     // fileHashes should only contain the vault file
-    const keys = Object.keys(result!.index.fileHashes);
+    const keys = Object.keys(result.index.fileHashes);
     expect(keys.every((k) => k.startsWith("vault/"))).toBe(true);
   });
 
@@ -391,7 +401,9 @@ describe("scanExternalFiles", () => {
     const files = await scanExternalFiles({ roots: [extRoot] });
 
     expect(files).toHaveLength(1);
-    expect(path.isAbsolute(files[0]!.path)).toBe(true);
+    const [firstFile] = files;
+    assert(firstFile !== undefined, "Expected files[0] to be defined");
+    expect(path.isAbsolute(firstFile.path)).toBe(true);
   });
 
   test("respects custom extensions filter", async () => {
@@ -403,7 +415,9 @@ describe("scanExternalFiles", () => {
     const files = await scanExternalFiles({ roots: [extRoot], extensions: [".md"] });
 
     expect(files).toHaveLength(1);
-    expect(files[0]!.path.endsWith("readme.md") || files[0]!.path.includes("readme.md")).toBe(true);
+    const [firstFile] = files;
+    assert(firstFile !== undefined, "Expected files[0] to be defined");
+    expect(firstFile.path.endsWith("readme.md") || firstFile.path.includes("readme.md")).toBe(true);
   });
 
   test("respects exclude patterns", async () => {
@@ -430,7 +444,7 @@ describe("scanExternalFiles", () => {
   test("external files use absolute paths in fileHashes and sourcePath", async () => {
     const extRoot = path.join(tmpDir, "external");
     await writeFile(path.join(extRoot, "helper.ts"), "export function helper() { return 42; }");
-    const mockedEmbedBatch = vi.mocked((await import("../src/runtime/vault-embeddings.js")).embedBatch);
+    const mockedEmbedBatch = vi.mocked((await import("../src/index/vault-embeddings.js")).embedBatch);
     mockedEmbedBatch.mockImplementation(async (texts: string[]) =>
       texts.map((_, i) => { const v = Array.from({ length: 384 }, () => 0); v[0] = i + 1; return v; }),
     );
@@ -441,14 +455,15 @@ describe("scanExternalFiles", () => {
     });
 
     expect(result).not.toBeNull();
+    assert(result !== null, "Expected result to be non-null");
 
     // All fileHashes keys for external files should be absolute
-    for (const key of Object.keys(result!.index.fileHashes)) {
+    for (const key of Object.keys(result.index.fileHashes)) {
       expect(path.isAbsolute(key)).toBe(true);
     }
 
     // All external item sourcePaths should be absolute
-    const externalItems = result!.index.items.filter((item) => item.metadata.kind === "external");
+    const externalItems = result.index.items.filter((item) => item.metadata.kind === "external");
     expect(externalItems.length).toBeGreaterThan(0);
     for (const item of externalItems) {
       expect(path.isAbsolute(String(item.metadata.sourcePath))).toBe(true);
@@ -487,7 +502,8 @@ describe("buildUnifiedIndex with external files", () => {
     });
 
     expect(result).not.toBeNull();
-    const externalItems = result!.index.items.filter((item) => item.metadata.kind === "external");
+    assert(result !== null, "Expected result to be non-null");
+    const externalItems = result.index.items.filter((item) => item.metadata.kind === "external");
     expect(externalItems.length).toBeGreaterThan(0);
   });
 
@@ -501,7 +517,8 @@ describe("buildUnifiedIndex with external files", () => {
     });
 
     expect(result).not.toBeNull();
-    const externalItems = result!.index.items.filter((item) => item.metadata.kind === "external");
+    assert(result !== null, "Expected result to be non-null");
+    const externalItems = result.index.items.filter((item) => item.metadata.kind === "external");
     expect(externalItems.length).toBeGreaterThan(0);
   });
 
@@ -515,7 +532,8 @@ describe("buildUnifiedIndex with external files", () => {
       externalConfig: { roots: [extRoot] },
     });
     expect(first).not.toBeNull();
-    expect(first!.index.items.some((item) => String(item.metadata.sourcePath).includes("b.ts"))).toBe(true);
+    assert(first !== null, "Expected first to be non-null");
+    expect(first.index.items.some((item) => String(item.metadata.sourcePath).includes("b.ts"))).toBe(true);
 
     // Remove b.ts and rebuild
     await fs.rm(path.join(extRoot, "b.ts"));
@@ -525,8 +543,9 @@ describe("buildUnifiedIndex with external files", () => {
       externalConfig: { roots: [extRoot] },
     });
     expect(second).not.toBeNull();
+    assert(second !== null, "Expected second to be non-null");
     // b.ts chunks should be gone
-    expect(second!.index.items.some((item) => String(item.metadata.sourcePath).includes("b.ts"))).toBe(false);
+    expect(second.index.items.some((item) => String(item.metadata.sourcePath).includes("b.ts"))).toBe(false);
   });
 
   test("mixed vault, code, and external files all indexed together", async () => {
@@ -554,8 +573,42 @@ describe("buildUnifiedIndex with external files", () => {
     });
 
     expect(result).not.toBeNull();
-    expect(result!.index.items.some((item) => item.metadata.kind === "vault")).toBe(true);
-    expect(result!.index.items.some((item) => item.metadata.kind === "code")).toBe(true);
-    expect(result!.index.items.some((item) => item.metadata.kind === "external")).toBe(true);
+    assert(result !== null, "Expected result to be non-null");
+    expect(result.index.items.some((item) => item.metadata.kind === "vault")).toBe(true);
+    expect(result.index.items.some((item) => item.metadata.kind === "code")).toBe(true);
+    expect(result.index.items.some((item) => item.metadata.kind === "external")).toBe(true);
+  });
+
+  // ---------------------------------------------------------------------------
+  // chunkExternalFile — whole-file threshold tests (M10)
+  // ---------------------------------------------------------------------------
+
+  describe("chunkExternalFile whole-file threshold", () => {
+    test("small .md file (under threshold) returns exactly one chunk with full text", () => {
+      // ~200 chars with ## headers, well under the 16KB threshold
+      const content = "## Section A\nHello\n\n## Section B\nWorld\n".repeat(5);
+      const file = { path: "/skills/my-skill/SKILL.md", content, hash: "", kind: "external" as const };
+      const chunks = chunkExternalFile(file);
+      expect(chunks).toHaveLength(1);
+      expect(chunks[0]?.text).toBe(content.trim());
+      expect(chunks[0]?.metadata.kind).toBe("external");
+    });
+
+    test("large .md file (over threshold) returns multiple chunks", () => {
+      // ~20KB — well over the 16KB threshold
+      const section = `## Section\n${  "x".repeat(1000)  }\n\n`;
+      const content = section.repeat(20);
+      const file = { path: "/skills/large/SKILL.md", content, hash: "", kind: "external" as const };
+      const chunks = chunkExternalFile(file);
+      expect(chunks.length).toBeGreaterThan(1);
+    });
+
+    test(".ts file is unaffected by threshold and goes through TS chunker", () => {
+      const content = "export function hello() { return 'world'; }\n".repeat(5);
+      const file = { path: "/src/hello.ts", content, hash: "", kind: "external" as const };
+      const chunks = chunkExternalFile(file);
+      expect(chunks.length).toBeGreaterThanOrEqual(1);
+      expect(chunks.every((c) => c.metadata.kind === "external")).toBe(true);
+    });
   });
 });

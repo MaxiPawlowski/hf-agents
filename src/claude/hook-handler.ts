@@ -7,9 +7,11 @@ import {
   recordSubagentLifecycle
 } from "../adapters/lifecycle.js";
 import type { HybridLoopRuntime } from "../runtime/runtime.js";
-import { detectTurnOutcomeInPayload } from "../runtime/turn-outcome-ingestion.js";
+import { detectTurnOutcomeInPayload } from "../prompt/turn-outcome-ingestion.js";
 import { hfLog, hfLogTimed } from "../runtime/logger.js";
 import type { ContinueDecision, RuntimeEvent } from "../runtime/types.js";
+
+const HOOK_SPECIFIC_OUTPUT_KEY = "hookSpecificOutput";
 
 export function mapDecisionToClaudeStopResponse(decision: ContinueDecision): Record<string, unknown> {
   switch (decision.action) {
@@ -31,6 +33,7 @@ export function mapDecisionToClaudeStopResponse(decision: ContinueDecision): Rec
 }
 
 const HOOK_TIMEOUT_MS = 4_000;
+const HOOK_LOG_TAG = "claude-hook";
 
 export interface ClaudeHookInput {
   session_id?: string;
@@ -64,7 +67,7 @@ function handlePreToolUse(
     const command = String(input.tool_input?.command ?? input.metadata?.command ?? "");
     if (isDestructiveCommand(command)) {
       return {
-        hookSpecificOutput: {
+        [HOOK_SPECIFIC_OUTPUT_KEY]: {
           hookEventName: eventName,
           permissionDecision: "deny",
           permissionDecisionReason: "Hybrid runtime guardrail blocked a destructive command."
@@ -77,7 +80,7 @@ function handlePreToolUse(
     const filePath = String(input.tool_input?.file_path ?? input.metadata?.file_path ?? "");
     if (filePath && isProtectedConfigEdit(filePath)) {
       return {
-        hookSpecificOutput: {
+        [HOOK_SPECIFIC_OUTPUT_KEY]: {
           hookEventName: eventName,
           permissionDecision: "deny",
           permissionDecisionReason: `Hybrid runtime guardrail blocked an edit to protected config file: ${filePath}. Set HF_ALLOW_CONFIG_EDIT=1 to allow intentional changes.`
@@ -93,9 +96,9 @@ async function handleSessionOrPrompt(
   eventName: string
 ): Promise<Record<string, unknown>> {
   const decision = await runtime.decideNext();
-  hfLog({ tag: "claude-hook", msg: `${eventName} decision`, data: { action: decision.action } });
+  hfLog({ tag: HOOK_LOG_TAG, msg: `${eventName} decision`, data: { action: decision.action } });
   return {
-    hookSpecificOutput: {
+    [HOOK_SPECIFIC_OUTPUT_KEY]: {
       hookEventName: eventName,
       additionalContext: decision.resume_prompt
     }
@@ -114,7 +117,7 @@ async function handlePreCompact(
     ...(input.session_id ? { sessionId: input.session_id } : {})
   });
   return {
-    hookSpecificOutput: {
+    [HOOK_SPECIFIC_OUTPUT_KEY]: {
       hookEventName: eventName,
       additionalContext: decision.resume_prompt
     }
@@ -182,43 +185,39 @@ async function hydrateOrTimeout(
       cwd: opts.cwd,
       timeoutMs: HOOK_TIMEOUT_MS,
       timeoutMessage: "Hook hydration timed out",
-      tag: "claude-hook",
+      tag: HOOK_LOG_TAG,
       ...(opts.explicitPlanPath ? { explicitPlanPath: opts.explicitPlanPath } : {})
     });
   } catch (error) {
     if (!(error instanceof Error && error.message === "Hook hydration timed out")) {
       throw error;
     }
-    hfLog({ tag: "claude-hook", msg: "hydration timed out", data: { eventName } });
+    hfLog({ tag: HOOK_LOG_TAG, msg: "hydration timed out", data: { eventName } });
     return null;
   }
 }
 
-export async function handleClaudeHook(
-  eventName: string,
-  input: ClaudeHookInput,
-  opts: { cwd: string; explicitPlanPath?: string }
+const CONTEXT_EVENTS = new Set(["SessionStart", "UserPromptSubmit", "PreCompact"]);
+
+/** Returns the fallback response when runtime is null for the given event. */
+function buildRuntimeNullFallback(eventName: string): Record<string, unknown> {
+  if (CONTEXT_EVENTS.has(eventName)) {
+    return { [HOOK_SPECIFIC_OUTPUT_KEY]: { hookEventName: eventName } };
+  }
+  return { decision: "allow" };
+}
+
+interface DispatchContext {
+  eventName: string;
+  input: ClaudeHookInput;
+  hookDone: (data: Record<string, unknown>) => void;
+}
+
+async function dispatchWithRuntime(
+  runtime: HybridLoopRuntime,
+  ctx: DispatchContext,
 ): Promise<Record<string, unknown>> {
-  const hookDone = hfLogTimed({ tag: "claude-hook", msg: `handleClaudeHook(${eventName})` });
-
-  if (eventName === "PostToolUse" || eventName === "Notification") {
-    hookDone({ shortCircuit: true });
-    return { decision: "allow" };
-  }
-
-  if (eventName === "PreToolUse") {
-    const denied = handlePreToolUse(eventName, input);
-    if (denied) { hookDone({ blocked: true }); return denied; }
-    hookDone({ shortCircuit: true });
-    return { decision: "allow" };
-  }
-
-  const runtime = await hydrateOrTimeout(opts, eventName);
-  if (!runtime) {
-    const isContextEvent = eventName === "SessionStart" || eventName === "UserPromptSubmit" || eventName === "PreCompact";
-    return isContextEvent ? { hookSpecificOutput: { hookEventName: eventName } } : { decision: "allow" };
-  }
-
+  const { eventName, input, hookDone } = ctx;
   if (eventName !== "Stop") {
     await runtime.recordEvent(toRuntimeEvent(eventName, input));
   }
@@ -238,10 +237,37 @@ export async function handleClaudeHook(
   }
   if (eventName === "Stop") {
     const result = await handleStop(runtime, eventName, input);
-    hookDone({ action: (result as Record<string, unknown>).decision });
+    hookDone({ action: (result).decision });
     return result;
   }
 
   hookDone({ fallthrough: true });
   return { decision: "allow" };
+}
+
+export async function handleClaudeHook(
+  eventName: string,
+  input: ClaudeHookInput,
+  opts: { cwd: string; explicitPlanPath?: string }
+): Promise<Record<string, unknown>> {
+  const hookDone = hfLogTimed({ tag: HOOK_LOG_TAG, msg: `handleClaudeHook(${eventName})` });
+
+  if (eventName === "PostToolUse" || eventName === "Notification") {
+    hookDone({ shortCircuit: true });
+    return { decision: "allow" };
+  }
+
+  if (eventName === "PreToolUse") {
+    const denied = handlePreToolUse(eventName, input);
+    if (denied) { hookDone({ blocked: true }); return denied; }
+    hookDone({ shortCircuit: true });
+    return { decision: "allow" };
+  }
+
+  const runtime = await hydrateOrTimeout(opts, eventName);
+  if (!runtime) {
+    return buildRuntimeNullFallback(eventName);
+  }
+
+  return dispatchWithRuntime(runtime, { eventName, input, hookDone });
 }

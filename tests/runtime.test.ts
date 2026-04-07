@@ -1,3 +1,4 @@
+import assert from "node:assert";
 import os from "node:os";
 import path from "node:path";
 import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
@@ -15,7 +16,7 @@ import {
   buildTurnOutcomeIngestionEvent,
   extractTurnOutcomeTrailer,
   parseTurnOutcomeInput
-} from "../src/runtime/turn-outcome-trailer.js";
+} from "../src/prompt/turn-outcome-trailer.js";
 import type { TurnOutcome } from "../src/runtime/types.js";
 
 // ---------------------------------------------------------------------------
@@ -24,20 +25,20 @@ import type { TurnOutcome } from "../src/runtime/types.js";
 // Default behaviour: buildUnifiedIndex returns null (no index), embed/embedBatch
 // are no-ops.  Individual queryIndex tests override via mockResolvedValueOnce.
 // ---------------------------------------------------------------------------
-vi.mock("../src/runtime/unified-index-pipeline.js", () => ({
+vi.mock("../src/index/unified-index-pipeline.js", () => ({
   buildUnifiedIndex: vi.fn().mockResolvedValue(null),
 }));
 
-vi.mock("../src/runtime/vault-embeddings.js", () => ({
+vi.mock("../src/index/vault-embeddings.js", () => ({
   embed: vi.fn().mockResolvedValue(Array.from({ length: 384 }, () => 0)),
   embedBatch: vi.fn().mockResolvedValue([]),
   warmupEmbeddingModel: vi.fn(),
   EmbeddingModelError: class EmbeddingModelError extends Error {},
 }));
 
-import { buildUnifiedIndex } from "../src/runtime/unified-index-pipeline.js";
-import { embed } from "../src/runtime/vault-embeddings.js";
-import type { UnifiedIndex } from "../src/runtime/unified-store.js";
+import { buildUnifiedIndex } from "../src/index/unified-index-pipeline.js";
+import { embed } from "../src/index/vault-embeddings.js";
+import type { UnifiedIndex } from "../src/index/unified-store.js";
 
 async function createPlan(root: string, body: string): Promise<string> {
   const plansDir = path.join(root, "plans");
@@ -306,6 +307,82 @@ describe("HybridLoopRuntime", () => {
     expect(status.counters.turnsSinceLastOutcome).toBe(1);
     expect(status.loopState).toBe("paused");
     expect((await runtime.decideNext()).action).toBe("max_turns");
+  });
+
+  test("noteStopWithoutOutcome sets awaitingBuilderApproval on planning-to-execution transition", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-runtime-"));
+    const planPath = await createPlan(root, [
+      "---",
+      "status: planning",
+      "---",
+      "",
+      "# Plan: Test",
+      "",
+      "## User Intent",
+      "Test the defensive phase-transition detection.",
+      "",
+      "## Milestones",
+      "- [ ] 1. Add runtime core"
+    ].join("\n"));
+
+    const runtime = new HybridLoopRuntime();
+    await runtime.hydrate(planPath);
+
+    expect(runtime.getStatus().phase).toBe("planning");
+    expect(runtime.getStatus().awaitingBuilderApproval).toBe(false);
+
+    // Simulate what hf_plan_approve does to the file (but without
+    // the runtime notification — testing the defensive fallback).
+    await writeFile(planPath, [
+      "---",
+      "status: in-progress",
+      "---",
+      "",
+      "# Plan: Test",
+      "",
+      "## User Intent",
+      "Test the defensive phase-transition detection.",
+      "",
+      "## Milestones",
+      "- [ ] 1. Add runtime core"
+    ].join("\n"), "utf8");
+
+    const status = await runtime.noteStopWithoutOutcome();
+
+    expect(status.phase).toBe("execution");
+    expect(status.awaitingBuilderApproval).toBe(true);
+
+    const decision = await runtime.decideNext();
+    expect(decision.action).toBe("allow_stop");
+    expect(decision.reason).toContain("human approval");
+  });
+
+  test("noteStopWithoutOutcome does not set awaitingBuilderApproval when already in execution", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "hf-runtime-"));
+    const planPath = await createPlan(root, [
+      "---",
+      "status: in-progress",
+      "---",
+      "",
+      "# Plan: Test",
+      "",
+      "## User Intent",
+      "Test that no spurious approval gate fires.",
+      "",
+      "## Milestones",
+      "- [ ] 1. Add runtime core"
+    ].join("\n"));
+
+    const runtime = new HybridLoopRuntime();
+    await runtime.hydrate(planPath);
+
+    expect(runtime.getStatus().phase).toBe("execution");
+    expect(runtime.getStatus().awaitingBuilderApproval).toBe(false);
+
+    const status = await runtime.noteStopWithoutOutcome();
+
+    expect(status.phase).toBe("execution");
+    expect(status.awaitingBuilderApproval).toBe(false);
   });
 
   test("resume prompt carries recovery context across stop and resume without stale warning text", async () => {
@@ -890,17 +967,21 @@ describe("HybridLoopRuntime", () => {
       const results = await runtime.queryIndex("context query");
 
       expect(results).not.toBeNull();
+      assert(results !== null, "results should not be null");
       expect(Array.isArray(results)).toBe(true);
-      expect(results!.length).toBeGreaterThan(0);
+      expect(results.length).toBeGreaterThan(0);
       // Results should be sorted by score descending (item-1 has higher score)
-      expect(results![0]!.metadata.sourcePath).toBe("vault/shared/context.md");
-      expect(results![0]!.metadata.kind).toBe("vault");
-      expect(results![1]!.metadata.kind).toBe("code");
+      const [first, second] = results;
+      assert(first !== undefined, "first result should exist");
+      assert(second !== undefined, "second result should exist");
+      expect(first.metadata.sourcePath).toBe("vault/shared/context.md");
+      expect(first.metadata.kind).toBe("vault");
+      expect(second.metadata.kind).toBe("code");
       // Shape check: required fields present
-      expect(results![0]!.score).toBeTypeOf("number");
-      expect(results![0]!.text).toBeTypeOf("string");
-      expect(results![0]!.metadata.sectionTitle).toBeTypeOf("string");
-      expect(results![0]!.metadata.documentTitle).toBeTypeOf("string");
+      expect(first.score).toBeTypeOf("number");
+      expect(first.text).toBeTypeOf("string");
+      expect(first.metadata.sectionTitle).toBeTypeOf("string");
+      expect(first.metadata.documentTitle).toBeTypeOf("string");
     });
 
     test("respects the topK parameter", async () => {
@@ -954,11 +1035,13 @@ describe("HybridLoopRuntime", () => {
 
       const topK2 = await runtime.queryIndex("any query", 2);
       expect(topK2).not.toBeNull();
-      expect(topK2!.length).toBe(2);
+      assert(topK2 !== null, "topK2 should not be null");
+      expect(topK2.length).toBe(2);
 
       const topK3 = await runtime.queryIndex("any query", 3);
       expect(topK3).not.toBeNull();
-      expect(topK3!.length).toBe(3);
+      assert(topK3 !== null, "topK3 should not be null");
+      expect(topK3.length).toBe(3);
     });
 
     test("sourceFilter: only vault chunks returned when sourceFilter='vault'", async () => {
@@ -1016,9 +1099,12 @@ describe("HybridLoopRuntime", () => {
 
       const results = await runtime.queryIndex("context query", 10, "vault");
       expect(results).not.toBeNull();
-      expect(results!.length).toBe(1);
-      expect(results![0]!.metadata.kind).toBe("vault");
-      expect(results![0]!.metadata.sourcePath).toBe("vault/shared/context.md");
+      assert(results !== null, "results should not be null");
+      expect(results.length).toBe(1);
+      const [vaultResult] = results;
+      assert(vaultResult !== undefined, "vaultResult should exist");
+      expect(vaultResult.metadata.kind).toBe("vault");
+      expect(vaultResult.metadata.sourcePath).toBe("vault/shared/context.md");
     });
 
     test("sourceFilter: only code chunks returned when sourceFilter='code'", async () => {
@@ -1076,9 +1162,12 @@ describe("HybridLoopRuntime", () => {
 
       const results = await runtime.queryIndex("source code query", 10, "code");
       expect(results).not.toBeNull();
-      expect(results!.length).toBe(1);
-      expect(results![0]!.metadata.kind).toBe("code");
-      expect(results![0]!.metadata.sourcePath).toBe("src/runtime/runtime.ts");
+      assert(results !== null, "results should not be null");
+      expect(results.length).toBe(1);
+      const [codeResult] = results;
+      assert(codeResult !== undefined, "codeResult should exist");
+      expect(codeResult.metadata.kind).toBe("code");
+      expect(codeResult.metadata.sourcePath).toBe("src/runtime/runtime.ts");
     });
 
     test("sourceFilter: undefined returns all chunks (existing behavior)", async () => {
@@ -1136,8 +1225,9 @@ describe("HybridLoopRuntime", () => {
 
       const results = await runtime.queryIndex("any query", 10);
       expect(results).not.toBeNull();
-      expect(results!.length).toBe(2);
-      const kinds = results!.map((r) => r.metadata.kind).sort();
+      assert(results !== null, "results should not be null");
+      expect(results.length).toBe(2);
+      const kinds = results.map((r) => String(r.metadata.kind)).sort((a, b) => a.localeCompare(b));
       expect(kinds).toEqual(["code", "vault"]);
     });
   });
@@ -1431,13 +1521,17 @@ describe("concurrent plan execution", () => {
     sessionRuntimes.set("session-bbb", runtimeB);
 
     // Record events independently
-    await sessionRuntimes.get("session-aaa")!.recordEvent({
+    const rtA = sessionRuntimes.get("session-aaa");
+    const rtB = sessionRuntimes.get("session-bbb");
+    assert(rtA !== undefined, "runtimeA should be in map");
+    assert(rtB !== undefined, "runtimeB should be in map");
+    await rtA.recordEvent({
       vendor: "opencode",
       type: "opencode.session.idle",
       timestamp: new Date().toISOString(),
       sessionId: "session-aaa"
     });
-    await sessionRuntimes.get("session-bbb")!.recordEvent({
+    await rtB.recordEvent({
       vendor: "opencode",
       type: "opencode.session.idle",
       timestamp: new Date().toISOString(),
@@ -1445,8 +1539,8 @@ describe("concurrent plan execution", () => {
     });
 
     // Each session holds its own plan
-    expect(sessionRuntimes.get("session-aaa")!.getStatus().planSlug).toBe("session-alpha");
-    expect(sessionRuntimes.get("session-bbb")!.getStatus().planSlug).toBe("session-beta");
+    expect(rtA.getStatus().planSlug).toBe("session-alpha");
+    expect(rtB.getStatus().planSlug).toBe("session-beta");
 
     // Map isolation: two entries, no cross-contamination
     expect(sessionRuntimes.size).toBe(2);

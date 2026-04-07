@@ -15,7 +15,7 @@ import {
   getEmbeddingIpcManifestPath,
   resolveEmbeddingIpcEndpoint,
 } from "./embedding-ipc-protocol.js";
-import { isNumber, isRecord, isString } from "./utils.js";
+import { isNumber, isRecord, isString } from "../runtime/utils.js";
 
 interface CachedManifestEntry {
   mtimeMs: number;
@@ -29,23 +29,27 @@ const manifestCache = new Map<string, CachedManifestEntry>();
 
 let nextRequestId = 1;
 
+interface IpcRequestOptions<TResult> {
+  method: typeof EMBEDDING_IPC_METHOD_EMBED | typeof EMBEDDING_IPC_METHOD_EMBED_BATCH;
+  params: Record<string, unknown>;
+  isExpectedResult: (value: unknown) => value is TResult;
+}
+
 export async function tryIpcEmbed(repoRoot: string, text: string): Promise<number[] | null> {
-  const result = await tryIpcRequest(repoRoot, EMBEDDING_IPC_METHOD_EMBED, { text }, isEmbedResponseResult);
+  const result = await tryIpcRequest(repoRoot, { method: EMBEDDING_IPC_METHOD_EMBED, params: { text }, isExpectedResult: isEmbedResponseResult });
   return result?.embedding ?? null;
 }
 
 export async function tryIpcEmbedBatch(repoRoot: string, texts: string[]): Promise<number[][] | null> {
-  const result = await tryIpcRequest(repoRoot, EMBEDDING_IPC_METHOD_EMBED_BATCH, { texts }, isEmbedBatchResponseResult);
+  const result = await tryIpcRequest(repoRoot, { method: EMBEDDING_IPC_METHOD_EMBED_BATCH, params: { texts }, isExpectedResult: isEmbedBatchResponseResult });
   return result?.embeddings ?? null;
 }
 
 async function tryIpcRequest<TResult>(
   repoRoot: string,
-  method: typeof EMBEDDING_IPC_METHOD_EMBED | typeof EMBEDDING_IPC_METHOD_EMBED_BATCH,
-  params: Record<string, unknown>,
-  isExpectedResult: (value: unknown) => value is TResult
- 
+  options: IpcRequestOptions<TResult>
 ): Promise<TResult | null> {
+  const { method, params, isExpectedResult } = options;
   const manifest = await readCachedManifest(repoRoot);
   if (!manifest) {
     return null;
@@ -91,7 +95,7 @@ async function readCachedManifest(repoRoot: string): Promise<EmbeddingIpcManifes
   }
 
   const cached = manifestCache.get(manifestPath);
-  if (cached && cached.mtimeMs === fileStat.mtimeMs && cached.size === fileStat.size) {
+  if (cached?.mtimeMs === fileStat.mtimeMs && cached.size === fileStat.size) {
     return cached.manifest;
   }
 

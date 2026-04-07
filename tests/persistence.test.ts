@@ -1,3 +1,4 @@
+import assert from "node:assert";
 import os from "node:os";
 import path from "node:path";
 import { promises as fs } from "node:fs";
@@ -113,10 +114,11 @@ describe("readStatus", () => {
     const result = await readStatus(runtimePaths);
 
     expect(result).not.toBeNull();
-    expect(result!.version).toBe(1);
-    expect(result!.planSlug).toBe(plan.slug);
-    expect(result!.loopState).toBe("idle");
-    expect(result!.counters.totalAttempts).toBe(0);
+    assert(result !== null, "Expected result to be non-null");
+    expect(result.version).toBe(1);
+    expect(result.planSlug).toBe(plan.slug);
+    expect(result.loopState).toBe("idle");
+    expect(result.counters.totalAttempts).toBe(0);
   });
 });
 
@@ -137,7 +139,9 @@ describe("readEventLines / appendEvent", () => {
     const lines = await readEventLines(runtimePaths);
 
     expect(lines).toHaveLength(1);
-    const parsed = JSON.parse(lines[0]!) as RuntimeEvent;
+    const [firstLine] = lines;
+    assert(firstLine !== undefined, "Expected a line");
+    const parsed = JSON.parse(firstLine) as RuntimeEvent;
     expect(parsed.type).toBe("test.created");
   });
 
@@ -149,8 +153,11 @@ describe("readEventLines / appendEvent", () => {
     const lines = await readEventLines(runtimePaths);
 
     expect(lines).toHaveLength(3);
-    expect(JSON.parse(lines[0]!).type).toBe("event.one");
-    expect(JSON.parse(lines[2]!).type).toBe("event.three");
+    const [line0, , line2] = lines;
+    assert(line0 !== undefined, "Expected line at index 0");
+    assert(line2 !== undefined, "Expected line at index 2");
+    expect(JSON.parse(line0).type).toBe("event.one");
+    expect(JSON.parse(line2).type).toBe("event.three");
   });
 
   test("concurrent appendEvent calls produce valid JSONL without interleaving", async () => {
@@ -163,8 +170,8 @@ describe("readEventLines / appendEvent", () => {
     for (const line of lines) {
       expect(() => JSON.parse(line)).not.toThrow();
     }
-    const types = lines.map((line) => (JSON.parse(line) as RuntimeEvent).type).sort();
-    expect(types).toEqual(events.map((e) => e.type).sort());
+    const types = lines.map((line) => (JSON.parse(line) as RuntimeEvent).type).sort((a, b) => a.localeCompare(b));
+    expect(types).toEqual(events.map((e) => e.type).sort((a, b) => a.localeCompare(b)));
   });
 
   test("stress: 100 concurrent writers produce 100 valid lines", async () => {
@@ -223,12 +230,16 @@ describe("readVaultContext", () => {
     const context = await readVaultContext(vaultPaths);
 
     expect(context.plan).toHaveLength(1);
-    expect(context.plan[0]!.title).toBe("Plan context");
-    expect(context.plan[0]!.content).toContain("Some content.");
+    const [planItem] = context.plan;
+    assert(planItem !== undefined, "Expected plan item at index 0");
+    expect(planItem.title).toBe("Plan context");
+    expect(planItem.content).toContain("Some content.");
 
     expect(context.shared).toHaveLength(1);
-    expect(context.shared[0]!.title).toBe("Shared architecture");
-    expect(context.shared[0]!.content).toContain("Shared notes.");
+    const [sharedItem] = context.shared;
+    assert(sharedItem !== undefined, "Expected shared item at index 0");
+    expect(sharedItem.title).toBe("Shared architecture");
+    expect(sharedItem.content).toContain("Shared notes.");
   });
 
   test("reads multiple vault files in order", async () => {

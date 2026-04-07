@@ -8,11 +8,14 @@ import {
   type RuntimeStatus,
   type VaultContext,
   type VaultSearchResult,
-} from "./types.js";
+} from "../runtime/types.js";
 
 export const DEFAULT_VAULT_CHAR_BUDGET = 3000;
 export const PLANNING_VAULT_CHAR_BUDGET = 4000;
 const TRUNCATION_SUFFIX = "[vault content truncated]";
+const INSTRUCTIONS_HEADER = "## Instructions";
+const EMIT_TRAILER_INSTRUCTION = "Emit a final turn_outcome trailer as the last block of your response:";
+const LAST_TURN_HEADER = "## Last turn";
 
 interface AppendOpts {
   charBudget: number;
@@ -58,7 +61,8 @@ function formatMilestoneContext(milestone: PlanMilestone): string[] {
   const lines: string[] = [];
 
   if (milestone.context?.scope && milestone.context.scope.length > 0) {
-    lines.push(`  - scope: ${milestone.context.scope.map((s) => `\`${s}\``).join(", ")}`);
+    const scopeList = milestone.context.scope.map((s) => `\`${s}\``).join(", ");
+    lines.push(`  - scope: ${scopeList}`);
   }
   if (milestone.context?.conventions) {
     lines.push(`  - conventions: ${milestone.context.conventions}`);
@@ -137,7 +141,7 @@ export function formatSemanticVaultContext(
 
   const hasCodeResults = results.some((result) => result.metadata.kind === "code" || result.metadata.kind === "external");
   const lines = [hasCodeResults ? "## Knowledge context" : "## Vault context"];
-  const headerCost = lines[0]!.length + 1;
+  const headerCost = (lines[0]?.length ?? 0) + 1;
 
   const blocks = results.map((result) => {
     const sectionTitle = (result.metadata.kind === "code" || result.metadata.kind === "external")
@@ -174,7 +178,7 @@ export function formatToolSearchResults(results: VaultSearchResult[]): string {
     ].join("\n");
   });
 
-  return blocks.join("\n\n") + "\n";
+  return `${blocks.join("\n\n")  }\n`;
 }
 
 function formatVaultContext(vault: VaultContext | null, charBudget = DEFAULT_VAULT_CHAR_BUDGET): string[] {
@@ -230,14 +234,14 @@ function buildPlanningPhasePrompt(
     lines.push(...planningVaultLines);
   }
 
-  lines.push("## Instructions");
+  lines.push(INSTRUCTIONS_HEADER);
   lines.push(
     status.recommendedNextAction
       ? `Recommended next action: ${status.recommendedNextAction}`
       : "Recommended next action: revise the draft plan until `hf-plan-reviewer` can approve it."
   );
   lines.push("Reference vault-persisted findings and the plan doc; avoid re-loading the full context bundle into conversation.");
-  lines.push("Emit a final turn_outcome trailer as the last block of your response:");
+  lines.push(EMIT_TRAILER_INSTRUCTION);
   lines.push("");
   lines.push(TURN_OUTCOME_TRAILER_FORMAT);
 
@@ -270,7 +274,7 @@ function buildPlanningPhaseHeader(plan: ParsedPlan, status: RuntimeStatus): stri
   lines.push("");
 
   if (status.lastOutcome) {
-    lines.push("## Last turn");
+    lines.push(LAST_TURN_HEADER);
     lines.push(`State: ${status.lastOutcome.state}`);
     lines.push(`Summary: ${status.lastOutcome.summary}`);
     lines.push("");
@@ -281,7 +285,7 @@ function buildPlanningPhaseHeader(plan: ParsedPlan, status: RuntimeStatus): stri
   return lines;
 }
 
-function buildPlanningPhaseBlocker(status: RuntimeStatus): string[] {
+function formatBlockerLines(status: RuntimeStatus): string[] {
   if (!status.lastBlocker) {
     return [];
   }
@@ -290,6 +294,10 @@ function buildPlanningPhaseBlocker(status: RuntimeStatus): string[] {
     `${status.lastBlocker.message} (repeated ${status.counters.repeatedBlocker} times).`,
     "",
   ];
+}
+
+function buildPlanningPhaseBlocker(status: RuntimeStatus): string[] {
+  return formatBlockerLines(status);
 }
 
 function buildPlanningPhaseVaultExploration(vault: VaultContext | null): string[] {
@@ -321,9 +329,9 @@ function buildVerificationPrompt(plan: ParsedPlan): string {
     "## Final verification",
     "All milestones are checked, but final verification evidence still needs to be attached before the plan can move to `status: complete`.",
     "",
-    "## Instructions",
+    INSTRUCTIONS_HEADER,
     "Run the narrowest final verification needed for the completed work, attach fresh evidence under the last completed milestone, then update the plan status only if verification passes.",
-    "Emit a final turn_outcome trailer as the last block of your response:",
+    EMIT_TRAILER_INSTRUCTION,
     "",
     TURN_OUTCOME_TRAILER_FORMAT
   ].join("\n");
@@ -336,7 +344,7 @@ function buildExecutionPhasePrompt(
 ): string {
   const { vault, vaultSearchResults, budgets } = opts;
   const charBudget = budgets.charBudget ?? DEFAULT_VAULT_CHAR_BUDGET;
-  const currentMilestone = plan.currentMilestone;
+  const {currentMilestone} = plan;
 
   if (!currentMilestone) {
     return buildVerificationPrompt(plan);
@@ -393,7 +401,7 @@ function buildExecutionPhaseHeader(opts: ExecutionPhaseHeaderOpts): string[] {
 function buildExecutionPhaseOutcome(status: RuntimeStatus): string[] {
   if (status.lastOutcome) {
     const lines = [
-      "## Last turn",
+      LAST_TURN_HEADER,
       `State: ${status.lastOutcome.state}`,
       `Summary: ${status.lastOutcome.summary}`,
     ];
@@ -403,7 +411,7 @@ function buildExecutionPhaseOutcome(status: RuntimeStatus): string[] {
     lines.push("");
     return lines;
   }
-  return ["## Last turn", "No outcome recorded yet.", ""];
+  return [LAST_TURN_HEADER, "No outcome recorded yet.", ""];
 }
 
 function buildExecutionPhaseVerification(status: RuntimeStatus): string[] {
@@ -419,14 +427,7 @@ function buildExecutionPhaseVerification(status: RuntimeStatus): string[] {
 }
 
 function buildExecutionPhaseBlocker(status: RuntimeStatus): string[] {
-  if (!status.lastBlocker) {
-    return [];
-  }
-  return [
-    "## Active blocker",
-    `${status.lastBlocker.message} (repeated ${status.counters.repeatedBlocker} times).`,
-    "",
-  ];
+  return formatBlockerLines(status);
 }
 
 function buildExecutionPhaseRecovery(status: RuntimeStatus): string[] {
@@ -447,12 +448,12 @@ function buildExecutionPhaseRecovery(status: RuntimeStatus): string[] {
 
 function buildExecutionPhaseInstructions(status: RuntimeStatus): string[] {
   return [
-    "## Instructions",
+    INSTRUCTIONS_HEADER,
     status.recommendedNextAction
       ? `Recommended next action: ${status.recommendedNextAction}`
       : "Recommended next action: make the smallest forward progress on the current milestone only.",
     "Keep scope limited to the current unchecked milestone.",
-    "Emit a final turn_outcome trailer as the last block of your response:",
+    EMIT_TRAILER_INSTRUCTION,
     "",
     TURN_OUTCOME_TRAILER_FORMAT,
   ];
@@ -468,7 +469,7 @@ export function buildResumePrompt(
   const budgets = opts?.budgets ?? {};
   const resolvedOpts: Required<BuildResumePromptOpts> = { vault, vaultSearchResults, budgets };
 
-  const currentMilestone = plan.currentMilestone;
+  const {currentMilestone} = plan;
 
   if (!currentMilestone && plan.completed) {
     return buildCompletedPlanPrompt(plan);
@@ -509,7 +510,7 @@ export function buildPlanlessResumePrompt(
   }
 
   lines.push("");
-  lines.push("## Instructions");
+  lines.push(INSTRUCTIONS_HEADER);
   lines.push("Review the recovered vault context above. If a planning discussion was in progress, continue from where it left off. If vault context is not relevant to the current task, proceed normally.");
 
   return lines.join("\n");

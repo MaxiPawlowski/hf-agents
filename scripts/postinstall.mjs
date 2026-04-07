@@ -18,7 +18,7 @@ function main() {
   }
 
   process.stdout.write(
-    [
+    `${[
       "hybrid-framework: package install completed.",
       "No adapter wiring or project scaffolding runs automatically during postinstall.",
       "Run the setup wizard to wire adapters and scaffold your project:",
@@ -26,7 +26,7 @@ function main() {
       "For CI or non-interactive use:",
       "  npx hf-setup --yes",
       "See README.md for the full installation guide and config file shape."
-    ].join("\n") + "\n"
+    ].join("\n")  }\n`
   );
 }
 

@@ -1,3 +1,4 @@
+import assert from "node:assert";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
@@ -47,7 +48,9 @@ describe("opencode plugin e2e", () => {
     // Bind the session to the fixture plan path (simulates hf_plan_start tool call)
     planBindings.set(SESSION_ID, path.join(fixtureDir, FIXTURE_PLAN_PATH));
 
-    const result = await hooks["session.created"]!({ sessionID: SESSION_ID });
+    const sessionCreatedHook = hooks["session.created"];
+    assert(sessionCreatedHook !== undefined, "Expected session.created hook");
+    const result = await sessionCreatedHook({ sessionID: SESSION_ID });
 
     // session.created must return an object (possibly with additionalContext)
     expect(result).toBeDefined();
@@ -67,8 +70,10 @@ describe("opencode plugin e2e", () => {
   test("tool.execute.before: destructive command throws", async () => {
     const { hooks } = createHybridRuntimeHooks({ cwd: fixtureDir });
 
+    const executeBeforeHook = hooks["tool.execute.before"];
+    assert(executeBeforeHook !== undefined, "Expected tool.execute.before hook");
     await expect(
-      hooks["tool.execute.before"]!({ command: "rm -rf /" })
+      executeBeforeHook({ command: "rm -rf /" })
     ).rejects.toThrow("guardrail blocked a destructive command");
   }, 10_000);
 
@@ -77,10 +82,14 @@ describe("opencode plugin e2e", () => {
   // -------------------------------------------------------------------------
   test("session.idle: ESC interrupt guard returns allow_stop and clears flag", async () => {
     const { hooks } = createHybridRuntimeHooks({ cwd: fixtureDir, session: { id: SESSION_ID } });
+    const messageUpdatedHook = hooks["message.updated"];
+    const sessionIdleHook = hooks["session.idle"];
+    assert(messageUpdatedHook !== undefined, "Expected message.updated hook");
+    assert(sessionIdleHook !== undefined, "Expected session.idle hook");
 
     // First set activeAgentIsHf=true and interrupted=true via message.updated.
     // context.session.id is used as the fallback sessionId since info has no sessionID.
-    await hooks["message.updated"]!({
+    await messageUpdatedHook({
       info: {
         role: "assistant",
         agent: "hf-builder",
@@ -89,7 +98,7 @@ describe("opencode plugin e2e", () => {
     });
 
     // The interrupt flag is now set. session.idle should return allow_stop immediately.
-    const firstResult = await hooks["session.idle"]!({ sessionID: SESSION_ID });
+    const firstResult = await sessionIdleHook({ sessionID: SESSION_ID });
     expect(firstResult).toBeDefined();
     const first = firstResult as Record<string, unknown>;
     expect(first.action).toBe("allow_stop");
@@ -98,13 +107,13 @@ describe("opencode plugin e2e", () => {
 
     // The interrupt flag must be cleared after consumption.
     // Re-set the hf-agent flag so the agent gate doesn't swallow the second call.
-    await hooks["message.updated"]!({
+    await messageUpdatedHook({
       info: { role: "assistant", agent: "hf-builder" }
     });
 
     // Second call must NOT return allow_stop due to interrupt — the flag is cleared.
     // With no plan binding, the runtime is null → session.idle returns null.
-    const secondResult = await hooks["session.idle"]!({ sessionID: SESSION_ID });
+    const secondResult = await sessionIdleHook({ sessionID: SESSION_ID });
     if (secondResult !== null) {
       const second = secondResult as Record<string, unknown>;
       // Allow any decision except the interrupt-specific allow_stop reason.
@@ -122,14 +131,19 @@ describe("opencode plugin e2e", () => {
     // Bind the session to the fixture plan path (simulates hf_plan_start tool call)
     planBindings.set(SESSION_ID, path.join(fixtureDir, FIXTURE_PLAN_PATH));
 
+    const messageUpdatedHook2 = hooks["message.updated"];
+    const sessionIdleHook2 = hooks["session.idle"];
+    assert(messageUpdatedHook2 !== undefined, "Expected message.updated hook");
+    assert(sessionIdleHook2 !== undefined, "Expected session.idle hook");
+
     // Activate the hf-agent gate so session.idle runs runtime logic.
-    await hooks["message.updated"]!({
+    await messageUpdatedHook2({
       info: { role: "assistant", agent: "hf-builder" }
     });
 
     // Call session.idle with a payload containing a valid turn_outcome: trailer.
     const messageWithOutcome = buildTurnOutcomePayload("progress");
-    const result = await hooks["session.idle"]!({ sessionID: SESSION_ID, message: messageWithOutcome });
+    const result = await sessionIdleHook2({ sessionID: SESSION_ID, message: messageWithOutcome });
 
     // The hook must not throw — ingestion goes through cleanly.
     // It should return a ContinueDecision (or null if deadline hit, but should be fast).
@@ -223,7 +237,9 @@ describe("opencode plugin e2e", () => {
     planBindings.set(WARM_SESSION_ID, path.join(fixtureDir, FIXTURE_PLAN_PATH));
 
     // Call session.created to trigger hydration and decideNext() → refreshVaultIndex().
-    await hooks["session.created"]!({ sessionID: WARM_SESSION_ID });
+    const warmSessionCreatedHook = hooks["session.created"];
+    assert(warmSessionCreatedHook !== undefined, "Expected session.created hook");
+    await warmSessionCreatedHook({ sessionID: WARM_SESSION_ID });
 
     const tool = tools.hf_search as {
       execute: (

@@ -117,6 +117,70 @@ const libDir = path.join(projectRoot, "scripts", "lib");
 // Argument parsing
 // ---------------------------------------------------------------------------
 
+const VALID_COMMANDS = ["install", "init", "sync", "uninstall"] as const;
+const VALID_PLATFORMS = ["both", "claude", "opencode"] as const;
+
+interface FlagParseCtx {
+  arg: string;
+  argv: string[];
+  i: number;
+  options: WizardOptions;
+}
+
+/** Handle --yes / -y / --skip-build flags. Returns true if consumed. */
+function parseYesOrSkipBuild(arg: string, options: WizardOptions): boolean {
+  if (arg === "--yes" || arg === "-y") {
+    options.yes = true;
+    return true;
+  }
+  if (arg === "--skip-build") {
+    options.skipBuild = true;
+    return true;
+  }
+  return false;
+}
+
+/** Handle --command / -c flag. Returns new index or null if not consumed. */
+function parseCommandFlag(ctx: FlagParseCtx): number | null {
+  const { arg, argv, i, options } = ctx;
+  if ((arg !== "--command" && arg !== "-c") || argv[i + 1] === undefined) return null;
+  const val = argv[i + 1] as string;
+  if (!VALID_COMMANDS.includes(val as ActionChoice)) {
+    throw new Error(`Unsupported --command value: ${val}. Must be one of: install, init, sync, uninstall`);
+  }
+  options.command = val as ActionChoice;
+  return i + 1;
+}
+
+/** Handle --platform flag. Returns new index or null if not consumed. */
+function parsePlatformFlag(ctx: FlagParseCtx): number | null {
+  const { arg, argv, i, options } = ctx;
+  if (arg !== "--platform" || argv[i + 1] === undefined) return null;
+  const val = argv[i + 1] as string;
+  if (!VALID_PLATFORMS.includes(val as PlatformChoice)) {
+    throw new Error(`Unsupported --platform value: ${val}. Must be one of: both, claude, opencode`);
+  }
+  options.platform = val as PlatformChoice;
+  return i + 1;
+}
+
+/** Handle --target-dir flag. Returns new index or null if not consumed. */
+function parseTargetDirFlag(ctx: FlagParseCtx): number | null {
+  const { arg, argv, i, options } = ctx;
+  if (arg !== "--target-dir" || argv[i + 1] === undefined) return null;
+  options.targetDir = path.resolve(argv[i + 1] as string);
+  return i + 1;
+}
+
+/** Handle --config flag. Returns new index or null if not consumed. */
+function parseConfigFlag(ctx: FlagParseCtx): number | null {
+  const { arg, argv, i, options } = ctx;
+  if (arg !== "--config" || argv[i + 1] === undefined) return null;
+  options.configPath = path.resolve(argv[i + 1] as string);
+  return i + 1;
+}
+
+
 function parseArgs(argv: string[]): WizardOptions {
   const options: WizardOptions = {
     yes: false,
@@ -127,50 +191,20 @@ function parseArgs(argv: string[]): WizardOptions {
     configPath: null
   };
 
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i];
-
-    if (arg === "--yes" || arg === "-y") {
-      options.yes = true;
-      continue;
-    }
-
-    if (arg === "--skip-build") {
-      options.skipBuild = true;
-      continue;
-    }
-
-    if ((arg === "--command" || arg === "-c") && argv[i + 1] !== undefined) {
-      const val = argv[i + 1] as string;
-      if (!["install", "init", "sync", "uninstall"].includes(val)) {
-        throw new Error(`Unsupported --command value: ${val}. Must be one of: install, init, sync, uninstall`);
-      }
-      options.command = val as ActionChoice;
+  let i = 0;
+  while (i < argv.length) {
+    const arg = argv[i] ?? "";
+    if (parseYesOrSkipBuild(arg, options)) {
       i++;
       continue;
     }
-
-    if (arg === "--platform" && argv[i + 1] !== undefined) {
-      const val = argv[i + 1] as string;
-      if (!["both", "claude", "opencode"].includes(val)) {
-        throw new Error(`Unsupported --platform value: ${val}. Must be one of: both, claude, opencode`);
-      }
-      options.platform = val as PlatformChoice;
-      i++;
-      continue;
-    }
-
-    if (arg === "--target-dir" && argv[i + 1] !== undefined) {
-      options.targetDir = path.resolve(argv[i + 1] as string);
-      i++;
-      continue;
-    }
-
-    if (arg === "--config" && argv[i + 1] !== undefined) {
-      options.configPath = path.resolve(argv[i + 1] as string);
-      i++;
-      continue;
-    }
+    const ctx: FlagParseCtx = { arg, argv, i, options };
+    const newIdx =
+      parseCommandFlag(ctx) ??
+      parsePlatformFlag(ctx) ??
+      parseTargetDirFlag(ctx) ??
+      parseConfigFlag(ctx);
+    i = newIdx === null ? i + 1 : newIdx + 1;
   }
 
   return options;
@@ -365,11 +399,9 @@ async function runSetup(command: ActionChoice, platform: PlatformChoice, opts: W
   if (command === "sync") { executeInstall("sync", ctx); return; }
   if (command === "uninstall") { executeUninstall(ctx); return; }
 
-  if (command === "init") {
-    helpers.seedIndexConfig(config);
-    helpers.scaffoldProject(options.targetDir, scaffold);
-    executeInstall("install", ctx);
-  }
+  helpers.seedIndexConfig(config);
+  helpers.scaffoldProject(options.targetDir, scaffold);
+  executeInstall("install", ctx);
 }
 
 // ---------------------------------------------------------------------------
@@ -408,6 +440,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error((error as Error).message ?? String(error));
+  console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 });

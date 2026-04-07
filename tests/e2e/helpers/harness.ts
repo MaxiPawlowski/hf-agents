@@ -253,7 +253,7 @@ function appendStrings(parts: string[], value: unknown): void {
 }
 
 export function normalizePath(filePath: string): string {
-  return filePath.replace(/\\/g, "/").replace(/^.*?\/(vault|src)\//, "$1/");
+  return filePath.replaceAll("\\", "/").replace(/^.*?\/(vault|src)\//, "$1/");
 }
 
 export async function seedUnifiedIndexFixture(fixtureDir: string): Promise<void> {
@@ -437,7 +437,7 @@ function parseNdjson(stdout: string): Record<string, unknown>[] {
       throw new Error(`Expected OpenCode event to be a JSON object. Received: ${trimmed}`);
     }
 
-    events.push(parsed as Record<string, unknown>);
+    events.push(parsed);
   }
 
   return events;

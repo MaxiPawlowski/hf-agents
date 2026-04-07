@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { embed, embedBatch, disposeEmbeddingModel, EmbeddingModelError } from "../src/runtime/vault-embeddings.js";
+import { embed, embedBatch, disposeEmbeddingModel, EmbeddingModelError } from "../src/index/vault-embeddings.js";
 import { isNumber } from "../src/runtime/utils.js";
 
 function cosine(a: number[], b: number[]): number {
@@ -8,9 +8,9 @@ function cosine(a: number[], b: number[]): number {
   let normA = 0;
   let normB = 0;
   for (let i = 0; i < a.length; i++) {
-    dot += a[i]! * b[i]!;
-    normA += a[i]! * a[i]!;
-    normB += b[i]! * b[i]!;
+    dot += (a[i] ?? 0) * (b[i] ?? 0);
+    normA += (a[i] ?? 0) * (a[i] ?? 0);
+    normB += (b[i] ?? 0) * (b[i] ?? 0);
   }
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
@@ -86,7 +86,7 @@ describe.skipIf(!process.env.HF_RUN_SLOW)("vault-embeddings (model integration)"
     const individual = await Promise.all(texts.map((t) => embed(t)));
 
     for (let i = 0; i < texts.length; i++) {
-      const sim = cosine(batchResults[i]!, individual[i]!);
+      const sim = cosine(batchResults[i] ?? [], individual[i] ?? []);
       expect(sim).toBeGreaterThan(0.99);
     }
   }, 60_000);

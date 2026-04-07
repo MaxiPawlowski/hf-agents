@@ -1,3 +1,4 @@
+import assert from "node:assert";
 import os from "node:os";
 import path from "node:path";
 import { promises as fs } from "node:fs";
@@ -202,7 +203,8 @@ describe("parsePlan", () => {
     const plan = await parsePlan(planPath);
 
     expect(plan.milestones).toHaveLength(1);
-    const milestone = plan.milestones[0]!;
+    const [milestone] = plan.milestones;
+    assert(milestone !== undefined, "Expected milestone at index 0");
     expect(milestone.context?.scope).toEqual(["src/auth", "src/middleware"]);
     expect(milestone.context?.conventions).toBe("Use JWT tokens");
     expect(milestone.context?.notes).toBe("Check existing patterns first");
@@ -305,8 +307,8 @@ describe("parsePlan", () => {
     const planPath = await writePlan(content);
     const plan = await parsePlan(planPath);
 
-    expect(plan.milestones[0]!.title).toBe("Build the feature");
-    expect(plan.milestones[0]!.text).toBe("1. Build the feature");
+    expect(plan.milestones[0]?.title).toBe("Build the feature");
+    expect(plan.milestones[0]?.text).toBe("1. Build the feature");
   });
 
   test("ignores evidence lines and does not treat them as context", async () => {
@@ -324,7 +326,8 @@ describe("parsePlan", () => {
     ].join("\n");
     const planPath = await writePlan(content);
     const plan = await parsePlan(planPath);
-    const m = plan.milestones[0]!;
+    const [m] = plan.milestones;
+    assert(m !== undefined, "Expected milestone at index 0");
 
     expect(m.context?.scope).toEqual(["src/api/users.ts"]);
     expect(m.reviewPolicy).toBe("auto");
@@ -344,7 +347,7 @@ describe("parsePlan", () => {
     const planPath = await writePlan(content);
     const plan = await parsePlan(planPath);
 
-    expect(plan.milestones[0]!.context).toBeUndefined();
-    expect(plan.milestones[0]!.reviewPolicy).toBeUndefined();
+    expect(plan.milestones[0]?.context).toBeUndefined();
+    expect(plan.milestones[0]?.reviewPolicy).toBeUndefined();
   });
 });

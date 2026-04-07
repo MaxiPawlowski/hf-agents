@@ -16,7 +16,7 @@ import {
   EMBEDDING_IPC_TRANSPORT_UNIX_SOCKET,
   createEmbeddingIpcManifest,
   resolveEmbeddingIpcEndpoint,
-} from "../src/runtime/embedding-ipc-protocol.js";
+} from "../src/index/embedding-ipc-protocol.js";
 import { isNumber } from "../src/runtime/utils.js";
 
 function makeVector(seed: number): number[] {
@@ -43,14 +43,14 @@ function createMockExtractor() {
 function expectVectorClose(actual: number[], expected: number[]): void {
   expect(actual).toHaveLength(expected.length);
   for (let index = 0; index < expected.length; index++) {
-    expect(actual[index]).toBeCloseTo(expected[index]!, 5);
+    expect(actual[index]).toBeCloseTo(expected[index] ?? 0, 5);
   }
 }
 
 function expectBatchClose(actual: number[][], expected: number[][]): void {
   expect(actual).toHaveLength(expected.length);
   for (let index = 0; index < expected.length; index++) {
-    expectVectorClose(actual[index]!, expected[index]!);
+    expectVectorClose(actual[index] ?? [], expected[index] ?? []);
   }
 }
 
@@ -110,6 +110,25 @@ async function startMcpServer(repoRoot: string): Promise<{
     stdio: ["pipe", "pipe", "pipe"],
   });
 
+  type PendingMap = Map<number, { resolve(value: unknown): void; reject(error: Error): void }>;
+
+  function dispatchMcpLine(
+    line: string,
+    pending: PendingMap
+  ): void {
+    const message = JSON.parse(line) as { id?: number; result?: unknown; error?: { message: string } };
+    const id = isNumber(message.id) ? message.id : null;
+    if (id === null) return;
+    const entry = pending.get(id);
+    if (!entry) return;
+    pending.delete(id);
+    if (message.error) {
+      entry.reject(new Error(message.error.message));
+    } else {
+      entry.resolve(message.result);
+    }
+  }
+
   let nextId = 1;
   let stdoutBuffer = "";
   const pending = new Map<number, { resolve(value: unknown): void; reject(error: Error): void }>();
@@ -123,19 +142,7 @@ async function startMcpServer(repoRoot: string): Promise<{
       const line = stdoutBuffer.slice(0, newlineIndex).trim();
       stdoutBuffer = stdoutBuffer.slice(newlineIndex + 1);
       if (!line) continue;
-
-      const message = JSON.parse(line) as { id?: number; result?: unknown; error?: { message: string } };
-      const id = isNumber(message.id) ? message.id : null;
-      if (id === null) continue;
-
-      const entry = pending.get(id);
-      if (!entry) continue;
-      pending.delete(id);
-      if (message.error) {
-        entry.reject(new Error(message.error.message));
-      } else {
-        entry.resolve(message.result);
-      }
+      dispatchMcpLine(line, pending);
     }
   });
 
@@ -168,7 +175,7 @@ async function runFreshHookEmbed(
   text: string,
   mode: "ipc" | "cold-local" = "ipc",
 ): Promise<{ durationMs: number; length: number }> {
-  const embedModulePath = path.join(process.cwd(), "dist", "src", "runtime", "vault-embeddings.js");
+  const embedModulePath = path.join(process.cwd(), "dist", "src", "index", "vault-embeddings.js");
   const embedModuleUrl = pathToFileURL(embedModulePath).href;
   await stat(embedModulePath);
 
@@ -210,7 +217,8 @@ async function runFreshHookEmbed(
   });
 
   if (exitCode !== 0) {
-    throw new Error(`Fresh hook embed failed: ${stderr || `exit ${exitCode}`}`);
+    const errorDetail = stderr || `exit ${exitCode}`;
+    throw new Error(`Fresh hook embed failed: ${errorDetail}`);
   }
 
   return {
@@ -231,8 +239,8 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.resetModules();
   vi.doUnmock("@huggingface/transformers");
-  vi.doUnmock("../src/runtime/embedding-ipc-client.js");
-  vi.doUnmock("../src/runtime/vault-embeddings.js");
+  vi.doUnmock("../src/index/embedding-ipc-client.js");
+  vi.doUnmock("../src/index/vault-embeddings.js");
 });
 
 describe("embedding IPC protocol", () => {
@@ -266,10 +274,10 @@ describe("embedding IPC behavior", () => {
 
     const embed = vi.fn(async (text: string) => [text.length, 1, 2]);
     const embedBatch = vi.fn(async (texts: string[]) => texts.map((text, index) => [text.length, index]));
-    vi.doMock("../src/runtime/vault-embeddings.js", () => ({ embed, embedBatch }));
+    vi.doMock("../src/index/vault-embeddings.js", () => ({ embed, embedBatch }));
 
-    const { startEmbeddingIpcServer } = await import("../src/runtime/embedding-ipc-server.js");
-    const { tryIpcEmbed, tryIpcEmbedBatch } = await import("../src/runtime/embedding-ipc-client.js");
+    const { startEmbeddingIpcServer } = await import("../src/index/embedding-ipc-server.js");
+    const { tryIpcEmbed, tryIpcEmbedBatch } = await import("../src/index/embedding-ipc-client.js");
 
     const server = await startEmbeddingIpcServer(repoRoot);
     try {
@@ -342,10 +350,10 @@ describe("embedding IPC behavior", () => {
     const pipeline = vi.fn(async () => extractor);
 
     vi.doMock("@huggingface/transformers", () => ({ pipeline }));
-    vi.doMock("../src/runtime/embedding-ipc-client.js", () => ({ tryIpcEmbed, tryIpcEmbedBatch }));
-    vi.doUnmock("../src/runtime/vault-embeddings.js");
+    vi.doMock("../src/index/embedding-ipc-client.js", () => ({ tryIpcEmbed, tryIpcEmbedBatch }));
+    vi.doUnmock("../src/index/vault-embeddings.js");
 
-    const { embed, embedBatch: _embedBatch, setEmbeddingIpcRoot } = await import("../src/runtime/vault-embeddings.js");
+    const { embed, setEmbeddingIpcRoot } = await import("../src/index/vault-embeddings.js");
 
     setEmbeddingIpcRoot(repoRoot);
 
@@ -360,13 +368,13 @@ describe("embedding IPC behavior", () => {
     const pipelineSecond = vi.fn(async () => extractorSecond);
 
     vi.doMock("@huggingface/transformers", () => ({ pipeline: pipelineSecond }));
-    vi.doMock("../src/runtime/embedding-ipc-client.js", () => ({
+    vi.doMock("../src/index/embedding-ipc-client.js", () => ({
       tryIpcEmbed: tryIpcEmbedSecond,
       tryIpcEmbedBatch: tryIpcEmbedBatchSecond,
     }));
-    vi.doUnmock("../src/runtime/vault-embeddings.js");
+    vi.doUnmock("../src/index/vault-embeddings.js");
 
-    const batchModule = await import("../src/runtime/vault-embeddings.js");
+    const batchModule = await import("../src/index/vault-embeddings.js");
     batchModule.setEmbeddingIpcRoot(repoRoot);
     expectBatchClose(await batchModule.embedBatch(["one", "two"]), [makeVector(1), makeVector(2)]);
     expect(tryIpcEmbedBatchSecond).toHaveBeenCalledWith(repoRoot, ["one", "two"]);
@@ -388,10 +396,10 @@ describe("embedding IPC behavior", () => {
     const pipeline = vi.fn(async () => extractor);
 
     vi.doMock("@huggingface/transformers", () => ({ pipeline }));
-    vi.doMock("../src/runtime/embedding-ipc-client.js", () => ({ tryIpcEmbed, tryIpcEmbedBatch }));
-    vi.doUnmock("../src/runtime/vault-embeddings.js");
+    vi.doMock("../src/index/embedding-ipc-client.js", () => ({ tryIpcEmbed, tryIpcEmbedBatch }));
+    vi.doUnmock("../src/index/vault-embeddings.js");
 
-    const { embed, embedBatch, setEmbeddingIpcRoot } = await import("../src/runtime/vault-embeddings.js");
+    const { embed, embedBatch, setEmbeddingIpcRoot } = await import("../src/index/vault-embeddings.js");
 
     expectVectorClose(await embed("warmup"), makeVector(1));
     setEmbeddingIpcRoot(repoRoot);

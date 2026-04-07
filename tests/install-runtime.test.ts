@@ -60,6 +60,7 @@ function runInstaller(args: string[]) {
 }
 
 function runPackDryRun() {
+  // eslint-disable-next-line sonarjs/no-os-command-from-path -- test intentionally validates PATH-based npm execution
   const result = spawnSync("npm", ["pack", "--dry-run", "--json"], {
     cwd: repoRoot,
     encoding: "utf8",
@@ -74,7 +75,8 @@ function runPackDryRun() {
     ].filter(Boolean).join("\n\n"));
   }
 
-  const match = result.stdout.match(/(\[\s*\{[\s\S]*\}\s*\])/u);
+  const npmPackJsonPattern = /(\[\s*\{[\s\S]*\}\s*\])/u;
+  const match = npmPackJsonPattern.exec(result.stdout);
   const jsonPayload = match?.[1];
   if (!jsonPayload) {
     throw new Error(`Could not find npm pack JSON output:\n\n${result.stdout}`);
@@ -200,7 +202,7 @@ describe("install-runtime smoke tests", () => {
 
     for (const platform of ["linux", "windows"] as const) {
       const hooks = buildClaudeHooks(platform);
-      expect(Object.keys(hooks).sort()).toEqual([...expectedKeys].sort());
+      expect(Object.keys(hooks).sort((a, b) => a.localeCompare(b))).toEqual([...expectedKeys].sort((a, b) => a.localeCompare(b)));
 
       // Each event key maps to a non-empty array of hook groups
       for (const key of expectedKeys) {

@@ -1,6 +1,7 @@
+import assert from "node:assert";
 import { describe, expect, test } from "vitest";
 
-import { chunkTypeScriptFile } from "../src/runtime/code-chunker.js";
+import { chunkTypeScriptFile } from "../src/index/code-chunker.js";
 
 describe("code-chunker", () => {
   test("function, class, interface, type, enum, and exported vars produce chunks", () => {
@@ -53,8 +54,10 @@ describe("code-chunker", () => {
     const chunks = chunkTypeScriptFile("src/helper.ts", source);
 
     expect(chunks).toHaveLength(1);
-    expect(chunks[0]!.text).toContain("Explains the helper.");
-    expect(chunks[0]!.text.startsWith("/**")).toBe(true);
+    const [chunk0] = chunks;
+    assert(chunk0 !== undefined, "Expected chunk at index 0");
+    expect(chunk0.text).toContain("Explains the helper.");
+    expect(chunk0.text.startsWith("/**")).toBe(true);
   });
 
   test("empty file returns empty array", () => {
@@ -78,9 +81,11 @@ describe("code-chunker", () => {
     const chunks = chunkTypeScriptFile("src/thin.ts", source);
 
     expect(chunks).toHaveLength(2);
-    expect(chunks[1]!.metadata.sectionTitle).toBe("ID");
-    expect(chunks[1]!.text).toContain("export type ID=1;");
-    expect(chunks[1]!.text).toContain("export interface Profile");
+    const [, chunk1] = chunks;
+    assert(chunk1 !== undefined, "Expected chunk at index 1");
+    expect(chunk1.metadata.sectionTitle).toBe("ID");
+    expect(chunk1.text).toContain("export type ID=1;");
+    expect(chunk1.text).toContain("export interface Profile");
   });
 
   test("all chunks are marked as code and ids are deterministic", () => {
@@ -96,7 +101,10 @@ describe("code-chunker", () => {
 
     expect(chunksA.map((chunk) => chunk.metadata.kind)).toEqual(["code", "code"]);
     expect(chunksA.map((chunk) => chunk.id)).toEqual(chunksB.map((chunk) => chunk.id));
-    expect(chunksA[0]!.id).toBe("src/paths.ts#imports");
-    expect(chunksA[1]!.id).toBe("src/paths.ts#buildPath");
+    const [chunkA0, chunkA1] = chunksA;
+    assert(chunkA0 !== undefined, "Expected chunksA at index 0");
+    assert(chunkA1 !== undefined, "Expected chunksA at index 1");
+    expect(chunkA0.id).toBe("src/paths.ts#imports");
+    expect(chunkA1.id).toBe("src/paths.ts#buildPath");
   });
 });

@@ -3,7 +3,7 @@ import {
   parseTurnOutcomeInput,
   type TurnOutcomeTrailerParseResult
 } from "./turn-outcome-trailer.js";
-import { isRecord, isString } from "./utils.js";
+import { isRecord, isString } from "../runtime/utils.js";
 
 interface TurnOutcomeCandidate {
   source: string;
@@ -41,9 +41,9 @@ function collectTurnOutcomeCandidates(value: unknown, collector: CandidateCollec
   collector.seen.add(value);
 
   if (Array.isArray(value)) {
-    value.forEach((entry, index) => {
-      collectTurnOutcomeCandidates(entry, { ...collector, source: `${collector.source}[${index}]` });
-    });
+    for (let index = 0; index < value.length; index++) {
+      collectTurnOutcomeCandidates(value[index], { ...collector, source: `${collector.source}[${index}]` });
+    }
     return;
   }
 

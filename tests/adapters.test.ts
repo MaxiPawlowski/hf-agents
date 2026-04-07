@@ -1,3 +1,4 @@
+import assert from "node:assert";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -315,7 +316,9 @@ describe("adapter integration", () => {
     expect(status).toMatchObject({ enabled: false });
 
     // Idle returns null when no plan binding (no runtime available for hf agent either)
-    await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+    const messageUpdated = hooks["message.updated"];
+    assert(messageUpdated !== undefined, "expected message.updated hook");
+    await messageUpdated(HF_AGENT_MESSAGE);
     const idleResult = await sessionIdle({ sessionID: "session-no-plan" });
     expect(idleResult).toBeNull();
   });
@@ -353,7 +356,9 @@ describe("adapter integration", () => {
       throw new Error("expected session.idle hook");
     }
 
-    await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+    const messageUpdated2 = hooks["message.updated"];
+    assert(messageUpdated2 !== undefined, "expected message.updated hook");
+    await messageUpdated2(HF_AGENT_MESSAGE);
     const decision = await sessionIdle(
       { sessionID: "session-2" }
     );
@@ -391,7 +396,9 @@ describe("adapter integration", () => {
 
     expect(hooks["session.updated"]).toBeUndefined();
 
-    await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+    const messageUpdated3 = hooks["message.updated"];
+    assert(messageUpdated3 !== undefined, "expected message.updated hook");
+    await messageUpdated3(HF_AGENT_MESSAGE);
     await sessionIdle({
       sessionID: "session-3",
       message: [
@@ -461,7 +468,9 @@ describe("adapter integration", () => {
       "- [ ] 1. Start the approved implementation"
     ].join("\n"), "utf8");
 
-    await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+    const messageUpdatedApproval = hooks["message.updated"];
+    assert(messageUpdatedApproval !== undefined, "expected message.updated hook");
+    await messageUpdatedApproval(HF_AGENT_MESSAGE);
     const decision = await sessionIdle({
       sessionID: "approval-gate",
       message: [
@@ -634,7 +643,9 @@ describe("enriched milestone adapter integration", () => {
       throw new Error("expected session.idle hook");
     }
 
-    await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+    const messageUpdatedEnrichedIdle = hooks["message.updated"];
+    assert(messageUpdatedEnrichedIdle !== undefined, "expected message.updated hook");
+    await messageUpdatedEnrichedIdle(HF_AGENT_MESSAGE);
     const decision = await sessionIdle({ sessionID: "enriched-idle" });
 
     expect(decision).toMatchObject({ action: "continue" });
@@ -680,7 +691,9 @@ describe("enriched milestone adapter integration", () => {
       throw new Error("expected session.idle hook");
     }
 
-    await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+    const messageUpdatedEnrichedLoop = hooks["message.updated"];
+    assert(messageUpdatedEnrichedLoop !== undefined, "expected message.updated hook");
+    await messageUpdatedEnrichedLoop(HF_AGENT_MESSAGE);
     const decision = await sessionIdle({ sessionID: "enriched-loop" });
 
     expect(decision).toMatchObject({ action: "continue" });
@@ -702,12 +715,16 @@ describe("ESC-interrupt and agent-gating", () => {
 
     // Activate hf agent, then simulate ESC abort.
     // message.updated uses context.session.id as fallback when info has no sessionID.
-    await hooks["message.updated"]!(HF_AGENT_MESSAGE);
-    await hooks["message.updated"]!({
+    const messageUpdatedInterrupt = hooks["message.updated"];
+    assert(messageUpdatedInterrupt !== undefined, "expected message.updated hook");
+    await messageUpdatedInterrupt(HF_AGENT_MESSAGE);
+    await messageUpdatedInterrupt({
       info: { role: "assistant", agent: "hf-builder", error: { name: "MessageAbortedError", data: { message: "User interrupted generation" } } }
     });
 
-    const result = await hooks["session.idle"]!({ sessionID: "interrupt-test" });
+    const sessionIdle = hooks["session.idle"];
+    assert(sessionIdle !== undefined, "expected session.idle hook");
+    const result = await sessionIdle({ sessionID: "interrupt-test" });
     expect(result).toMatchObject({
       action: "allow_stop",
       reason: expect.stringContaining("interrupted")
@@ -717,27 +734,31 @@ describe("ESC-interrupt and agent-gating", () => {
   test("interrupted flag is consumed — second session.idle returns null (no plan binding)", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "hf-interrupt-consumed-"));
     await createPlan(root);
-    const prompts: string[] = [];
     const { hooks } = createHybridRuntimeHooks({
       cwd: root,
       session: { id: "consume-test" },
       client: {
-        prompt: async (message) => { prompts.push(message); return null; }
+        prompt: async () => null
       }
     });
 
     // Activate hf agent, trigger interrupt
-    await hooks["message.updated"]!(HF_AGENT_MESSAGE);
-    await hooks["message.updated"]!({
+    const messageUpdatedConsume = hooks["message.updated"];
+    assert(messageUpdatedConsume !== undefined, "expected message.updated hook");
+    await messageUpdatedConsume(HF_AGENT_MESSAGE);
+    await messageUpdatedConsume({
       info: { role: "assistant", agent: "hf-builder", error: { name: "MessageAbortedError", data: { message: "User interrupted generation" } } }
     });
 
+    const sessionIdleConsume = hooks["session.idle"];
+    assert(sessionIdleConsume !== undefined, "expected session.idle hook");
+
     // First idle consumes the interrupt
-    const first = await hooks["session.idle"]!({ sessionID: "consume-test" });
+    const first = await sessionIdleConsume({ sessionID: "consume-test" });
     expect(first).toMatchObject({ action: "allow_stop" });
 
     // Second idle: interrupted is false, activeAgentIsHf is true, but no plan binding → null
-    const second = await hooks["session.idle"]!({ sessionID: "consume-test" });
+    const second = await sessionIdleConsume({ sessionID: "consume-test" });
     expect(second).toBeNull();
   });
 
@@ -747,7 +768,9 @@ describe("ESC-interrupt and agent-gating", () => {
     const { hooks } = createHybridRuntimeHooks({ cwd: root, session: { id: "no-agent-test" } });
 
     // No message.updated call — activeAgentIsHf defaults to false
-    const result = await hooks["session.idle"]!({ sessionID: "no-agent-test" });
+    const sessionIdleNoAgent = hooks["session.idle"];
+    assert(sessionIdleNoAgent !== undefined, "expected session.idle hook");
+    const result = await sessionIdleNoAgent({ sessionID: "no-agent-test" });
     expect(result).toBeNull();
   });
 
@@ -757,9 +780,13 @@ describe("ESC-interrupt and agent-gating", () => {
     const { hooks } = createHybridRuntimeHooks({ cwd: root, session: { id: "non-hf-test" } });
 
     // Set a non-hf agent
-    await hooks["message.updated"]!({ info: { role: "assistant", agent: "some-other-agent" } });
+    const messageUpdatedNonHf = hooks["message.updated"];
+    assert(messageUpdatedNonHf !== undefined, "expected message.updated hook");
+    await messageUpdatedNonHf({ info: { role: "assistant", agent: "some-other-agent" } });
 
-    const result = await hooks["session.idle"]!({ sessionID: "non-hf-test" });
+    const sessionIdleNonHf = hooks["session.idle"];
+    assert(sessionIdleNonHf !== undefined, "expected session.idle hook");
+    const result = await sessionIdleNonHf({ sessionID: "non-hf-test" });
     expect(result).toBeNull();
   });
 
@@ -768,14 +795,18 @@ describe("ESC-interrupt and agent-gating", () => {
     const { hooks } = createHybridRuntimeHooks({ cwd: root, session: { id: "universal-guard" } });
 
     // No message.updated — activeAgentIsHf is false
+    const preToolUseGuard = hooks["tool.execute.before"];
+    assert(preToolUseGuard !== undefined, "expected tool.execute.before hook");
     await expect(
-      hooks["tool.execute.before"]!({ command: "rm -rf /" })
+      preToolUseGuard({ command: "rm -rf /" })
     ).rejects.toThrow("Hybrid runtime guardrail blocked a destructive command.");
 
     // Set non-hf agent explicitly
-    await hooks["message.updated"]!({ info: { role: "assistant", agent: "some-other-agent" } });
+    const messageUpdatedGuard = hooks["message.updated"];
+    assert(messageUpdatedGuard !== undefined, "expected message.updated hook");
+    await messageUpdatedGuard({ info: { role: "assistant", agent: "some-other-agent" } });
     await expect(
-      hooks["tool.execute.before"]!({ command: "git reset --hard HEAD~1" })
+      preToolUseGuard({ command: "git reset --hard HEAD~1" })
     ).rejects.toThrow("Hybrid runtime guardrail blocked a destructive command.");
   });
 
@@ -787,7 +818,9 @@ describe("ESC-interrupt and agent-gating", () => {
     planBindings.set("created-test", planPath);
 
     // No message.updated — activeAgentIsHf is false, but session.created is not gated
-    const result = await hooks["session.created"]!({ sessionID: "created-test" }) as { additionalContext?: string };
+    const sessionCreatedHook = hooks["session.created"];
+    assert(sessionCreatedHook !== undefined, "expected session.created hook");
+    const result = await sessionCreatedHook({ sessionID: "created-test" }) as { additionalContext?: string };
     expect(result).toBeDefined();
     // session.created should still return additionalContext (resume prompt)
     expect(result.additionalContext).toBeDefined();
@@ -807,16 +840,22 @@ describe("ESC-interrupt and agent-gating", () => {
     planBindings.set("session-B", planPath2);
 
     // Trigger runtime hydration for both sessions
-    await hooks["session.created"]!({ sessionID: "session-A" });
-    await hooks["session.created"]!({ sessionID: "session-B" });
+    const sessionCreatedConcurrent = hooks["session.created"];
+    assert(sessionCreatedConcurrent !== undefined, "expected session.created hook");
+    await sessionCreatedConcurrent({ sessionID: "session-A" });
+    await sessionCreatedConcurrent({ sessionID: "session-B" });
 
     // Each session should have its own runtime promise
     expect(sessionRuntimes.has("session-A")).toBe(true);
     expect(sessionRuntimes.has("session-B")).toBe(true);
     expect(sessionRuntimes.get("session-A")).not.toBe(sessionRuntimes.get("session-B"));
 
-    const runtimeA = await sessionRuntimes.get("session-A")!;
-    const runtimeB = await sessionRuntimes.get("session-B")!;
+    const runtimeAPromise = sessionRuntimes.get("session-A");
+    const runtimeBPromise = sessionRuntimes.get("session-B");
+    assert(runtimeAPromise !== undefined, "expected session-A runtime promise");
+    assert(runtimeBPromise !== undefined, "expected session-B runtime promise");
+    const runtimeA = await runtimeAPromise;
+    const runtimeB = await runtimeBPromise;
     expect(runtimeA).not.toBeNull();
     expect(runtimeB).not.toBeNull();
     expect(runtimeA).not.toBe(runtimeB);
@@ -828,17 +867,22 @@ describe("ESC-interrupt and agent-gating", () => {
     const { hooks } = createHybridRuntimeHooks({ cwd: root, session: { id: "session-flags-default" } });
 
     // Activate hf agent and interrupt for context.session.id (default fallback)
-    await hooks["message.updated"]!(HF_AGENT_MESSAGE);
-    await hooks["message.updated"]!({
+    const messageUpdatedFlags = hooks["message.updated"];
+    assert(messageUpdatedFlags !== undefined, "expected message.updated hook");
+    await messageUpdatedFlags(HF_AGENT_MESSAGE);
+    await messageUpdatedFlags({
       info: { role: "assistant", agent: "hf-builder", error: { name: "MessageAbortedError" } }
     });
 
+    const sessionIdleFlags = hooks["session.idle"];
+    assert(sessionIdleFlags !== undefined, "expected session.idle hook");
+
     // session-flags-default: interrupted = true, activeAgentIsHf = true
-    const resultDefault = await hooks["session.idle"]!({ sessionID: "session-flags-default" });
+    const resultDefault = await sessionIdleFlags({ sessionID: "session-flags-default" });
     expect(resultDefault).toMatchObject({ action: "allow_stop", reason: expect.stringContaining("interrupted") });
 
     // session-other: has its own independent flags (defaults to false/false)
-    const resultOther = await hooks["session.idle"]!({ sessionID: "session-other" });
+    const resultOther = await sessionIdleFlags({ sessionID: "session-other" });
     // non-hf agent (default), not interrupted
     expect(resultOther).toBeNull();
   });
@@ -852,9 +896,15 @@ describe("ESC-interrupt and agent-gating", () => {
     expect(runtime).toBeNull();
 
     // Hooks no-op gracefully
-    await expect(hooks["session.created"]!({ sessionID: "unbound" })).resolves.toMatchObject({});
-    await hooks["message.updated"]!(HF_AGENT_MESSAGE);
-    await expect(hooks["session.idle"]!({ sessionID: "unbound" })).resolves.toBeNull();
+    const sessionCreatedUnbound = hooks["session.created"];
+    assert(sessionCreatedUnbound !== undefined, "expected session.created hook");
+    const messageUpdatedUnbound = hooks["message.updated"];
+    assert(messageUpdatedUnbound !== undefined, "expected message.updated hook");
+    const sessionIdleUnbound = hooks["session.idle"];
+    assert(sessionIdleUnbound !== undefined, "expected session.idle hook");
+    await expect(sessionCreatedUnbound({ sessionID: "unbound" })).resolves.toMatchObject({});
+    await messageUpdatedUnbound(HF_AGENT_MESSAGE);
+    await expect(sessionIdleUnbound({ sessionID: "unbound" })).resolves.toBeNull();
   });
 });
 
@@ -863,11 +913,6 @@ describe("protected config guardrail", () => {
     expect(isProtectedConfigEdit(".oxlintrc.json")).toBe(true);
     expect(isProtectedConfigEdit("/repo/.oxlintrc.json")).toBe(true);
     expect(isProtectedConfigEdit("C:\\repo\\.oxlintrc.json")).toBe(true);
-  });
-
-  test("isProtectedConfigEdit blocks writes to sonar-project.properties", () => {
-    expect(isProtectedConfigEdit("sonar-project.properties")).toBe(true);
-    expect(isProtectedConfigEdit("/repo/sonar-project.properties")).toBe(true);
   });
 
   test("isProtectedConfigEdit blocks writes to .husky/pre-commit", () => {
@@ -887,7 +932,6 @@ describe("protected config guardrail", () => {
     try {
       process.env["HF_ALLOW_CONFIG_EDIT"] = "1";
       expect(isProtectedConfigEdit(".oxlintrc.json")).toBe(false);
-      expect(isProtectedConfigEdit("sonar-project.properties")).toBe(false);
       expect(isProtectedConfigEdit(".husky/pre-commit")).toBe(false);
     } finally {
       if (original === undefined) {
@@ -913,20 +957,6 @@ describe("protected config guardrail", () => {
     const reason = String((response.hookSpecificOutput as { permissionDecisionReason?: string }).permissionDecisionReason ?? "");
     expect(reason).toContain("protected config file");
     expect(reason).toContain("HF_ALLOW_CONFIG_EDIT=1");
-  });
-
-  test("Claude PreToolUse blocks Edit tool targeting sonar-project.properties", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "hf-config-guard-"));
-    await createPlan(root);
-
-    const response = await handleClaudeHook("PreToolUse", {
-      tool_name: "Edit",
-      tool_input: { file_path: "sonar-project.properties" }
-    }, { cwd: root });
-
-    expect(response.hookSpecificOutput).toMatchObject({
-      permissionDecision: "deny"
-    });
   });
 
   test("Claude PreToolUse allows Write tool targeting normal source files", async () => {
@@ -966,18 +996,10 @@ describe("protected config guardrail", () => {
     await createPlan(root);
     const { hooks } = createHybridRuntimeHooks({ cwd: root, session: { id: "guard-oc" } });
 
+    const preToolUseOc = hooks["tool.execute.before"];
+    assert(preToolUseOc !== undefined, "expected tool.execute.before hook");
     await expect(
-      hooks["tool.execute.before"]!({ file_path: ".husky/pre-commit" })
-    ).rejects.toThrow("Hybrid runtime guardrail blocked an edit to protected config file");
-  });
-
-  test("OpenCode tool.execute.before blocks edit via filePath field", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "hf-config-guard-oc2-"));
-    await createPlan(root);
-    const { hooks } = createHybridRuntimeHooks({ cwd: root, session: { id: "guard-oc2" } });
-
-    await expect(
-      hooks["tool.execute.before"]!({ tool_input: { filePath: "sonar-project.properties" } })
+      preToolUseOc({ file_path: ".husky/pre-commit" })
     ).rejects.toThrow("Hybrid runtime guardrail blocked an edit to protected config file");
   });
 
@@ -986,8 +1008,10 @@ describe("protected config guardrail", () => {
     await createPlan(root);
     const { hooks } = createHybridRuntimeHooks({ cwd: root, session: { id: "guard-allow" } });
 
+    const preToolUseAllow = hooks["tool.execute.before"];
+    assert(preToolUseAllow !== undefined, "expected tool.execute.before hook");
     await expect(
-      hooks["tool.execute.before"]!({ file_path: "src/foo.ts" })
+      preToolUseAllow({ file_path: "src/foo.ts" })
     ).resolves.toBeNull();
   });
 
@@ -998,8 +1022,10 @@ describe("protected config guardrail", () => {
     const original = process.env["HF_ALLOW_CONFIG_EDIT"];
     try {
       process.env["HF_ALLOW_CONFIG_EDIT"] = "1";
+      const preToolUseBypass = hooks["tool.execute.before"];
+      assert(preToolUseBypass !== undefined, "expected tool.execute.before hook");
       await expect(
-        hooks["tool.execute.before"]!({ file_path: ".oxlintrc.json" })
+        preToolUseBypass({ file_path: ".oxlintrc.json" })
       ).resolves.toBeNull();
     } finally {
       if (original === undefined) {

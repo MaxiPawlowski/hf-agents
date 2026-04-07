@@ -2,7 +2,7 @@
 import readline from "node:readline";
 
 import { HybridLoopRuntime } from "../runtime/runtime.js";
-import { formatToolSearchResults } from "../runtime/prompt.js";
+import { formatToolSearchResults } from "../prompt/prompt.js";
 import { resolveLastActivePlanPath } from "../runtime/persistence.js";
 import { isNumber, isString } from "../runtime/utils.js";
 
@@ -36,28 +36,30 @@ const HF_SEARCH_TOOL = {
   }
 };
 
+type JsonRpcId = number | string | null;
+
 interface JsonRpcRequest {
   jsonrpc: "2.0";
-  id: number | string | null;
+  id: JsonRpcId;
   method: string;
   params?: Record<string, unknown>;
 }
 
 interface JsonRpcResponse {
   jsonrpc: "2.0";
-  id: number | string | null;
+  id: JsonRpcId;
   result?: unknown;
   error?: { code: number; message: string };
 }
 
-function respond(id: number | string | null, result: unknown): void {
+function respond(id: JsonRpcId, result: unknown): void {
   const response: JsonRpcResponse = { jsonrpc: "2.0", id, result };
-  process.stdout.write(JSON.stringify(response) + "\n");
+  process.stdout.write(`${JSON.stringify(response)  }\n`);
 }
 
-function respondError(id: number | string | null, code: number, message: string): void {
+function respondError(id: JsonRpcId, code: number, message: string): void {
   const response: JsonRpcResponse = { jsonrpc: "2.0", id, error: { code, message } };
-  process.stdout.write(JSON.stringify(response) + "\n");
+  process.stdout.write(`${JSON.stringify(response)  }\n`);
 }
 
 // ---------------------------------------------------------------------------
@@ -153,7 +155,7 @@ function handleLine(line: string, getRuntime: () => Promise<HybridLoopRuntime>):
   }
 
   const id = req.id ?? null;
-  const method = req.method;
+  const {method} = req;
 
   if (method === "initialize") {
     respond(id, {

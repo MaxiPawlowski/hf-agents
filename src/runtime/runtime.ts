@@ -13,8 +13,8 @@ async function reParsePlanIfChanged(current: ParsedPlan): Promise<ParsedPlan> {
   return parsePlan(current.path);
 }
 import { appendEvent, ensureRuntimeDir, ensurePlanlessRuntimeDir, getPlanlessVaultPaths, getRepoRoot, getVaultPaths, loadIndexConfig, readStatus, readVaultContext, writeResumePrompt, writeStatus } from "./persistence.js";
-import { buildPlanlessResumePrompt, buildResumePrompt } from "./prompt.js";
-import { warmupEmbeddingModel } from "./vault-embeddings.js";
+import { buildPlanlessResumePrompt, buildResumePrompt } from "../prompt/prompt.js";
+import { warmupEmbeddingModel } from "../index/vault-embeddings.js";
 import { hfLog, hfLogTimed } from "./logger.js";
 import {
   REPEATED_BLOCKER_THRESHOLD,
@@ -37,7 +37,7 @@ import {
   type QueryIndexOpts,
   queryIndexItems,
   refreshVaultIndex,
-} from "./runtime-vault.js";
+} from "../prompt/runtime-vault.js";
 import {
   applyLoopState,
   applyOutcomePhase,
@@ -56,6 +56,29 @@ const DEFAULT_PLANLESS_MAX_TURNS = 50;
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function applyEventToStatus(status: RuntimeStatus, event: RuntimeEvent): boolean {
+  if (event.sessionId) {
+    status.sessions[event.vendor] = { id: event.sessionId, updatedAt: event.timestamp };
+  }
+  const recoveryTrigger = detectRecoveryTrigger(event);
+  if (recoveryTrigger) {
+    const sourceTrigger = status.recovery?.trigger === "resume"
+      ? status.recovery.sourceTrigger
+      : status.recovery?.trigger;
+    status.recovery = {
+      trigger: recoveryTrigger,
+      ...(recoveryTrigger === "resume" && sourceTrigger ? { sourceTrigger } : {}),
+      vendor: event.vendor,
+      eventType: event.type,
+      ...(event.sessionId ? { sessionId: event.sessionId } : {}),
+      pendingOutcome: status.recovery?.pendingOutcome ?? false,
+      at: event.timestamp
+    };
+    return true;
+  }
+  return false;
 }
 
 function defaultStatus(plan: ParsedPlan): RuntimeStatus {
@@ -119,10 +142,10 @@ export class HybridLoopRuntime implements LoopRuntime {
     this.unifiedIndex = snapshot.unifiedIndex;
     this.vaultSearchResults = snapshot.vaultSearchResults;
     if (this.status) {
-      if (snapshot.lastIndexError !== undefined) {
-        this.status.lastIndexError = snapshot.lastIndexError;
-      } else {
+      if (snapshot.lastIndexError === undefined) {
         delete this.status.lastIndexError;
+      } else {
+        this.status.lastIndexError = snapshot.lastIndexError;
       }
     }
   }
@@ -162,7 +185,7 @@ export class HybridLoopRuntime implements LoopRuntime {
         totalAttempts: baseStatus.counters.totalAttempts,
         maxTotalTurns: plan.config.maxTotalTurns
       },
-      subagents: baseStatus.subagents ?? [],
+      subagents: baseStatus.subagents,
       awaitingBuilderApproval: plan.approved ? baseStatus.awaitingBuilderApproval ?? false : false,
       autoContinue: plan.config.autoContinue,
       updatedAt: nowIso()
@@ -233,36 +256,15 @@ export class HybridLoopRuntime implements LoopRuntime {
     const runtimePaths = this.planlessCwd
       ? await ensurePlanlessRuntimeDir(this.planlessCwd)
       : await ensureRuntimeDir(this.requirePlan());
-    const recoveryTrigger = detectRecoveryTrigger(event);
 
-    if (event.sessionId) {
-      status.sessions[event.vendor] = { id: event.sessionId, updatedAt: event.timestamp };
-    }
-    if (recoveryTrigger) {
-      const sourceTrigger = status.recovery?.trigger === "resume"
-        ? status.recovery.sourceTrigger
-        : status.recovery?.trigger;
-      status.recovery = {
-        trigger: recoveryTrigger,
-        ...(recoveryTrigger === "resume" && sourceTrigger
-          ? { sourceTrigger }
-          : {}),
-        vendor: event.vendor,
-        eventType: event.type,
-        ...(event.sessionId ? { sessionId: event.sessionId } : {}),
-        pendingOutcome: status.recovery?.pendingOutcome ?? false,
-        at: event.timestamp
-      };
-      this.promptDirty = true;
-    }
-    if (status.awaitingBuilderApproval && isExplicitBuilderApprovalEvent(event.type)) {
+    const recoveryTriggered = applyEventToStatus(status, event);
+    if (recoveryTriggered) this.promptDirty = true;
+    if (status.loopState === "idle") status.loopState = "running";
+    status.updatedAt = nowIso();
+    if (isExplicitBuilderApprovalEvent(event.type) && status.awaitingBuilderApproval) {
       status.awaitingBuilderApproval = false;
       status.lastOutcome = null;
       this.promptDirty = true;
-    }
-    status.updatedAt = nowIso();
-    if (status.loopState === "idle") {
-      status.loopState = "running";
     }
 
     await appendEvent(runtimePaths, event);
@@ -330,9 +332,16 @@ export class HybridLoopRuntime implements LoopRuntime {
     this.resetVaultState();
     this.promptDirty = true;
 
+    const previousPhase = status.phase;
     status.planMtimeMs = plan.mtimeMs;
     status.phase = plan.approved ? "execution" : "planning";
     status.currentMilestone = plan.currentMilestone;
+    // Defensive: detect planning→execution transition even without a TurnOutcome.
+    // Mirrors the check in applyOutcomePhase() so the awaitingBuilderApproval gate
+    // fires correctly when the planner stops without emitting a trailer.
+    if (previousPhase === "planning" && plan.approved && !plan.completed) {
+      status.awaitingBuilderApproval = true;
+    }
     status.counters.totalAttempts += 1;
     status.counters.turnsSinceLastOutcome += 1;
     if (status.recovery) {
@@ -504,8 +513,8 @@ export class HybridLoopRuntime implements LoopRuntime {
 
     const opts: QueryIndexOpts = {
       query,
-      ...(topK !== undefined ? { topK } : {}),
-      ...(sourceFilter !== undefined ? { sourceFilter } : {}),
+      ...(topK === undefined ? {} : { topK }),
+      ...(sourceFilter === undefined ? {} : { sourceFilter }),
     };
     return queryIndexItems({ unifiedIndex: this.unifiedIndex, indexConfig: this.indexConfig }, opts);
   }

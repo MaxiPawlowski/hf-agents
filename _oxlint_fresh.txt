@@ -1,0 +1,2469 @@
+﻿
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-embeddings.test.ts:11:12]
+ 10 |   for (let i = 0; i < a.length; i++) {
+ 11 |     dot += a[i]! * b[i]!;
+    :            ^^^^^
+ 12 |     normA += a[i]! * a[i]!;
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-embeddings.test.ts:11:20]
+ 10 |   for (let i = 0; i < a.length; i++) {
+ 11 |     dot += a[i]! * b[i]!;
+    :                    ^^^^^
+ 12 |     normA += a[i]! * a[i]!;
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-embeddings.test.ts:12:14]
+ 11 |     dot += a[i]! * b[i]!;
+ 12 |     normA += a[i]! * a[i]!;
+    :              ^^^^^
+ 13 |     normB += b[i]! * b[i]!;
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-embeddings.test.ts:12:22]
+ 11 |     dot += a[i]! * b[i]!;
+ 12 |     normA += a[i]! * a[i]!;
+    :                      ^^^^^
+ 13 |     normB += b[i]! * b[i]!;
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-embeddings.test.ts:13:14]
+ 12 |     normA += a[i]! * a[i]!;
+ 13 |     normB += b[i]! * b[i]!;
+    :              ^^^^^
+ 14 |   }
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-embeddings.test.ts:13:22]
+ 12 |     normA += a[i]! * a[i]!;
+ 13 |     normB += b[i]! * b[i]!;
+    :                      ^^^^^
+ 14 |   }
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-embeddings.test.ts:89:26]
+ 88 |     for (let i = 0; i < texts.length; i++) {
+ 89 |       const sim = cosine(batchResults[i]!, individual[i]!);
+    :                          ^^^^^^^^^^^^^^^^
+ 90 |       expect(sim).toBeGreaterThan(0.99);
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-embeddings.test.ts:89:44]
+ 88 |     for (let i = 0; i < texts.length; i++) {
+ 89 |       const sim = cosine(batchResults[i]!, individual[i]!);
+    :                                            ^^^^^^^^^^^^^^
+ 90 |       expect(sim).toBeGreaterThan(0.99);
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/code-chunker.test.ts:56:12]
+ 55 |     expect(chunks).toHaveLength(1);
+ 56 |     expect(chunks[0]!.text).toContain("Explains the helper.");
+    :            ^^^^^^^^^^
+ 57 |     expect(chunks[0]!.text.startsWith("/**")).toBe(true);
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/code-chunker.test.ts:57:12]
+ 56 |     expect(chunks[0]!.text).toContain("Explains the helper.");
+ 57 |     expect(chunks[0]!.text.startsWith("/**")).toBe(true);
+    :            ^^^^^^^^^^
+ 58 |   });
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/code-chunker.test.ts:81:12]
+ 80 |     expect(chunks).toHaveLength(2);
+ 81 |     expect(chunks[1]!.metadata.sectionTitle).toBe("ID");
+    :            ^^^^^^^^^^
+ 82 |     expect(chunks[1]!.text).toContain("export type ID=1;");
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/code-chunker.test.ts:82:12]
+ 81 |     expect(chunks[1]!.metadata.sectionTitle).toBe("ID");
+ 82 |     expect(chunks[1]!.text).toContain("export type ID=1;");
+    :            ^^^^^^^^^^
+ 83 |     expect(chunks[1]!.text).toContain("export interface Profile");
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/code-chunker.test.ts:83:12]
+ 82 |     expect(chunks[1]!.text).toContain("export type ID=1;");
+ 83 |     expect(chunks[1]!.text).toContain("export interface Profile");
+    :            ^^^^^^^^^^
+ 84 |   });
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/code-chunker.test.ts:99:12]
+  98 |     expect(chunksA.map((chunk) => chunk.id)).toEqual(chunksB.map((chunk) => chunk.id));
+  99 |     expect(chunksA[0]!.id).toBe("src/paths.ts#imports");
+     :            ^^^^^^^^^^^
+ 100 |     expect(chunksA[1]!.id).toBe("src/paths.ts#buildPath");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/code-chunker.test.ts:100:12]
+  99 |     expect(chunksA[0]!.id).toBe("src/paths.ts#imports");
+ 100 |     expect(chunksA[1]!.id).toBe("src/paths.ts#buildPath");
+     :            ^^^^^^^^^^^
+ 101 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-chunker.test.ts:32:12]
+ 31 |     expect(chunks.length).toBe(3);
+ 32 |     expect(chunks[0]!.metadata.sectionTitle).toBe("Context");
+    :            ^^^^^^^^^^
+ 33 |     expect(chunks[1]!.metadata.sectionTitle).toBe("Decisions");
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-chunker.test.ts:33:12]
+ 32 |     expect(chunks[0]!.metadata.sectionTitle).toBe("Context");
+ 33 |     expect(chunks[1]!.metadata.sectionTitle).toBe("Decisions");
+    :            ^^^^^^^^^^
+ 34 |     expect(chunks[2]!.metadata.sectionTitle).toBe("References");
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-chunker.test.ts:34:12]
+ 33 |     expect(chunks[1]!.metadata.sectionTitle).toBe("Decisions");
+ 34 |     expect(chunks[2]!.metadata.sectionTitle).toBe("References");
+    :            ^^^^^^^^^^
+ 35 | 
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-chunker.test.ts:37:12]
+ 36 |     // Each chunk starts with its header
+ 37 |     expect(chunks[0]!.text).toContain("## Context");
+    :            ^^^^^^^^^^
+ 38 |     expect(chunks[1]!.text).toContain("## Decisions");
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-chunker.test.ts:38:12]
+ 37 |     expect(chunks[0]!.text).toContain("## Context");
+ 38 |     expect(chunks[1]!.text).toContain("## Decisions");
+    :            ^^^^^^^^^^
+ 39 |     expect(chunks[2]!.text).toContain("## References");
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-chunker.test.ts:39:12]
+ 38 |     expect(chunks[1]!.text).toContain("## Decisions");
+ 39 |     expect(chunks[2]!.text).toContain("## References");
+    :            ^^^^^^^^^^
+ 40 | 
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-chunker.test.ts:42:12]
+ 41 |     // Body text is included
+ 42 |     expect(chunks[0]!.text).toContain("Brief context about the plan");
+    :            ^^^^^^^^^^
+ 43 |     expect(chunks[1]!.text).toContain("We decided to use TypeScript");
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-chunker.test.ts:43:12]
+ 42 |     expect(chunks[0]!.text).toContain("Brief context about the plan");
+ 43 |     expect(chunks[1]!.text).toContain("We decided to use TypeScript");
+    :            ^^^^^^^^^^
+ 44 |   });
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-chunker.test.ts:61:12]
+ 60 |     expect(chunks).toHaveLength(1);
+ 61 |     expect(chunks[0]!.text).toBe(content);
+    :            ^^^^^^^^^^
+ 62 |     // falls back to doc title
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-chunker.test.ts:63:12]
+ 62 |     // falls back to doc title
+ 63 |     expect(chunks[0]!.metadata.sectionTitle).toBe("Test Notes");
+    :            ^^^^^^^^^^
+ 64 |   });
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-chunker.test.ts:81:12]
+ 80 |     expect(chunks.length).toBe(3);
+ 81 |     expect(chunks[0]!.metadata.sectionTitle).toBe("Decisions");
+    :            ^^^^^^^^^^
+ 82 |     expect(chunks[1]!.metadata.sectionTitle).toBe("Decision 1: Use TypeScript");
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-chunker.test.ts:82:12]
+ 81 |     expect(chunks[0]!.metadata.sectionTitle).toBe("Decisions");
+ 82 |     expect(chunks[1]!.metadata.sectionTitle).toBe("Decision 1: Use TypeScript");
+    :            ^^^^^^^^^^
+ 83 |     expect(chunks[2]!.metadata.sectionTitle).toBe("Decision 2: Use Vitest");
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/vault-chunker.test.ts:83:12]
+ 82 |     expect(chunks[1]!.metadata.sectionTitle).toBe("Decision 1: Use TypeScript");
+ 83 |     expect(chunks[2]!.metadata.sectionTitle).toBe("Decision 2: Use Vitest");
+    :            ^^^^^^^^^^
+ 84 |   });
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/vault-chunker.test.ts:103:12]
+ 102 |     expect(chunks.length).toBe(2);
+ 103 |     expect(chunks[0]!.metadata.sectionTitle).toBe("Overview");
+     :            ^^^^^^^^^^
+ 104 | 
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/vault-chunker.test.ts:106:12]
+ 105 |     // Merged chunk uses the short section's header but includes both bodies
+ 106 |     expect(chunks[1]!.text).toContain("Tiny.");
+     :            ^^^^^^^^^^
+ 107 |     expect(chunks[1]!.text).toContain("## Details");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/vault-chunker.test.ts:107:12]
+ 106 |     expect(chunks[1]!.text).toContain("Tiny.");
+ 107 |     expect(chunks[1]!.text).toContain("## Details");
+     :            ^^^^^^^^^^
+ 108 |     expect(chunks[1]!.text).toContain("plenty of detail");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/vault-chunker.test.ts:108:12]
+ 107 |     expect(chunks[1]!.text).toContain("## Details");
+ 108 |     expect(chunks[1]!.text).toContain("plenty of detail");
+     :            ^^^^^^^^^^
+ 109 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/vault-chunker.test.ts:124:12]
+ 123 |     expect(chunks.length).toBe(1);
+ 124 |     expect(chunks[0]!.text).toContain("## Main");
+     :            ^^^^^^^^^^
+ 125 |     expect(chunks[0]!.text).toContain("Fin.");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/vault-chunker.test.ts:125:12]
+ 124 |     expect(chunks[0]!.text).toContain("## Main");
+ 125 |     expect(chunks[0]!.text).toContain("Fin.");
+     :            ^^^^^^^^^^
+ 126 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/vault-chunker.test.ts:135:12]
+ 134 | 
+ 135 |     expect(chunks1[0]!.id).toBe(chunks2[0]!.id);
+     :            ^^^^^^^^^^^
+ 136 |     expect(chunks1[0]!.id).toBe("vault/plans/my-plan/notes.md#Context");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/vault-chunker.test.ts:135:33]
+ 134 | 
+ 135 |     expect(chunks1[0]!.id).toBe(chunks2[0]!.id);
+     :                                 ^^^^^^^^^^^
+ 136 |     expect(chunks1[0]!.id).toBe("vault/plans/my-plan/notes.md#Context");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/vault-chunker.test.ts:136:12]
+ 135 |     expect(chunks1[0]!.id).toBe(chunks2[0]!.id);
+ 136 |     expect(chunks1[0]!.id).toBe("vault/plans/my-plan/notes.md#Context");
+     :            ^^^^^^^^^^^
+ 137 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/vault-chunker.test.ts:146:19]
+ 145 |     expect(chunks).toHaveLength(1);
+ 146 |     const chunk = chunks[0]!;
+     :                   ^^^^^^^^^^
+ 147 |     expect(chunk.metadata.sourcePath).toBe("vault/shared/conventions.md");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/vault-chunker.test.ts:157:12]
+ 156 |     const chunks = chunkVaultDocument(d);
+ 157 |     expect(chunks[0]!.id).toBe("vault/plans/test/notes.md#Test");
+     :            ^^^^^^^^^^
+ 158 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/vault-chunker.test.ts:173:12]
+ 172 |     // Preamble chunk uses document title as section title
+ 173 |     expect(chunks[0]!.metadata.sectionTitle).toBe("Test Notes");
+     :            ^^^^^^^^^^
+ 174 |     expect(chunks[0]!.text).toContain("preamble text");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/vault-chunker.test.ts:174:12]
+ 173 |     expect(chunks[0]!.metadata.sectionTitle).toBe("Test Notes");
+ 174 |     expect(chunks[0]!.text).toContain("preamble text");
+     :            ^^^^^^^^^^
+ 175 |     expect(chunks[1]!.metadata.sectionTitle).toBe("First Section");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/vault-chunker.test.ts:175:12]
+ 174 |     expect(chunks[0]!.text).toContain("preamble text");
+ 175 |     expect(chunks[1]!.metadata.sectionTitle).toBe("First Section");
+     :            ^^^^^^^^^^
+ 176 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/vault-chunker.test.ts:191:12]
+ 190 | 
+ 191 |     expect(chunks[0]!.text).toContain("**bold**");
+     :            ^^^^^^^^^^
+ 192 |     expect(chunks[0]!.text).toContain("```ts");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/vault-chunker.test.ts:192:12]
+ 191 |     expect(chunks[0]!.text).toContain("**bold**");
+ 192 |     expect(chunks[0]!.text).toContain("```ts");
+     :            ^^^^^^^^^^
+ 193 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! eslint-plugin-promise(catch-or-return): eslint-plugin-promise(catch-or-return): Expected catch or return
+    ,-[src/runtime/utils.ts:21:7]
+ 20 |         timer = setTimeout(() => {
+ 21 | ,->       Promise.resolve()
+ 22 | |           .then(onDeadline)
+ 23 | `->         .then(resolve, reject);
+ 24 |         }, ms);
+    `----
+  help: Return the promise or chain a catch()
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/e2e/runtime-opencode-e2e.test.ts:50:26]
+ 49 | 
+ 50 |     const result = await hooks["session.created"]!({ sessionID: SESSION_ID });
+    :                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 51 | 
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/e2e/runtime-opencode-e2e.test.ts:71:7]
+ 70 |     await expect(
+ 71 |       hooks["tool.execute.before"]!({ command: "rm -rf /" })
+    :       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 72 |     ).rejects.toThrow("guardrail blocked a destructive command");
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/e2e/runtime-opencode-e2e.test.ts:83:11]
+ 82 |     // context.session.id is used as the fallback sessionId since info has no sessionID.
+ 83 |     await hooks["message.updated"]!({
+    :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 84 |       info: {
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/e2e/runtime-opencode-e2e.test.ts:92:31]
+ 91 |     // The interrupt flag is now set. session.idle should return allow_stop immediately.
+ 92 |     const firstResult = await hooks["session.idle"]!({ sessionID: SESSION_ID });
+    :                               ^^^^^^^^^^^^^^^^^^^^^^
+ 93 |     expect(firstResult).toBeDefined();
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/e2e/runtime-opencode-e2e.test.ts:101:11]
+ 100 |     // Re-set the hf-agent flag so the agent gate doesn't swallow the second call.
+ 101 |     await hooks["message.updated"]!({
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 102 |       info: { role: "assistant", agent: "hf-builder" }
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/e2e/runtime-opencode-e2e.test.ts:107:32]
+ 106 |     // With no plan binding, the runtime is null 竊・session.idle returns null.
+ 107 |     const secondResult = await hooks["session.idle"]!({ sessionID: SESSION_ID });
+     :                                ^^^^^^^^^^^^^^^^^^^^^^
+ 108 |     if (secondResult !== null) {
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/e2e/runtime-opencode-e2e.test.ts:126:11]
+ 125 |     // Activate the hf-agent gate so session.idle runs runtime logic.
+ 126 |     await hooks["message.updated"]!({
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 127 |       info: { role: "assistant", agent: "hf-builder" }
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/e2e/runtime-opencode-e2e.test.ts:132:26]
+ 131 |     const messageWithOutcome = buildTurnOutcomePayload("progress");
+ 132 |     const result = await hooks["session.idle"]!({ sessionID: SESSION_ID, message: messageWithOutcome });
+     :                          ^^^^^^^^^^^^^^^^^^^^^^
+ 133 | 
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/e2e/runtime-opencode-e2e.test.ts:226:11]
+ 225 |     // Call session.created to trigger hydration and decideNext() 竊・refreshVaultIndex().
+ 226 |     await hooks["session.created"]!({ sessionID: WARM_SESSION_ID });
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 227 | 
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/turn-outcome-trailer.test.ts:51:14]
+ 50 |       expect(issues).toHaveLength(1);
+ 51 |       expect(issues[0]!.path).toBe("$");
+    :              ^^^^^^^^^^
+ 52 |       expect(issues[0]!.message).toContain("expected object");
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/turn-outcome-trailer.test.ts:52:14]
+ 51 |       expect(issues[0]!.path).toBe("$");
+ 52 |       expect(issues[0]!.message).toContain("expected object");
+    :              ^^^^^^^^^^
+ 53 |     }
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/turn-outcome-trailer.test.ts:201:14]
+ 200 |     if (result.kind === "invalid") {
+ 201 |       expect(result.errors[0]!.message).toContain("empty");
+     :              ^^^^^^^^^^^^^^^^^
+ 202 |     }
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/turn-outcome-trailer.test.ts:210:14]
+ 209 |     if (result.kind === "invalid") {
+ 210 |       expect(result.errors[0]!.message).toContain("invalid JSON");
+     :              ^^^^^^^^^^^^^^^^^
+ 211 |     }
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/plan-doc.test.ts:205:23]
+ 204 |     expect(plan.milestones).toHaveLength(1);
+ 205 |     const milestone = plan.milestones[0]!;
+     :                       ^^^^^^^^^^^^^^^^^^^
+ 206 |     expect(milestone.context?.scope).toEqual(["src/auth", "src/middleware"]);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/plan-doc.test.ts:308:12]
+ 307 | 
+ 308 |     expect(plan.milestones[0]!.title).toBe("Build the feature");
+     :            ^^^^^^^^^^^^^^^^^^^
+ 309 |     expect(plan.milestones[0]!.text).toBe("1. Build the feature");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/plan-doc.test.ts:309:12]
+ 308 |     expect(plan.milestones[0]!.title).toBe("Build the feature");
+ 309 |     expect(plan.milestones[0]!.text).toBe("1. Build the feature");
+     :            ^^^^^^^^^^^^^^^^^^^
+ 310 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/plan-doc.test.ts:327:15]
+ 326 |     const plan = await parsePlan(planPath);
+ 327 |     const m = plan.milestones[0]!;
+     :               ^^^^^^^^^^^^^^^^^^^
+ 328 | 
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/plan-doc.test.ts:347:12]
+ 346 | 
+ 347 |     expect(plan.milestones[0]!.context).toBeUndefined();
+     :            ^^^^^^^^^^^^^^^^^^^
+ 348 |     expect(plan.milestones[0]!.reviewPolicy).toBeUndefined();
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/plan-doc.test.ts:348:12]
+ 347 |     expect(plan.milestones[0]!.context).toBeUndefined();
+ 348 |     expect(plan.milestones[0]!.reviewPolicy).toBeUndefined();
+     :            ^^^^^^^^^^^^^^^^^^^
+ 349 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/prompt.test.ts:129:47]
+ 128 |     const [vaultResult] = makeSearchResults(1);
+ 129 |     const lines = formatSemanticVaultContext([vaultResult!, makeCodeSearchResult()]);
+     :                                               ^^^^^^^^^^^^
+ 130 | 
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! eslint-plugin-unicorn(no-array-for-each): Do not use `Array#forEach`
+    ,-[src/runtime/turn-outcome-ingestion.ts:44:11]
+ 43 |   if (Array.isArray(value)) {
+ 44 |     value.forEach((entry, index) => {
+    :           ^^^^^^^
+ 45 |       collectTurnOutcomeCandidates(entry, { ...collector, source: `${collector.source}[${index}]` });
+    `----
+  help: Replace it with a for` loop. For loop is faster, more readable, and you can use `break` or `return` to exit early.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/persistence.test.ts:116:12]
+ 115 |     expect(result).not.toBeNull();
+ 116 |     expect(result!.version).toBe(1);
+     :            ^^^^^^^
+ 117 |     expect(result!.planSlug).toBe(plan.slug);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/persistence.test.ts:117:12]
+ 116 |     expect(result!.version).toBe(1);
+ 117 |     expect(result!.planSlug).toBe(plan.slug);
+     :            ^^^^^^^
+ 118 |     expect(result!.loopState).toBe("idle");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/persistence.test.ts:118:12]
+ 117 |     expect(result!.planSlug).toBe(plan.slug);
+ 118 |     expect(result!.loopState).toBe("idle");
+     :            ^^^^^^^
+ 119 |     expect(result!.counters.totalAttempts).toBe(0);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/persistence.test.ts:119:12]
+ 118 |     expect(result!.loopState).toBe("idle");
+ 119 |     expect(result!.counters.totalAttempts).toBe(0);
+     :            ^^^^^^^
+ 120 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/persistence.test.ts:140:31]
+ 139 |     expect(lines).toHaveLength(1);
+ 140 |     const parsed = JSON.parse(lines[0]!) as RuntimeEvent;
+     :                               ^^^^^^^^^
+ 141 |     expect(parsed.type).toBe("test.created");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/persistence.test.ts:152:23]
+ 151 |     expect(lines).toHaveLength(3);
+ 152 |     expect(JSON.parse(lines[0]!).type).toBe("event.one");
+     :                       ^^^^^^^^^
+ 153 |     expect(JSON.parse(lines[2]!).type).toBe("event.three");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/persistence.test.ts:153:23]
+ 152 |     expect(JSON.parse(lines[0]!).type).toBe("event.one");
+ 153 |     expect(JSON.parse(lines[2]!).type).toBe("event.three");
+     :                       ^^^^^^^^^
+ 154 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/persistence.test.ts:226:12]
+ 225 |     expect(context.plan).toHaveLength(1);
+ 226 |     expect(context.plan[0]!.title).toBe("Plan context");
+     :            ^^^^^^^^^^^^^^^^
+ 227 |     expect(context.plan[0]!.content).toContain("Some content.");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/persistence.test.ts:227:12]
+ 226 |     expect(context.plan[0]!.title).toBe("Plan context");
+ 227 |     expect(context.plan[0]!.content).toContain("Some content.");
+     :            ^^^^^^^^^^^^^^^^
+ 228 | 
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/persistence.test.ts:230:12]
+ 229 |     expect(context.shared).toHaveLength(1);
+ 230 |     expect(context.shared[0]!.title).toBe("Shared architecture");
+     :            ^^^^^^^^^^^^^^^^^^
+ 231 |     expect(context.shared[0]!.content).toContain("Shared notes.");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/persistence.test.ts:231:12]
+ 230 |     expect(context.shared[0]!.title).toBe("Shared architecture");
+ 231 |     expect(context.shared[0]!.content).toContain("Shared notes.");
+     :            ^^^^^^^^^^^^^^^^^^
+ 232 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! eslint-plugin-unicorn(prefer-string-replace-all): This pattern can be replaced with `\\`.
+     ,-[tests/e2e/helpers/harness.ts:256:30]
+ 255 | export function normalizePath(filePath: string): string {
+ 256 |   return filePath.replaceAll(/\\/g, "/").replace(/^.*?\/(vault|src)\//, "$1/");
+     :                              ^^^^^
+ 257 | }
+     `----
+  help: Replace `/\\/g` with `"\\\\"`.
+
+  ! eslint(no-negated-condition): Unexpected negated condition.
+     ,-[src/runtime/turn-outcome-trailer.ts:143:7]
+ 142 | 
+ 143 |   if (!Array.isArray(value.files_changed)) {
+     :       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 144 |     issues.push({ path: "$.files_changed", message: `expected array, received ${describeType(value.files_changed)}` });
+     `----
+  help: Remove the negation operator and switch the consequent and alternate branches.
+
+  ! eslint(no-negated-condition): Unexpected negated condition.
+     ,-[src/runtime/turn-outcome-trailer.ts:153:7]
+ 152 | 
+ 153 |   if (!Array.isArray(value.tests_run)) {
+     :       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 154 |     issues.push({ path: "$.tests_run", message: `expected array, received ${describeType(value.tests_run)}` });
+     `----
+  help: Remove the negation operator and switch the consequent and alternate branches.
+
+  ! eslint-plugin-unicorn(no-array-for-each): Do not use `Array#forEach`
+    ,-[src/runtime/turn-outcome-trailer.ts:79:14]
+ 78 | function validateTestsRun(issues: TurnOutcomeValidationIssue[], testsArray: unknown[]): void {
+ 79 |   testsArray.forEach((test, index) => {
+    :              ^^^^^^^
+ 80 |     const testPath = `$.tests_run[${index}]`;
+    `----
+  help: Replace it with a for` loop. For loop is faster, more readable, and you can use `break` or `return` to exit early.
+
+  ! eslint-plugin-unicorn(no-array-for-each): Do not use `Array#forEach`
+     ,-[src/runtime/turn-outcome-trailer.ts:146:25]
+ 145 |   } else {
+ 146 |     value.files_changed.forEach((entry, index) => {
+     :                         ^^^^^^^
+ 147 |       if (!isString(entry)) {
+     `----
+  help: Replace it with a for` loop. For loop is faster, more readable, and you can use `break` or `return` to exit early.
+
+  ! eslint-plugin-unicorn(prefer-spread): Prefer the spread operator (`...`) over Array.from()
+    ,-[src/runtime/turn-outcome-trailer.ts:92:77]
+ 91 |     } else if (!ALLOWED_RESULTS.has(test.result)) {
+ 92 |       issues.push({ path: `${testPath}.result`, message: `expected one of ${Array.from(ALLOWED_RESULTS).join(", ")}` });
+    :                                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 93 |     }
+    `----
+  help: The spread operator (`...`) is more concise and readable.
+
+  ! eslint-plugin-unicorn(prefer-spread): Prefer the spread operator (`...`) over Array.from()
+     ,-[src/runtime/turn-outcome-trailer.ts:134:64]
+ 133 |   } else if (!ALLOWED_STATES.has(value.state)) {
+ 134 |     issues.push({ path: "$.state", message: `expected one of ${Array.from(ALLOWED_STATES).join(", ")}` });
+     :                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 135 |   }
+     `----
+  help: The spread operator (`...`) is more concise and readable.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/unified-store.test.ts:61:14]
+ 60 |       expect(loaded).not.toBeNull();
+ 61 |       expect(loaded!.index).toEqual(index);
+    :              ^^^^^^^
+ 62 |       expect(Array.from(loaded!.vectors.slice(0, 6))).toEqual(Array.from(vectors.slice(0, 6)));
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/unified-store.test.ts:62:25]
+ 61 |       expect(loaded!.index).toEqual(index);
+ 62 |       expect(Array.from(loaded!.vectors.slice(0, 6))).toEqual(Array.from(vectors.slice(0, 6)));
+    :                         ^^^^^^^
+ 63 |       expect(Array.from(loaded!.vectors.slice(384, 390))).toEqual(
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/unified-store.test.ts:63:25]
+ 62 |       expect(Array.from(loaded!.vectors.slice(0, 6))).toEqual(Array.from(vectors.slice(0, 6)));
+ 63 |       expect(Array.from(loaded!.vectors.slice(384, 390))).toEqual(
+    :                         ^^^^^^^
+ 64 |         Array.from(vectors.slice(384, 390)),
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/unified-store.test.ts:76:12]
+ 75 |     expect(result.index.items).toHaveLength(1);
+ 76 |     expect(result.index.items[0]!.id).toBe("a");
+    :            ^^^^^^^^^^^^^^^^^^^^^^
+ 77 |     expect(result.vectors).toHaveLength(384);
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/unified-store.test.ts:96:12]
+ 95 |     expect(updated.index.items).toHaveLength(1);
+ 96 |     expect(updated.index.items[0]!.metadata.kind).toBe("code");
+    :            ^^^^^^^^^^^^^^^^^^^^^^^
+ 97 |     expect(updated.index.items[0]!.metadata.rank).toBe(2);
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/unified-store.test.ts:97:12]
+ 96 |     expect(updated.index.items[0]!.metadata.kind).toBe("code");
+ 97 |     expect(updated.index.items[0]!.metadata.rank).toBe(2);
+    :            ^^^^^^^^^^^^^^^^^^^^^^^
+ 98 |     expect(updated.vectors[0]).toBeCloseTo(0, 6);
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-store.test.ts:135:12]
+ 134 |     expect(results).toHaveLength(2);
+ 135 |     expect(results[0]!.id).toBe("high");
+     :            ^^^^^^^^^^^
+ 136 |     expect(results[1]!.id).toBe("mid");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-store.test.ts:136:12]
+ 135 |     expect(results[0]!.id).toBe("high");
+ 136 |     expect(results[1]!.id).toBe("mid");
+     :            ^^^^^^^^^^^
+ 137 |     expect(results[0]!.score).toBeGreaterThan(results[1]!.score);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-store.test.ts:137:12]
+ 136 |     expect(results[1]!.id).toBe("mid");
+ 137 |     expect(results[0]!.score).toBeGreaterThan(results[1]!.score);
+     :            ^^^^^^^^^^^
+ 138 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-store.test.ts:137:47]
+ 136 |     expect(results[1]!.id).toBe("mid");
+ 137 |     expect(results[0]!.score).toBeGreaterThan(results[1]!.score);
+     :                                               ^^^^^^^^^^^
+ 138 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-store.test.ts:331:12]
+ 330 |     // updated
+ 331 |     expect(result.index.items[0]!.metadata.v).toBe(2);
+     :            ^^^^^^^^^^^^^^^^^^^^^^
+ 332 |     // new
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-store.test.ts:333:12]
+ 332 |     // new
+ 333 |     expect(result.index.items[1]!.id).toBe("b");
+     :            ^^^^^^^^^^^^^^^^^^^^^^
+ 334 |     expect(result.vectors.length).toBe(384 * 2);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-store.test.ts:391:14]
+ 390 |       // Must have exactly the items that the winning write serialised.
+ 391 |       expect(loaded!.index.items.length).toBeGreaterThan(0);
+     :              ^^^^^^^
+ 392 |       expect(loaded!.vectors.length).toBe(384 * loaded!.index.items.length);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-store.test.ts:392:14]
+ 391 |       expect(loaded!.index.items.length).toBeGreaterThan(0);
+ 392 |       expect(loaded!.vectors.length).toBe(384 * loaded!.index.items.length);
+     :              ^^^^^^^
+ 393 |     } finally {
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-store.test.ts:392:49]
+ 391 |       expect(loaded!.index.items.length).toBeGreaterThan(0);
+ 392 |       expect(loaded!.vectors.length).toBe(384 * loaded!.index.items.length);
+     :                                                 ^^^^^^^
+ 393 |     } finally {
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! eslint-plugin-unicorn(prefer-spread): Prefer the spread operator (`...`) over Array.from()
+    ,-[tests/unified-store.test.ts:62:14]
+ 61 |       expect(loaded!.index).toEqual(index);
+ 62 |       expect(Array.from(loaded!.vectors.slice(0, 6))).toEqual(Array.from(vectors.slice(0, 6)));
+    :              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 63 |       expect(Array.from(loaded!.vectors.slice(384, 390))).toEqual(
+    `----
+  help: The spread operator (`...`) is more concise and readable.
+
+  ! eslint-plugin-unicorn(prefer-spread): Prefer the spread operator (`...`) over Array.from()
+    ,-[tests/unified-store.test.ts:62:63]
+ 61 |       expect(loaded!.index).toEqual(index);
+ 62 |       expect(Array.from(loaded!.vectors.slice(0, 6))).toEqual(Array.from(vectors.slice(0, 6)));
+    :                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 63 |       expect(Array.from(loaded!.vectors.slice(384, 390))).toEqual(
+    `----
+  help: The spread operator (`...`) is more concise and readable.
+
+  ! eslint-plugin-unicorn(prefer-spread): Prefer the spread operator (`...`) over Array.from()
+    ,-[tests/unified-store.test.ts:63:14]
+ 62 |       expect(Array.from(loaded!.vectors.slice(0, 6))).toEqual(Array.from(vectors.slice(0, 6)));
+ 63 |       expect(Array.from(loaded!.vectors.slice(384, 390))).toEqual(
+    :              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 64 |         Array.from(vectors.slice(384, 390)),
+    `----
+  help: The spread operator (`...`) is more concise and readable.
+
+  ! eslint-plugin-unicorn(prefer-spread): Prefer the spread operator (`...`) over Array.from()
+    ,-[tests/unified-store.test.ts:64:9]
+ 63 |       expect(Array.from(loaded!.vectors.slice(384, 390))).toEqual(
+ 64 |         Array.from(vectors.slice(384, 390)),
+    :         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 65 |       );
+    `----
+  help: The spread operator (`...`) is more concise and readable.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/unified-index-pipeline.test.ts:87:24]
+ 86 |     expect(mockedEmbedBatch).toHaveBeenCalledTimes(1);
+ 87 |     expect(Object.keys(result!.index.fileHashes)).toHaveLength(2);
+    :                        ^^^^^^^
+ 88 |     expect(result!.index.items.some((item) => item.metadata.kind === "vault")).toBe(true);
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/unified-index-pipeline.test.ts:88:12]
+ 87 |     expect(Object.keys(result!.index.fileHashes)).toHaveLength(2);
+ 88 |     expect(result!.index.items.some((item) => item.metadata.kind === "vault")).toBe(true);
+    :            ^^^^^^^
+ 89 |     expect(result!.index.items.some((item) => item.metadata.kind === "code")).toBe(true);
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/unified-index-pipeline.test.ts:89:12]
+ 88 |     expect(result!.index.items.some((item) => item.metadata.kind === "vault")).toBe(true);
+ 89 |     expect(result!.index.items.some((item) => item.metadata.kind === "code")).toBe(true);
+    :            ^^^^^^^
+ 90 | 
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/unified-index-pipeline.test.ts:92:49]
+ 91 |     const persisted = await loadUnifiedIndex(tmpDir);
+ 92 |     expect(persisted?.index.fileHashes).toEqual(result!.index.fileHashes);
+    :                                                 ^^^^^^^
+ 93 |   });
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:123:12]
+ 122 |     expect(second).not.toBeNull();
+ 123 |     expect(second!.index.fileHashes).toEqual(first!.index.fileHashes);
+     :            ^^^^^^^
+ 124 |     expect(mockedEmbedBatch).not.toHaveBeenCalled();
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:123:46]
+ 122 |     expect(second).not.toBeNull();
+ 123 |     expect(second!.index.fileHashes).toEqual(first!.index.fileHashes);
+     :                                              ^^^^^^
+ 124 |     expect(mockedEmbedBatch).not.toHaveBeenCalled();
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:159:7]
+ 158 |     expect(
+ 159 |       second!.index.items.find((item) => String(item.metadata.sourcePath).endsWith("b.ts"))?.text,
+     :       ^^^^^^^
+ 160 |     ).toContain("three");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:162:7]
+ 161 |     expect(
+ 162 |       second!.index.items.find((item) => String(item.metadata.sourcePath).endsWith("a.ts"))?.text,
+     :       ^^^^^^^
+ 163 |     ).toContain("one");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:193:7]
+ 192 |     expect(
+ 193 |       second!.index.items.some((item) => String(item.metadata.sourcePath).endsWith("b.ts")),
+     :       ^^^^^^^
+ 194 |     ).toBe(false);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:195:24]
+ 194 |     ).toBe(false);
+ 195 |     expect(Object.keys(second!.index.fileHashes).some((filePath) => filePath.endsWith("b.ts"))).toBe(false);
+     :                        ^^^^^^^
+ 196 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:238:24]
+ 237 |     expect(result).not.toBeNull();
+ 238 |     expect(Object.keys(result!.index.fileHashes)).toHaveLength(3);
+     :                        ^^^^^^^
+ 239 |     expect(result!.index.items.filter((item) => item.metadata.kind === "vault")).toHaveLength(2);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:239:12]
+ 238 |     expect(Object.keys(result!.index.fileHashes)).toHaveLength(3);
+ 239 |     expect(result!.index.items.filter((item) => item.metadata.kind === "vault")).toHaveLength(2);
+     :            ^^^^^^^
+ 240 |     expect(result!.index.items.filter((item) => item.metadata.kind === "code")).toHaveLength(1);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:240:12]
+ 239 |     expect(result!.index.items.filter((item) => item.metadata.kind === "vault")).toHaveLength(2);
+ 240 |     expect(result!.index.items.filter((item) => item.metadata.kind === "code")).toHaveLength(1);
+     :            ^^^^^^^
+ 241 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:263:35]
+ 262 |     // fileHashes keys should be relative
+ 263 |     for (const key of Object.keys(result!.index.fileHashes)) {
+     :                                   ^^^^^^^
+ 264 |       expect(path.isAbsolute(key)).toBe(false);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:269:24]
+ 268 |     // sourcePath metadata should be relative
+ 269 |     for (const item of result!.index.items) {
+     :                        ^^^^^^^
+ 270 |       const sourcePath = String(item.metadata.sourcePath);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:293:12]
+ 292 |     // The single section should be split into multiple chunks
+ 293 |     expect(result!.index.items.length).toBeGreaterThan(1);
+     :            ^^^^^^^
+ 294 |     // Each chunk's text should be <= 100 chars
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:295:24]
+ 294 |     // Each chunk's text should be <= 100 chars
+ 295 |     for (const item of result!.index.items) {
+     :                        ^^^^^^^
+ 296 |       expect(item.text.length).toBeLessThanOrEqual(100);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:299:33]
+ 298 |     // All chunks should reference the same source
+ 299 |     const sourcePaths = new Set(result!.index.items.map((i) => String(i.metadata.sourcePath)));
+     :                                 ^^^^^^^
+ 300 |     expect(sourcePaths.size).toBe(1);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:322:23]
+ 321 |     expect(result).not.toBeNull();
+ 322 |     const codeItems = result!.index.items.filter((item) => item.metadata.kind === "code");
+     :                       ^^^^^^^
+ 323 |     const vaultItems = result!.index.items.filter((item) => item.metadata.kind === "vault");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:323:24]
+ 322 |     const codeItems = result!.index.items.filter((item) => item.metadata.kind === "code");
+ 323 |     const vaultItems = result!.index.items.filter((item) => item.metadata.kind === "vault");
+     :                        ^^^^^^^
+ 324 |     expect(codeItems).toHaveLength(0);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:327:30]
+ 326 |     // fileHashes should only contain the vault file
+ 327 |     const keys = Object.keys(result!.index.fileHashes);
+     :                              ^^^^^^^
+ 328 |     expect(keys.every((k) => k.startsWith("vault/"))).toBe(true);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:394:28]
+ 393 |     expect(files).toHaveLength(1);
+ 394 |     expect(path.isAbsolute(files[0]!.path)).toBe(true);
+     :                            ^^^^^^^^^
+ 395 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:406:12]
+ 405 |     expect(files).toHaveLength(1);
+ 406 |     expect(files[0]!.path.endsWith("readme.md") || files[0]!.path.includes("readme.md")).toBe(true);
+     :            ^^^^^^^^^
+ 407 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:406:52]
+ 405 |     expect(files).toHaveLength(1);
+ 406 |     expect(files[0]!.path.endsWith("readme.md") || files[0]!.path.includes("readme.md")).toBe(true);
+     :                                                    ^^^^^^^^^
+ 407 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:446:35]
+ 445 |     // All fileHashes keys for external files should be absolute
+ 446 |     for (const key of Object.keys(result!.index.fileHashes)) {
+     :                                   ^^^^^^^
+ 447 |       expect(path.isAbsolute(key)).toBe(true);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:451:27]
+ 450 |     // All external item sourcePaths should be absolute
+ 451 |     const externalItems = result!.index.items.filter((item) => item.metadata.kind === "external");
+     :                           ^^^^^^^
+ 452 |     expect(externalItems.length).toBeGreaterThan(0);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:490:27]
+ 489 |     expect(result).not.toBeNull();
+ 490 |     const externalItems = result!.index.items.filter((item) => item.metadata.kind === "external");
+     :                           ^^^^^^^
+ 491 |     expect(externalItems.length).toBeGreaterThan(0);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:504:27]
+ 503 |     expect(result).not.toBeNull();
+ 504 |     const externalItems = result!.index.items.filter((item) => item.metadata.kind === "external");
+     :                           ^^^^^^^
+ 505 |     expect(externalItems.length).toBeGreaterThan(0);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:518:12]
+ 517 |     expect(first).not.toBeNull();
+ 518 |     expect(first!.index.items.some((item) => String(item.metadata.sourcePath).includes("b.ts"))).toBe(true);
+     :            ^^^^^^
+ 519 | 
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:529:12]
+ 528 |     // b.ts chunks should be gone
+ 529 |     expect(second!.index.items.some((item) => String(item.metadata.sourcePath).includes("b.ts"))).toBe(false);
+     :            ^^^^^^^
+ 530 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:557:12]
+ 556 |     expect(result).not.toBeNull();
+ 557 |     expect(result!.index.items.some((item) => item.metadata.kind === "vault")).toBe(true);
+     :            ^^^^^^^
+ 558 |     expect(result!.index.items.some((item) => item.metadata.kind === "code")).toBe(true);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:558:12]
+ 557 |     expect(result!.index.items.some((item) => item.metadata.kind === "vault")).toBe(true);
+ 558 |     expect(result!.index.items.some((item) => item.metadata.kind === "code")).toBe(true);
+     :            ^^^^^^^
+ 559 |     expect(result!.index.items.some((item) => item.metadata.kind === "external")).toBe(true);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/unified-index-pipeline.test.ts:559:12]
+ 558 |     expect(result!.index.items.some((item) => item.metadata.kind === "code")).toBe(true);
+ 559 |     expect(result!.index.items.some((item) => item.metadata.kind === "external")).toBe(true);
+     :            ^^^^^^^
+ 560 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/embedding-ipc.test.ts:46:39]
+ 45 |   for (let index = 0; index < expected.length; index++) {
+ 46 |     expect(actual[index]).toBeCloseTo(expected[index]!, 5);
+    :                                       ^^^^^^^^^^^^^^^^
+ 47 |   }
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/embedding-ipc.test.ts:53:23]
+ 52 |   for (let index = 0; index < expected.length; index++) {
+ 53 |     expectVectorClose(actual[index]!, expected[index]!);
+    :                       ^^^^^^^^^^^^^^
+ 54 |   }
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[tests/embedding-ipc.test.ts:53:39]
+ 52 |   for (let index = 0; index < expected.length; index++) {
+ 53 |     expectVectorClose(actual[index]!, expected[index]!);
+    :                                       ^^^^^^^^^^^^^^^^
+ 54 |   }
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[src/runtime/vault-chunker.ts:69:21]
+ 68 |   for (let i = 0; i < input.length; i++) {
+ 69 |     const section = input[i]!;
+    :                     ^^^^^^^^^
+ 70 | 
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[src/runtime/vault-chunker.ts:82:22]
+ 81 |         // Last section is short 窶・merge backward into the previous merged section.
+ 82 |         const prev = merged[merged.length - 1]!;
+    :                      ^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 83 |         prev.bodyLines.push(
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[src/runtime/vault-chunker.ts:159:17]
+ 158 |           id: `${makeChunkId(filePath, title)}:${i}`,
+ 159 |           text: parts[i]!,
+     :                 ^^^^^^^^^
+ 160 |           metadata: { sourcePath: filePath, sectionTitle: title, documentTitle },
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! eslint(no-negated-condition): Unexpected negated condition.
+    ,-[src/runtime/doctor.ts:32:7]
+ 31 | 
+ 32 |   if (!status) {
+    :       ^^^^^^^
+ 33 |     issues.push("status.json is missing. Hydrate the runtime before using doctor.");
+    `----
+  help: Remove the negation operator and switch the consequent and alternate branches.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[src/runtime/plan-doc.ts:130:20]
+ 129 |     if (milestones.length > 0 && pendingMetadata.length > 0) {
+ 130 |       const last = milestones[milestones.length - 1]!;
+     :                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 131 |       const parsed = parseMetadataLines(pendingMetadata);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[src/runtime/vault-embeddings.ts:44:89]
+ 43 |       });
+ 44 |       const ext = await Promise.race([loadPromise, timeout]).finally(() => clearTimeout(timer!));
+    :                                                                                         ^^^^^^
+ 45 |       extractor = ext;
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! eslint-plugin-unicorn(prefer-spread): Prefer the spread operator (`...`) over Array.from()
+    ,-[src/runtime/vault-embeddings.ts:98:12]
+ 97 |     const output = await extractor(text, { pooling: "mean", normalize: true });
+ 98 |     return Array.from(output.data as Float32Array).slice(0, EMBEDDING_DIM);
+    :            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 99 |   }
+    `----
+  help: The spread operator (`...`) is more concise and readable.
+
+  ! eslint-plugin-unicorn(prefer-spread): Prefer the spread operator (`...`) over Array.from()
+     ,-[src/runtime/vault-embeddings.ts:108:10]
+ 107 |   const output = await ext(text, { pooling: "mean", normalize: true });
+ 108 |   return Array.from(output.data as Float32Array).slice(0, EMBEDDING_DIM);
+     :          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 109 | }
+     `----
+  help: The spread operator (`...`) is more concise and readable.
+
+  ! eslint-plugin-unicorn(prefer-spread): Prefer the spread operator (`...`) over Array.from()
+     ,-[src/runtime/vault-embeddings.ts:121:18]
+ 120 |     done({ text_count: texts.length });
+ 121 |     const flat = Array.from(output.data as Float32Array);
+     :                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 122 | 
+     `----
+  help: The spread operator (`...`) is more concise and readable.
+
+  ! eslint-plugin-unicorn(prefer-spread): Prefer the spread operator (`...`) over Array.from()
+     ,-[src/runtime/vault-embeddings.ts:140:16]
+ 139 |   done({ text_count: texts.length });
+ 140 |   const flat = Array.from(output.data as Float32Array);
+     :                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 141 | 
+     `----
+  help: The spread operator (`...`) is more concise and readable.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[src/runtime/chunk-utils.ts:93:19]
+ 92 |   for (let i = 0; i < input.length; i++) {
+ 93 |     const chunk = input[i]!;
+    :                   ^^^^^^^^^
+ 94 | 
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[src/runtime/chunk-utils.ts:105:24]
+ 104 | 
+ 105 |       const previous = merged[merged.length - 1]!;
+     :                        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 106 |       previous.text = `${previous.text}${separator}${chunk.text}`;
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! eslint-plugin-unicorn(prefer-string-replace-all): This pattern can be replaced with `\\`.
+   ,-[src/runtime/chunk-utils.ts:6:30]
+ 5 | export function normalizePath(filePath: string): string {
+ 6 |   return filePath.replaceAll(/\\/g, "/");
+   :                              ^^^^^
+ 7 | }
+   `----
+  help: Replace `/\\/g` with `"\\\\"`.
+
+  ! eslint(no-magic-numbers): No magic number: 5
+     ,-[src/runtime/runtime-vault.ts:100:56]
+  99 |       queryVector,
+ 100 |       topK: topK ?? state.indexConfig?.semanticTopK ?? 5,
+     :                                                        ^
+ 101 |       ...(sourceFilter !== undefined ? { sourceFilter } : {}),
+     `----
+
+  ! eslint(no-magic-numbers): No magic number: 5
+     ,-[src/runtime/runtime-vault.ts:175:93]
+ 174 |       state.vaultSearchResults = await withTimeout(
+ 175 |         queryIndexItems(state, { query: plan.userIntent, topK: cfg?.planningSemanticTopK ?? 5 }),
+     :                                                                                             ^
+ 176 |         cfg?.timeoutMs ?? DEFAULT_INDEX_CONFIG.timeoutMs,
+     `----
+
+  ! eslint(no-negated-condition): Unexpected negated condition.
+    ,-[src/runtime/runtime-vault.ts:51:17]
+ 50 |     ...(vaultPaths && vault ? { vaultPaths, vaultContext: vault } : {}),
+ 51 |     codeConfig: cfg?.code.enabled !== false
+    :                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 52 |       ? {
+    `----
+  help: Remove the negation operator and switch the consequent and alternate branches.
+
+  ! eslint(no-negated-condition): Unexpected negated condition.
+     ,-[src/runtime/runtime-vault.ts:101:11]
+ 100 |       topK: topK ?? state.indexConfig?.semanticTopK ?? 5,
+ 101 |       ...(sourceFilter !== undefined ? { sourceFilter } : {}),
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 102 |     },
+     `----
+  help: Remove the negation operator and switch the consequent and alternate branches.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[src/runtime/code-chunker.ts:125:75]
+ 124 |       for (let i = 0; i < parts.length; i++) {
+ 125 |         const base = createVaultChunk(filePath, { name: chunk.name, text: parts[i]! });
+     :                                                                           ^^^^^^^^^
+ 126 |         base.id = `${base.id}:${i}`;
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[src/opencode/plugin-session.ts:41:20]
+ 40 |   while (sessionRuntimes.size >= SESSION_MAP_MAX && sessionAccessOrder.length > 0) {
+ 41 |     const oldest = sessionAccessOrder.shift()!;
+    :                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 42 |     if (oldest !== sessionId) {
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  x eslint(max-params): Function 'tryIpcRequest' has too many parameters (4). Maximum allowed is 3.
+    ,-[src/runtime/embedding-ipc-client.ts:42:38]
+ 41 |     
+ 42 | ,-> async function tryIpcRequest<TResult>(
+ 43 | |     repoRoot: string,
+ 44 | |     method: typeof EMBEDDING_IPC_METHOD_EMBED | typeof EMBEDDING_IPC_METHOD_EMBED_BATCH,
+ 45 | |     params: Record<string, unknown>,
+ 46 | |     isExpectedResult: (value: unknown) => value is TResult
+ 47 | |    
+ 48 | `-> ): Promise<TResult | null> {
+ 49 |       const manifest = await readCachedManifest(repoRoot);
+    `----
+  help: This rule enforces a maximum number of parameters allowed in function definitions.
+
+  ! eslint-plugin-unicorn(prefer-string-replace-all): This pattern can be replaced with `\\`.
+     ,-[tests/e2e/helpers/claude-harness.ts:141:40]
+ 140 |   const hookCmd = process.platform === "win32"
+ 141 |     ? `node "${distHookPath.replaceAll(/\\/g, "/")}"`
+     :                                        ^^^^^
+ 142 |     : `node "${distHookPath}"`;
+     `----
+  help: Replace `/\\/g` with `"\\\\"`.
+
+  ! eslint(no-negated-condition): Unexpected negated condition.
+     ,-[tests/e2e/helpers/claude-harness.ts:271:10]
+ 270 | 
+ 271 |   return parsed !== undefined ? { ...raw, parsed } : raw;
+     :          ^^^^^^^^^^^^^^^^^^^^
+ 272 | }
+     `----
+  help: Remove the negation operator and switch the consequent and alternate branches.
+
+  ! eslint(no-negated-condition): Unexpected negated condition.
+     ,-[tests/e2e/helpers/claude-harness.ts:418:9]
+ 417 |     responseText,
+ 418 |     ...(parsed !== undefined ? { parsed } : {}),
+     :         ^^^^^^^^^^^^^^^^^^^^
+ 419 |     runtime: await readClaudeRuntimeArtifacts(fixtureDir)
+     `----
+  help: Remove the negation operator and switch the consequent and alternate branches.
+
+  x eslint(max-params): Function has too many parameters (5). Maximum allowed is 3.
+    ,-[src/runtime/embedding-ipc-server.ts:43:14]
+ 42 |     
+ 43 | ,->   constructor(
+ 44 | |       readonly repoRoot: string,
+ 45 | |       readonly transport: EmbeddingIpcManifest["transport"],
+ 46 | |       readonly endpoint: string,
+ 47 | |       readonly manifestPath: string,
+ 48 | |       private readonly server: net.Server
+ 49 | |      
+ 50 | `->   ) {
+ 51 |         this.ownedSocketPath = transport === EMBEDDING_IPC_TRANSPORT_UNIX_SOCKET ? endpoint : null;
+    `----
+  help: This rule enforces a maximum number of parameters allowed in function definitions.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[src/runtime/prompt.ts:140:22]
+ 139 |   const lines = [hasCodeResults ? "## Knowledge context" : "## Vault context"];
+ 140 |   const headerCost = lines[0]!.length + 1;
+     :                      ^^^^^^^^^
+ 141 | 
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/e2e/vault-claude-e2e.test.ts:164:10]
+ 163 |   expect(managedSidecar, "Expected Claude managed-plan runtime sidecar for plan slug 'test'.").toBeDefined();
+ 164 |   return managedSidecar!;
+     :          ^^^^^^^^^^^^^^^
+ 165 | }
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! eslint-plugin-unicorn(prefer-string-replace-all): This pattern can be replaced with `\\`.
+    ,-[tests/e2e/vault-claude-e2e.test.ts:77:55]
+ 76 |     const managedSidecar = getManagedPlanSidecar(result.runtime.sidecars);
+ 77 |     expect(managedSidecar.resumePromptPath.replaceAll(/\\/g, "/")).toContain("plans/runtime/test/resume-prompt.txt");
+    :                                                       ^^^^^
+ 78 |     expect(managedSidecar.statusPath.replaceAll(/\\/g, "/")).toContain("plans/runtime/test/status.json");
+    `----
+  help: Replace `/\\/g` with `"\\\\"`.
+
+  ! eslint-plugin-unicorn(prefer-string-replace-all): This pattern can be replaced with `\\`.
+    ,-[tests/e2e/vault-claude-e2e.test.ts:78:49]
+ 77 |     expect(managedSidecar.resumePromptPath.replaceAll(/\\/g, "/")).toContain("plans/runtime/test/resume-prompt.txt");
+ 78 |     expect(managedSidecar.statusPath.replaceAll(/\\/g, "/")).toContain("plans/runtime/test/status.json");
+    :                                                 ^^^^^
+ 79 | 
+    `----
+  help: Replace `/\\/g` with `"\\\\"`.
+
+  ! eslint-plugin-unicorn(prefer-string-replace-all): This pattern can be replaced with `\\`.
+     ,-[tests/e2e/vault-claude-e2e.test.ts:125:49]
+ 124 |     const managedSidecar = getManagedPlanSidecar(result.runtime.sidecars);
+ 125 |     expect(managedSidecar.eventsPath.replaceAll(/\\/g, "/")).toContain("plans/runtime/test/events.jsonl");
+     :                                                 ^^^^^
+ 126 |     expect(managedSidecar.eventTypes).toContain("claude.UserPromptSubmit");
+     `----
+  help: Replace `/\\/g` with `"\\\\"`.
+
+  ! eslint(no-magic-numbers): No magic number: 16
+     ,-[src/runtime/embedding-ipc-protocol.ts:113:15]
+ 112 |     .digest("hex")
+ 113 |     .slice(0, 16);
+     :               ^^
+ 114 | }
+     `----
+
+  ! eslint-plugin-unicorn(prefer-string-replace-all): This pattern can be replaced with `\\`.
+     ,-[src/runtime/embedding-ipc-protocol.ts:105:42]
+ 104 |   const resolved = path.resolve(repoRoot);
+ 105 |   const normalized = resolved.replaceAll(/\\/g, "/");
+     :                                          ^^^^^
+ 106 |   return platform === "win32" ? normalized.toLowerCase() : normalized;
+     `----
+  help: Replace `/\\/g` with `"\\\\"`.
+
+  ! eslint-plugin-unicorn(prefer-string-replace-all): This pattern can be replaced with `\\`.
+    ,-[src/adapters/lifecycle.ts:23:42]
+ 22 |   }
+ 23 |   const normalized = filePath.replaceAll(/\\/g, "/");
+    :                                          ^^^^^
+ 24 |   return PROTECTED_CONFIG_FILES.some((f) => normalized === f || normalized.endsWith(`/${f}`));
+    `----
+  help: Replace `/\\/g` with `"\\\\"`.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[src/opencode/plugin-utils.ts:94:71]
+ 93 |   });
+ 94 |   return Promise.race([promise, deadline]).finally(() => clearTimeout(timer!));
+    :                                                                       ^^^^^^
+ 95 | }
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! eslint(no-magic-numbers): No magic number: 16
+     ,-[src/runtime/unified-index-pipeline.ts:244:19]
+ 243 |         .digest("hex")
+ 244 |         .slice(0, 16);
+     :                   ^^
+ 245 |       chunks.push({
+     `----
+
+  ! eslint(no-magic-numbers): No magic number: 16
+     ,-[src/runtime/unified-index-pipeline.ts:261:84]
+ 260 |   if (chunks.length === 0 && content.trim()) {
+ 261 |     const id = createHash("sha256").update(`${filePath}:0`).digest("hex").slice(0, 16);
+     :                                                                                    ^^
+ 262 |     chunks.push({
+     `----
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[src/runtime/unified-index-pipeline.ts:409:13]
+ 408 |     },
+ 409 |     vector: embeddings[i]!,
+     :             ^^^^^^^^^^^^^^
+ 410 |   }));
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! eslint(no-console): eslint(no-console): Unexpected console statement.
+    ,-[src/runtime/persistence.ts:89:7]
+ 88 |     if (error instanceof SyntaxError) {
+ 89 |       console.error(`[loadIndexConfig] Invalid JSON in ${configPath}, using defaults.`);
+    :       ^^^^^^^^^^^^^
+ 90 |       return { ...DEFAULT_INDEX_CONFIG };
+    `----
+  help: Delete this console statement.
+
+  ! eslint(no-console): eslint(no-console): Unexpected console statement.
+     ,-[src/runtime/persistence.ts:227:5]
+ 226 |   writeQueues.set(key, next.catch((error) => {
+ 227 |     console.error(`[appendEvent] Failed to append to ${key}: ${(error as Error).message}`);
+     :     ^^^^^^^^^^^^^
+ 228 |   }));
+     `----
+  help: Delete this console statement.
+
+  ! eslint-plugin-unicorn(no-array-for-each): Do not use `Array#forEach`
+     ,-[src/runtime/persistence.ts:361:34]
+ 360 |   if (!Array.isArray(value.subagents)) fail(ctx.statusPath, "subagents", "an array");
+ 361 |   (value.subagents as unknown[]).forEach((sub, i) => {
+     :                                  ^^^^^^^
+ 362 |     const subCtx: ValidationContext = { prefix: `subagents[${i}]`, statusPath: ctx.statusPath };
+     `----
+  help: Replace it with a for` loop. For loop is faster, more readable, and you can use `break` or `return` to exit early.
+
+  x eslint(max-params): Function 'test1' has too many parameters (4). Maximum allowed is 3.
+   ,-[_test_oxlint.ts:3:15]
+ 2 |     // oxlint-disable-next-line max-params
+ 3 | ,-> function test1(
+ 4 | |     a: string,
+ 5 | |     b: number,
+ 6 | |     c: boolean,
+ 7 | |     d: string,
+ 8 | `-> ): void { void a; void b; void c; void d; }
+ 9 |     
+   `----
+  help: This rule enforces a maximum number of parameters allowed in function definitions.
+
+  x eslint(no-unused-vars): Function 'test1' is declared but never used.
+   ,-[_test_oxlint.ts:3:10]
+ 2 | // oxlint-disable-next-line max-params
+ 3 | function test1(
+   :          ^^|^^
+   :            `-- 'test1' is declared here
+ 4 |   a: string,
+   `----
+  help: Consider removing this declaration.
+
+  x eslint(no-unused-vars): Function 'test2' is declared but never used.
+    ,-[_test_oxlint.ts:12:10]
+ 11 | // oxlint-disable max-params
+ 12 | function test2(
+    :          ^^|^^
+    :            `-- 'test2' is declared here
+ 13 |   a: string,
+    `----
+  help: Consider removing this declaration.
+
+  ! eslint(no-negated-condition): Unexpected negated condition.
+     ,-[src/opencode/plugin-hooks.ts:223:19]
+ 222 |           name: String(input?.subagent_name ?? input?.name ?? "unnamed"),
+ 223 |           status: input?.error !== undefined ? "failed" : "completed"
+     :                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 224 |         });
+     `----
+  help: Remove the negation operator and switch the consequent and alternate branches.
+
+  ! eslint(no-negated-condition): Unexpected negated condition.
+     ,-[src/bin/hf-runtime.ts:139:17]
+ 138 |     repoRoot: ctx.repoRoot,
+ 139 |     codeConfig: indexConfig.code.enabled !== false
+     :                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 140 |       ? {
+     `----
+  help: Remove the negation operator and switch the consequent and alternate branches.
+
+  ! eslint(no-negated-condition): Unexpected negated condition.
+     ,-[src/bin/hf-runtime.ts:351:16]
+ 350 |   const topKRaw = parseFlag(argv, "--top-k");
+ 351 |   const topK = topKRaw !== undefined ? Number.parseInt(topKRaw, 10) : DEFAULT_SEARCH_TOP_K;
+     :                ^^^^^^^^^^^^^^^^^^^^^
+ 352 | 
+     `----
+  help: Remove the negation operator and switch the consequent and alternate branches.
+
+  ! eslint(no-magic-numbers): No magic number: 10
+    ,-[eslint.config.js:21:49]
+ 20 |     rules: {
+ 21 |       "sonarjs/cognitive-complexity": ["error", 10],
+    :                                                 ^^
+ 22 |       "sonarjs/no-duplicate-string": ["error", { threshold: 3 }],
+    `----
+
+  ! eslint(no-negated-condition): Unexpected negated condition.
+     ,-[src/opencode/plugin-tools.ts:122:29]
+ 121 |       `Loop state: ${status.loopState}`,
+ 122 |       `Current milestone: ${currentIdx !== null ? `M${currentIdx} 窶・${currentTitle}` : "(all complete)"}`,
+     :                             ^^^^^^^^^^^^^^^^^^^
+ 123 |       `Total milestones: ${totalMilestones} (${parsed.milestones.filter((m) => m.checked).length} complete)`
+     `----
+  help: Remove the negation operator and switch the consequent and alternate branches.
+
+  ! eslint(no-negated-condition): Unexpected negated condition.
+     ,-[src/opencode/plugin-tools.ts:140:16]
+ 139 |   const query = args.query ?? "";
+ 140 |   const topK = args.top_k !== undefined ? args.top_k : undefined;
+     :                ^^^^^^^^^^^^^^^^^^^^^^^^
+ 141 |   const sourceArg = args.source;
+     `----
+  help: Remove the negation operator and switch the consequent and alternate branches.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+    ,-[src/opencode/plugin-tools.ts:98:30]
+ 97 | 
+ 98 |   return path.join(plansDir, candidates[0]!);
+    :                              ^^^^^^^^^^^^^^
+ 99 | }
+    `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:318:11]
+ 317 |     // Idle returns null when no plan binding (no runtime available for hf agent either)
+ 318 |     await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 319 |     const idleResult = await sessionIdle({ sessionID: "session-no-plan" });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:356:11]
+ 355 | 
+ 356 |     await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 357 |     const decision = await sessionIdle(
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:394:11]
+ 393 | 
+ 394 |     await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 395 |     await sessionIdle({
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:464:11]
+ 463 | 
+ 464 |     await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 465 |     const decision = await sessionIdle({
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:637:11]
+ 636 | 
+ 637 |     await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 638 |     const decision = await sessionIdle({ sessionID: "enriched-idle" });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:683:11]
+ 682 | 
+ 683 |     await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 684 |     const decision = await sessionIdle({ sessionID: "enriched-loop" });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:705:11]
+ 704 |     // message.updated uses context.session.id as fallback when info has no sessionID.
+ 705 |     await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 706 |     await hooks["message.updated"]!({
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:706:11]
+ 705 |     await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+ 706 |     await hooks["message.updated"]!({
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 707 |       info: { role: "assistant", agent: "hf-builder", error: { name: "MessageAbortedError", data: { message: "User interrupted generation" } } }
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:710:26]
+ 709 | 
+ 710 |     const result = await hooks["session.idle"]!({ sessionID: "interrupt-test" });
+     :                          ^^^^^^^^^^^^^^^^^^^^^^
+ 711 |     expect(result).toMatchObject({
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:730:11]
+ 729 |     // Activate hf agent, trigger interrupt
+ 730 |     await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 731 |     await hooks["message.updated"]!({
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:731:11]
+ 730 |     await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+ 731 |     await hooks["message.updated"]!({
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 732 |       info: { role: "assistant", agent: "hf-builder", error: { name: "MessageAbortedError", data: { message: "User interrupted generation" } } }
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:736:25]
+ 735 |     // First idle consumes the interrupt
+ 736 |     const first = await hooks["session.idle"]!({ sessionID: "consume-test" });
+     :                         ^^^^^^^^^^^^^^^^^^^^^^
+ 737 |     expect(first).toMatchObject({ action: "allow_stop" });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:740:26]
+ 739 |     // Second idle: interrupted is false, activeAgentIsHf is true, but no plan binding 竊・null
+ 740 |     const second = await hooks["session.idle"]!({ sessionID: "consume-test" });
+     :                          ^^^^^^^^^^^^^^^^^^^^^^
+ 741 |     expect(second).toBeNull();
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:750:26]
+ 749 |     // No message.updated call 窶・activeAgentIsHf defaults to false
+ 750 |     const result = await hooks["session.idle"]!({ sessionID: "no-agent-test" });
+     :                          ^^^^^^^^^^^^^^^^^^^^^^
+ 751 |     expect(result).toBeNull();
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:760:11]
+ 759 |     // Set a non-hf agent
+ 760 |     await hooks["message.updated"]!({ info: { role: "assistant", agent: "some-other-agent" } });
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 761 | 
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:762:26]
+ 761 | 
+ 762 |     const result = await hooks["session.idle"]!({ sessionID: "non-hf-test" });
+     :                          ^^^^^^^^^^^^^^^^^^^^^^
+ 763 |     expect(result).toBeNull();
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:772:7]
+ 771 |     await expect(
+ 772 |       hooks["tool.execute.before"]!({ command: "rm -rf /" })
+     :       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 773 |     ).rejects.toThrow("Hybrid runtime guardrail blocked a destructive command.");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:776:11]
+ 775 |     // Set non-hf agent explicitly
+ 776 |     await hooks["message.updated"]!({ info: { role: "assistant", agent: "some-other-agent" } });
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 777 |     await expect(
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:778:7]
+ 777 |     await expect(
+ 778 |       hooks["tool.execute.before"]!({ command: "git reset --hard HEAD~1" })
+     :       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 779 |     ).rejects.toThrow("Hybrid runtime guardrail blocked a destructive command.");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:790:26]
+ 789 |     // No message.updated 窶・activeAgentIsHf is false, but session.created is not gated
+ 790 |     const result = await hooks["session.created"]!({ sessionID: "created-test" }) as { additionalContext?: string };
+     :                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 791 |     expect(result).toBeDefined();
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:810:11]
+ 809 |     // Trigger runtime hydration for both sessions
+ 810 |     await hooks["session.created"]!({ sessionID: "session-A" });
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 811 |     await hooks["session.created"]!({ sessionID: "session-B" });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:811:11]
+ 810 |     await hooks["session.created"]!({ sessionID: "session-A" });
+ 811 |     await hooks["session.created"]!({ sessionID: "session-B" });
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 812 | 
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:818:28]
+ 817 | 
+ 818 |     const runtimeA = await sessionRuntimes.get("session-A")!;
+     :                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 819 |     const runtimeB = await sessionRuntimes.get("session-B")!;
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:819:28]
+ 818 |     const runtimeA = await sessionRuntimes.get("session-A")!;
+ 819 |     const runtimeB = await sessionRuntimes.get("session-B")!;
+     :                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 820 |     expect(runtimeA).not.toBeNull();
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:831:11]
+ 830 |     // Activate hf agent and interrupt for context.session.id (default fallback)
+ 831 |     await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 832 |     await hooks["message.updated"]!({
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:832:11]
+ 831 |     await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+ 832 |     await hooks["message.updated"]!({
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 833 |       info: { role: "assistant", agent: "hf-builder", error: { name: "MessageAbortedError" } }
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:837:33]
+ 836 |     // session-flags-default: interrupted = true, activeAgentIsHf = true
+ 837 |     const resultDefault = await hooks["session.idle"]!({ sessionID: "session-flags-default" });
+     :                                 ^^^^^^^^^^^^^^^^^^^^^^
+ 838 |     expect(resultDefault).toMatchObject({ action: "allow_stop", reason: expect.stringContaining("interrupted") });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:841:31]
+ 840 |     // session-other: has its own independent flags (defaults to false/false)
+ 841 |     const resultOther = await hooks["session.idle"]!({ sessionID: "session-other" });
+     :                               ^^^^^^^^^^^^^^^^^^^^^^
+ 842 |     // non-hf agent (default), not interrupted
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:855:18]
+ 854 |     // Hooks no-op gracefully
+ 855 |     await expect(hooks["session.created"]!({ sessionID: "unbound" })).resolves.toMatchObject({});
+     :                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 856 |     await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:856:11]
+ 855 |     await expect(hooks["session.created"]!({ sessionID: "unbound" })).resolves.toMatchObject({});
+ 856 |     await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 857 |     await expect(hooks["session.idle"]!({ sessionID: "unbound" })).resolves.toBeNull();
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:857:18]
+ 856 |     await hooks["message.updated"]!(HF_AGENT_MESSAGE);
+ 857 |     await expect(hooks["session.idle"]!({ sessionID: "unbound" })).resolves.toBeNull();
+     :                  ^^^^^^^^^^^^^^^^^^^^^^
+ 858 |   });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:950:7]
+ 949 |     await expect(
+ 950 |       hooks["tool.execute.before"]!({ file_path: ".husky/pre-commit" })
+     :       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 951 |     ).rejects.toThrow("Hybrid runtime guardrail blocked an edit to protected config file");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:960:7]
+ 959 |     await expect(
+ 960 |       hooks["tool.execute.before"]!({ file_path: "src/foo.ts" })
+     :       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 961 |     ).resolves.toBeNull();
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/adapters.test.ts:972:9]
+ 971 |       await expect(
+ 972 |         hooks["tool.execute.before"]!({ file_path: ".oxlintrc.json" })
+     :         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 973 |       ).resolves.toBeNull();
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! eslint(no-negated-condition): Unexpected negated condition.
+     ,-[src/runtime/runtime.ts:122:11]
+ 121 |     if (this.status) {
+ 122 |       if (snapshot.lastIndexError !== undefined) {
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 123 |         this.status.lastIndexError = snapshot.lastIndexError;
+     `----
+  help: Remove the negation operator and switch the consequent and alternate branches.
+
+  ! eslint(no-negated-condition): Unexpected negated condition.
+     ,-[src/runtime/runtime.ts:507:11]
+ 506 |       query,
+ 507 |       ...(topK !== undefined ? { topK } : {}),
+     :           ^^^^^^^^^^^^^^^^^^
+ 508 |       ...(sourceFilter !== undefined ? { sourceFilter } : {}),
+     `----
+  help: Remove the negation operator and switch the consequent and alternate branches.
+
+  ! eslint(no-negated-condition): Unexpected negated condition.
+     ,-[src/runtime/runtime.ts:508:11]
+ 507 |       ...(topK !== undefined ? { topK } : {}),
+ 508 |       ...(sourceFilter !== undefined ? { sourceFilter } : {}),
+     :           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 509 |     };
+     `----
+  help: Remove the negation operator and switch the consequent and alternate branches.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/runtime.test.ts:894:14]
+ 893 |       expect(Array.isArray(results)).toBe(true);
+ 894 |       expect(results!.length).toBeGreaterThan(0);
+     :              ^^^^^^^^
+ 895 |       // Results should be sorted by score descending (item-1 has higher score)
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/runtime.test.ts:896:14]
+ 895 |       // Results should be sorted by score descending (item-1 has higher score)
+ 896 |       expect(results![0]!.metadata.sourcePath).toBe("vault/shared/context.md");
+     :              ^^^^^^^^^^^^
+ 897 |       expect(results![0]!.metadata.kind).toBe("vault");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/runtime.test.ts:896:14]
+ 895 |       // Results should be sorted by score descending (item-1 has higher score)
+ 896 |       expect(results![0]!.metadata.sourcePath).toBe("vault/shared/context.md");
+     :              ^^^^^^^^
+ 897 |       expect(results![0]!.metadata.kind).toBe("vault");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/runtime.test.ts:897:14]
+ 896 |       expect(results![0]!.metadata.sourcePath).toBe("vault/shared/context.md");
+ 897 |       expect(results![0]!.metadata.kind).toBe("vault");
+     :              ^^^^^^^^^^^^
+ 898 |       expect(results![1]!.metadata.kind).toBe("code");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/runtime.test.ts:897:14]
+ 896 |       expect(results![0]!.metadata.sourcePath).toBe("vault/shared/context.md");
+ 897 |       expect(results![0]!.metadata.kind).toBe("vault");
+     :              ^^^^^^^^
+ 898 |       expect(results![1]!.metadata.kind).toBe("code");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/runtime.test.ts:898:14]
+ 897 |       expect(results![0]!.metadata.kind).toBe("vault");
+ 898 |       expect(results![1]!.metadata.kind).toBe("code");
+     :              ^^^^^^^^^^^^
+ 899 |       // Shape check: required fields present
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/runtime.test.ts:898:14]
+ 897 |       expect(results![0]!.metadata.kind).toBe("vault");
+ 898 |       expect(results![1]!.metadata.kind).toBe("code");
+     :              ^^^^^^^^
+ 899 |       // Shape check: required fields present
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/runtime.test.ts:900:14]
+ 899 |       // Shape check: required fields present
+ 900 |       expect(results![0]!.score).toBeTypeOf("number");
+     :              ^^^^^^^^^^^^
+ 901 |       expect(results![0]!.text).toBeTypeOf("string");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/runtime.test.ts:900:14]
+ 899 |       // Shape check: required fields present
+ 900 |       expect(results![0]!.score).toBeTypeOf("number");
+     :              ^^^^^^^^
+ 901 |       expect(results![0]!.text).toBeTypeOf("string");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/runtime.test.ts:901:14]
+ 900 |       expect(results![0]!.score).toBeTypeOf("number");
+ 901 |       expect(results![0]!.text).toBeTypeOf("string");
+     :              ^^^^^^^^^^^^
+ 902 |       expect(results![0]!.metadata.sectionTitle).toBeTypeOf("string");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/runtime.test.ts:901:14]
+ 900 |       expect(results![0]!.score).toBeTypeOf("number");
+ 901 |       expect(results![0]!.text).toBeTypeOf("string");
+     :              ^^^^^^^^
+ 902 |       expect(results![0]!.metadata.sectionTitle).toBeTypeOf("string");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/runtime.test.ts:902:14]
+ 901 |       expect(results![0]!.text).toBeTypeOf("string");
+ 902 |       expect(results![0]!.metadata.sectionTitle).toBeTypeOf("string");
+     :              ^^^^^^^^^^^^
+ 903 |       expect(results![0]!.metadata.documentTitle).toBeTypeOf("string");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/runtime.test.ts:902:14]
+ 901 |       expect(results![0]!.text).toBeTypeOf("string");
+ 902 |       expect(results![0]!.metadata.sectionTitle).toBeTypeOf("string");
+     :              ^^^^^^^^
+ 903 |       expect(results![0]!.metadata.documentTitle).toBeTypeOf("string");
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/runtime.test.ts:903:14]
+ 902 |       expect(results![0]!.metadata.sectionTitle).toBeTypeOf("string");
+ 903 |       expect(results![0]!.metadata.documentTitle).toBeTypeOf("string");
+     :              ^^^^^^^^^^^^
+ 904 |     });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/runtime.test.ts:903:14]
+ 902 |       expect(results![0]!.metadata.sectionTitle).toBeTypeOf("string");
+ 903 |       expect(results![0]!.metadata.documentTitle).toBeTypeOf("string");
+     :              ^^^^^^^^
+ 904 |     });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/runtime.test.ts:957:14]
+ 956 |       expect(topK2).not.toBeNull();
+ 957 |       expect(topK2!.length).toBe(2);
+     :              ^^^^^^
+ 958 | 
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[tests/runtime.test.ts:961:14]
+ 960 |       expect(topK3).not.toBeNull();
+ 961 |       expect(topK3!.length).toBe(3);
+     :              ^^^^^^
+ 962 |     });
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+      ,-[tests/runtime.test.ts:1019:14]
+ 1018 |       expect(results).not.toBeNull();
+ 1019 |       expect(results!.length).toBe(1);
+      :              ^^^^^^^^
+ 1020 |       expect(results![0]!.metadata.kind).toBe("vault");
+      `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+      ,-[tests/runtime.test.ts:1020:14]
+ 1019 |       expect(results!.length).toBe(1);
+ 1020 |       expect(results![0]!.metadata.kind).toBe("vault");
+      :              ^^^^^^^^^^^^
+ 1021 |       expect(results![0]!.metadata.sourcePath).toBe("vault/shared/context.md");
+      `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+      ,-[tests/runtime.test.ts:1020:14]
+ 1019 |       expect(results!.length).toBe(1);
+ 1020 |       expect(results![0]!.metadata.kind).toBe("vault");
+      :              ^^^^^^^^
+ 1021 |       expect(results![0]!.metadata.sourcePath).toBe("vault/shared/context.md");
+      `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+      ,-[tests/runtime.test.ts:1021:14]
+ 1020 |       expect(results![0]!.metadata.kind).toBe("vault");
+ 1021 |       expect(results![0]!.metadata.sourcePath).toBe("vault/shared/context.md");
+      :              ^^^^^^^^^^^^
+ 1022 |     });
+      `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+      ,-[tests/runtime.test.ts:1021:14]
+ 1020 |       expect(results![0]!.metadata.kind).toBe("vault");
+ 1021 |       expect(results![0]!.metadata.sourcePath).toBe("vault/shared/context.md");
+      :              ^^^^^^^^
+ 1022 |     });
+      `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+      ,-[tests/runtime.test.ts:1079:14]
+ 1078 |       expect(results).not.toBeNull();
+ 1079 |       expect(results!.length).toBe(1);
+      :              ^^^^^^^^
+ 1080 |       expect(results![0]!.metadata.kind).toBe("code");
+      `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+      ,-[tests/runtime.test.ts:1080:14]
+ 1079 |       expect(results!.length).toBe(1);
+ 1080 |       expect(results![0]!.metadata.kind).toBe("code");
+      :              ^^^^^^^^^^^^
+ 1081 |       expect(results![0]!.metadata.sourcePath).toBe("src/runtime/runtime.ts");
+      `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+      ,-[tests/runtime.test.ts:1080:14]
+ 1079 |       expect(results!.length).toBe(1);
+ 1080 |       expect(results![0]!.metadata.kind).toBe("code");
+      :              ^^^^^^^^
+ 1081 |       expect(results![0]!.metadata.sourcePath).toBe("src/runtime/runtime.ts");
+      `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+      ,-[tests/runtime.test.ts:1081:14]
+ 1080 |       expect(results![0]!.metadata.kind).toBe("code");
+ 1081 |       expect(results![0]!.metadata.sourcePath).toBe("src/runtime/runtime.ts");
+      :              ^^^^^^^^^^^^
+ 1082 |     });
+      `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+      ,-[tests/runtime.test.ts:1081:14]
+ 1080 |       expect(results![0]!.metadata.kind).toBe("code");
+ 1081 |       expect(results![0]!.metadata.sourcePath).toBe("src/runtime/runtime.ts");
+      :              ^^^^^^^^
+ 1082 |     });
+      `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+      ,-[tests/runtime.test.ts:1139:14]
+ 1138 |       expect(results).not.toBeNull();
+ 1139 |       expect(results!.length).toBe(2);
+      :              ^^^^^^^^
+ 1140 |       const kinds = results!.map((r) => r.metadata.kind).sort();
+      `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+      ,-[tests/runtime.test.ts:1140:21]
+ 1139 |       expect(results!.length).toBe(2);
+ 1140 |       const kinds = results!.map((r) => r.metadata.kind).sort();
+      :                     ^^^^^^^^
+ 1141 |       expect(kinds).toEqual(["code", "vault"]);
+      `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+      ,-[tests/runtime.test.ts:1434:11]
+ 1433 |     // Record events independently
+ 1434 |     await sessionRuntimes.get("session-aaa")!.recordEvent({
+      :           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 1435 |       vendor: "opencode",
+      `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+      ,-[tests/runtime.test.ts:1440:11]
+ 1439 |     });
+ 1440 |     await sessionRuntimes.get("session-bbb")!.recordEvent({
+      :           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 1441 |       vendor: "opencode",
+      `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+      ,-[tests/runtime.test.ts:1448:12]
+ 1447 |     // Each session holds its own plan
+ 1448 |     expect(sessionRuntimes.get("session-aaa")!.getStatus().planSlug).toBe("session-alpha");
+      :            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 1449 |     expect(sessionRuntimes.get("session-bbb")!.getStatus().planSlug).toBe("session-beta");
+      `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+      ,-[tests/runtime.test.ts:1449:12]
+ 1448 |     expect(sessionRuntimes.get("session-aaa")!.getStatus().planSlug).toBe("session-alpha");
+ 1449 |     expect(sessionRuntimes.get("session-bbb")!.getStatus().planSlug).toBe("session-beta");
+      :            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 1450 | 
+      `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! eslint(no-console): eslint(no-console): Unexpected console statement.
+     ,-[src/runtime/unified-store.ts:222:7]
+ 221 |     if (error instanceof SyntaxError) {
+ 222 |       console.error(
+     :       ^^^^^^^^^^^^^
+ 223 |         `[unified-store] Corrupted index file, rebuilding from scratch: ${jsonPath}`,
+     `----
+  help: Delete this console statement.
+
+  ! eslint(no-console): eslint(no-console): Unexpected console statement.
+     ,-[src/runtime/unified-store.ts:247:5]
+ 246 |     // on the next invocation.
+ 247 |     console.warn(
+     :     ^^^^^^^^^^^^
+ 248 |       `[unified-store] Could not acquire index lock within ${LOCK_TIMEOUT_MS}ms 窶・skipping save (index will be rebuilt next run).`,
+     `----
+  help: Delete this console statement.
+
+  ! eslint(no-magic-numbers): No magic number: 1.5
+    ,-[src/runtime/unified-store.ts:59:36]
+ 58 |     // Mild back-off, capped so we don't stall too long on the last attempt.
+ 59 |     interval = Math.min(interval * 1.5, 200);
+    :                                    ^^^
+ 60 |   }
+    `----
+
+  ! eslint(no-magic-numbers): No magic number: 200
+    ,-[src/runtime/unified-store.ts:59:41]
+ 58 |     // Mild back-off, capped so we don't stall too long on the last attempt.
+ 59 |     interval = Math.min(interval * 1.5, 200);
+    :                                         ^^^
+ 60 |   }
+    `----
+
+  ! eslint(no-magic-numbers): No magic number: 384
+     ,-[src/runtime/unified-store.ts:110:17]
+ 109 |   version: 2;
+ 110 |   embeddingDim: 384;
+     :                 ^^^
+ 111 |   items: IndexItem[];
+     `----
+
+  ! eslint(no-negated-condition): Unexpected negated condition.
+     ,-[src/runtime/unified-store.ts:354:9]
+ 353 |     const existingIdx = idToIndex.get(entry.item.id);
+ 354 |     if (existingIdx !== undefined) {
+     :         ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 355 |       nextItems[existingIdx] = entry.item;
+     `----
+  help: Remove the negation operator and switch the consequent and alternate branches.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[src/runtime/unified-store.ts:332:19]
+ 331 |   for (let i = 0; i < index.items.length; i++) {
+ 332 |     idToIndex.set(index.items[i]!.id, i);
+     :                   ^^^^^^^^^^^^^^^
+ 333 |   }
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[src/runtime/unified-store.ts:388:18]
+ 387 |   for (let i = 0; i < index.items.length; i++) {
+ 388 |     const item = index.items[i]!;
+     :                  ^^^^^^^^^^^^^^^
+ 389 |     if (idSet.has(item.id)) {
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! typescript-eslint(no-non-null-assertion): Forbidden non-null assertion.
+     ,-[src/runtime/unified-store.ts:415:18]
+ 414 |   for (let i = 0; i < state.index.items.length; i++) {
+ 415 |     const item = state.index.items[i]!;
+     :                  ^^^^^^^^^^^^^^^^^^^^^
+ 416 |     if (sourceFilter && !matchesSourceFilter(String(item.metadata.kind ?? ""), sourceFilter)) continue;
+     `----
+  help: Consider using the optional chain operator `?.` instead. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator.
+
+  ! eslint-plugin-unicorn(prefer-spread): Prefer the spread operator (`...`) over Array.from()
+     ,-[src/runtime/unified-store.ts:164:10]
+ 163 |   const offset = index * EMBEDDING_DIM;
+ 164 |   return Array.from(vectors.slice(offset, offset + EMBEDDING_DIM));
+     :          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 165 | }
+     `----
+  help: The spread operator (`...`) is more concise and readable.
+
+  ! eslint-plugin-promise(catch-or-return): eslint-plugin-promise(catch-or-return): Expected catch or return
+    ,-[tests/plugin-tools.test.ts:41:16]
+ 40 |     metadata: () => undefined,
+ 41 |     ask: () => Promise.resolve(),
+    :                ^^^^^^^^^^^^^^^^^
+ 42 |   };
+    `----
+  help: Return the promise or chain a catch()
+
+  ! eslint-plugin-promise(catch-or-return): eslint-plugin-promise(catch-or-return): Expected catch or return
+    ,-[tests/plugin-tools.test.ts:65:48]
+ 64 |     },
+ 65 |     getRuntime: overrides.getRuntime ?? (() => Promise.resolve(null)),
+    :                                                ^^^^^^^^^^^^^^^^^^^^^
+ 66 |   };
+    `----
+  help: Return the promise or chain a catch()
+
+  ! eslint-plugin-promise(catch-or-return): eslint-plugin-promise(catch-or-return): Expected catch or return
+     ,-[tests/plugin-tools.test.ts:164:27]
+ 163 |       const manager = makeManager({
+ 164 |         getRuntime: () => Promise.resolve(makeMockRuntime()),
+     :                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 165 |       });
+     `----
+  help: Return the promise or chain a catch()
+
+  ! eslint-plugin-promise(catch-or-return): eslint-plugin-promise(catch-or-return): Expected catch or return
+     ,-[tests/plugin-tools.test.ts:270:55]
+ 269 |     test("returns 'runtime not yet initialized' when getRuntime resolves to null", async () => {
+ 270 |       const manager = makeManager({ getRuntime: () => Promise.resolve(null) });
+     :                                                       ^^^^^^^^^^^^^^^^^^^^^
+ 271 |       manager.planBindings.set("sess-rt-1", "/some/plans/my-plan.md");
+     `----
+  help: Return the promise or chain a catch()
+
+  ! eslint-plugin-promise(catch-or-return): eslint-plugin-promise(catch-or-return): Expected catch or return
+     ,-[tests/plugin-tools.test.ts:285:55]
+ 284 |       });
+ 285 |       const manager = makeManager({ getRuntime: () => Promise.resolve(mockRuntime) });
+     :                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 286 |       manager.planBindings.set("sess-rt-2", "/some/plans/test-plan.md");
+     `----
+  help: Return the promise or chain a catch()
+
+Found 268 warnings and 5 errors.
+Finished in 346ms on 67 files with 108 rules using 16 threads.

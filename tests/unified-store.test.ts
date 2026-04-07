@@ -1,9 +1,10 @@
+import assert from "node:assert";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 
-import type { IndexItem, UnifiedIndex } from "../src/runtime/unified-store.js";
+import type { IndexItem, UnifiedIndex } from "../src/index/unified-store.js";
 import {
   batchUpsertItems,
   deleteItems,
@@ -12,7 +13,7 @@ import {
   queryItems,
   saveUnifiedIndex,
   upsertItem,
-} from "../src/runtime/unified-store.js";
+} from "../src/index/unified-store.js";
 
 function makeVector(values: number[]): number[] {
   const vector = Array.from({ length: 384 }, () => 0);
@@ -58,10 +59,11 @@ describe("unified-store", () => {
       const loaded = await loadUnifiedIndex(tmpDir);
 
       expect(loaded).not.toBeNull();
-      expect(loaded!.index).toEqual(index);
-      expect(Array.from(loaded!.vectors.slice(0, 6))).toEqual(Array.from(vectors.slice(0, 6)));
-      expect(Array.from(loaded!.vectors.slice(384, 390))).toEqual(
-        Array.from(vectors.slice(384, 390)),
+      assert(loaded !== null, "Expected loaded to be non-null");
+      expect(loaded.index).toEqual(index);
+      expect(loaded.vectors.slice(0, 6)).toEqual(vectors.slice(0, 6));
+      expect(loaded.vectors.slice(384, 390)).toEqual(
+        vectors.slice(384, 390),
       );
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true });
@@ -73,7 +75,9 @@ describe("unified-store", () => {
     const result = insertItem({ index, vectors: new Float32Array() }, makeItem("a", { kind: "code" }), makeVector([3, 4]));
 
     expect(result.index.items).toHaveLength(1);
-    expect(result.index.items[0]!.id).toBe("a");
+    const [insertedItem] = result.index.items;
+    assert(insertedItem !== undefined, "Expected item at index 0");
+    expect(insertedItem.id).toBe("a");
     expect(result.vectors).toHaveLength(384);
     expect(result.vectors[0]).toBeCloseTo(0.6, 6);
     expect(result.vectors[1]).toBeCloseTo(0.8, 6);
@@ -93,8 +97,10 @@ describe("unified-store", () => {
     );
 
     expect(updated.index.items).toHaveLength(1);
-    expect(updated.index.items[0]!.metadata.kind).toBe("code");
-    expect(updated.index.items[0]!.metadata.rank).toBe(2);
+    const [upsertedItem] = updated.index.items;
+    assert(upsertedItem !== undefined, "Expected item at index 0");
+    expect(upsertedItem.metadata.kind).toBe("code");
+    expect(upsertedItem.metadata.rank).toBe(2);
     expect(updated.vectors[0]).toBeCloseTo(0, 6);
     expect(updated.vectors[1]).toBeCloseTo(1, 6);
   });
@@ -132,9 +138,12 @@ describe("unified-store", () => {
     const results = queryItems(state, { queryVector: makeVector([0, 0, 1]), topK: 2 });
 
     expect(results).toHaveLength(2);
-    expect(results[0]!.id).toBe("high");
-    expect(results[1]!.id).toBe("mid");
-    expect(results[0]!.score).toBeGreaterThan(results[1]!.score);
+    const [topResult, secondResult] = results;
+    assert(topResult !== undefined, "Expected result at index 0");
+    assert(secondResult !== undefined, "Expected result at index 1");
+    expect(topResult.id).toBe("high");
+    expect(secondResult.id).toBe("mid");
+    expect(topResult.score).toBeGreaterThan(secondResult.score);
   });
 
   test("queryItems: sourceFilter='vault' returns only vault chunks", () => {
@@ -157,7 +166,7 @@ describe("unified-store", () => {
     const results = queryItems(state, { queryVector: makeVector([1, 1, 1]), topK: 10, sourceFilter: "vault" });
 
     expect(results.every((r) => r.metadata.kind === "vault")).toBe(true);
-    expect(results.map((r) => r.id).sort()).toEqual(["vault-1", "vault-2"]);
+    expect(results.map((r) => r.id).sort((a, b) => a.localeCompare(b))).toEqual(["vault-1", "vault-2"]);
   });
 
   test("queryItems: sourceFilter='code' returns only code chunks", () => {
@@ -180,7 +189,7 @@ describe("unified-store", () => {
     const results = queryItems(state, { queryVector: makeVector([1, 1, 1]), topK: 10, sourceFilter: "code" });
 
     expect(results.every((r) => r.metadata.kind === "code")).toBe(true);
-    expect(results.map((r) => r.id).sort()).toEqual(["code-1", "code-2"]);
+    expect(results.map((r) => r.id).sort((a, b) => a.localeCompare(b))).toEqual(["code-1", "code-2"]);
   });
 
   test("queryItems: sourceFilter='code' also matches external chunks", () => {
@@ -203,7 +212,7 @@ describe("unified-store", () => {
     const results = queryItems(state, { queryVector: makeVector([1, 1, 1]), topK: 10, sourceFilter: "code" });
 
     // Should include both code and external, but not vault
-    expect(results.map((r) => r.id).sort()).toEqual(["code-1", "external-1"]);
+    expect(results.map((r) => r.id).sort((a, b) => a.localeCompare(b))).toEqual(["code-1", "external-1"]);
     expect(results.every((r) => r.metadata.kind !== "vault")).toBe(true);
   });
 
@@ -328,9 +337,12 @@ describe("unified-store", () => {
 
     expect(result.index.items).toHaveLength(2);
     // updated
-    expect(result.index.items[0]!.metadata.v).toBe(2);
+    const [updatedItem, newItem] = result.index.items;
+    assert(updatedItem !== undefined, "Expected item at index 0");
+    assert(newItem !== undefined, "Expected item at index 1");
+    expect(updatedItem.metadata.v).toBe(2);
     // new
-    expect(result.index.items[1]!.id).toBe("b");
+    expect(newItem.id).toBe("b");
     expect(result.vectors.length).toBe(384 * 2);
   });
 
@@ -387,9 +399,10 @@ describe("unified-store", () => {
       // The on-disk state must be a valid, loadable index.
       const loaded = await loadUnifiedIndex(tmpDir);
       expect(loaded).not.toBeNull();
+      assert(loaded !== null, "Expected loaded to be non-null");
       // Must have exactly the items that the winning write serialised.
-      expect(loaded!.index.items.length).toBeGreaterThan(0);
-      expect(loaded!.vectors.length).toBe(384 * loaded!.index.items.length);
+      expect(loaded.index.items.length).toBeGreaterThan(0);
+      expect(loaded.vectors.length).toBe(384 * loaded.index.items.length);
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }

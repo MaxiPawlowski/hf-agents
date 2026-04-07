@@ -2,13 +2,17 @@ import path from "node:path";
 import { existsSync, promises as fs, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import type { IndexCodeConfig, IndexConfig, ParsedPlan, RuntimeEvent, RuntimeStatus, VaultContext, VaultDocument, VaultPaths } from "./types.js";
-import { validateTurnOutcome } from "./turn-outcome-trailer.js";
+import type { ExternalIndexConfig, IndexCodeConfig, IndexConfig, ParsedPlan, RuntimeEvent, RuntimeStatus, VaultContext, VaultDocument, VaultPaths } from "./types.js";
+import { validateTurnOutcome } from "../prompt/turn-outcome-trailer.js";
 import { isRecord, isString, isNumber, isBoolean } from "./utils.js";
+import { hfLog } from "./logger.js";
+
+const STATUS_FILENAME = "status.json";
 
 function resolvePackageRoot(startDir: string): string {
   let currentDir = startDir;
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- intentional traversal loop with explicit return/throw
   while (true) {
     if (existsSync(path.join(currentDir, "package.json"))) {
       return currentDir;
@@ -35,9 +39,23 @@ function mergeCodeConfig(defaults: IndexCodeConfig, raw: unknown): IndexCodeConf
   if (!isRecord(raw)) return defaults;
   return {
     enabled: isBoolean(raw.enabled) ? raw.enabled : defaults.enabled,
-    roots: Array.isArray(raw.roots) && raw.roots.every(isString) ? raw.roots as string[] : defaults.roots,
-    extensions: Array.isArray(raw.extensions) && raw.extensions.every(isString) ? raw.extensions as string[] : defaults.extensions,
-    exclude: Array.isArray(raw.exclude) && raw.exclude.every(isString) ? raw.exclude as string[] : defaults.exclude,
+    roots: Array.isArray(raw.roots) && raw.roots.every(isString) ? raw.roots : defaults.roots,
+    extensions: Array.isArray(raw.extensions) && raw.extensions.every(isString) ? raw.extensions : defaults.extensions,
+    exclude: Array.isArray(raw.exclude) && raw.exclude.every(isString) ? raw.exclude : defaults.exclude,
+  };
+}
+
+function mergeExternalConfig(defaults: ExternalIndexConfig | undefined, raw: unknown): ExternalIndexConfig | undefined {
+  if (!isRecord(raw)) return defaults;
+  const roots = Array.isArray(raw.roots) && raw.roots.every(isString) ? raw.roots : (defaults?.roots ?? []);
+  const rawExts = Array.isArray(raw.extensions) && raw.extensions.every(isString) ? raw.extensions : undefined;
+  const extensions = rawExts ?? defaults?.extensions;
+  const rawExclude = Array.isArray(raw.exclude) && raw.exclude.every(isString) ? raw.exclude : undefined;
+  const exclude = rawExclude ?? defaults?.exclude;
+  return {
+    roots,
+    ...(extensions ? { extensions } : {}),
+    ...(exclude ? { exclude } : {}),
   };
 }
 
@@ -54,9 +72,11 @@ export async function loadIndexConfig(repoRoot: string): Promise<IndexConfig> {
       return { ...DEFAULT_INDEX_CONFIG };
     }
     const idx = parsed.index;
+    const externalConfig = mergeExternalConfig(DEFAULT_INDEX_CONFIG.external, idx.external);
     return {
       enabled: isBoolean(idx.enabled) ? idx.enabled : DEFAULT_INDEX_CONFIG.enabled,
       code: mergeCodeConfig(DEFAULT_INDEX_CONFIG.code, idx.code),
+      ...(externalConfig ? { external: externalConfig } : {}),
       semanticTopK: safeNumber(idx.semanticTopK, DEFAULT_INDEX_CONFIG.semanticTopK),
       maxChunkChars: safeNumber(idx.maxChunkChars, DEFAULT_INDEX_CONFIG.maxChunkChars),
       embeddingBatchSize: safeNumber(idx.embeddingBatchSize, DEFAULT_INDEX_CONFIG.embeddingBatchSize),
@@ -70,7 +90,7 @@ export async function loadIndexConfig(repoRoot: string): Promise<IndexConfig> {
       return { ...DEFAULT_INDEX_CONFIG };
     }
     if (error instanceof SyntaxError) {
-      console.error(`[loadIndexConfig] Invalid JSON in ${configPath}, using defaults.`);
+      hfLog({ tag: "persistence", msg: "loadIndexConfig invalid JSON, using defaults", data: { configPath } });
       return { ...DEFAULT_INDEX_CONFIG };
     }
     throw error;
@@ -102,7 +122,7 @@ export function getRuntimePaths(plan: ParsedPlan): RuntimePaths {
 
   return {
     runtimeDir,
-    statusPath: path.join(runtimeDir, "status.json"),
+    statusPath: path.join(runtimeDir, STATUS_FILENAME),
     eventsPath: path.join(runtimeDir, "events.jsonl"),
     resumePromptPath: path.join(runtimeDir, "resume-prompt.txt")
   };
@@ -113,7 +133,7 @@ export function getPlanlessRuntimePaths(cwd: string): RuntimePaths {
 
   return {
     runtimeDir,
-    statusPath: path.join(runtimeDir, "status.json"),
+    statusPath: path.join(runtimeDir, STATUS_FILENAME),
     eventsPath: path.join(runtimeDir, "events.jsonl"),
     resumePromptPath: path.join(runtimeDir, "resume-prompt.txt")
   };
@@ -208,7 +228,7 @@ export async function appendEvent(runtimePaths: RuntimePaths, event: RuntimeEven
     await fs.appendFile(key, `${JSON.stringify(event)}\n`, "utf8");
   });
   writeQueues.set(key, next.catch((error) => {
-    console.error(`[appendEvent] Failed to append to ${key}: ${(error as Error).message}`);
+    hfLog({ tag: "persistence", msg: "appendEvent write failed", data: { path: key, error: (error as Error).message } });
   }));
   await next;
 }
@@ -328,7 +348,7 @@ function validateCounters(value: Record<string, unknown>, ctx: ValidationContext
   expectObject(value.counters, "counters", ctx.statusPath);
   const counterFields = ["totalAttempts", "totalTurns", "maxTotalTurns", "noProgress", "repeatedBlocker", "verificationFailures", "turnsSinceLastOutcome"];
   for (const f of counterFields) {
-    expectNumber((value.counters as Record<string, unknown>)[f], `counters.${f}`, ctx.statusPath);
+    expectNumber((value.counters)[f], `counters.${f}`, ctx.statusPath);
   }
 }
 
@@ -342,13 +362,14 @@ function validateLastOutcome(value: Record<string, unknown>, ctx: ValidationCont
 
 function validateSubagents(value: Record<string, unknown>, ctx: ValidationContext): void {
   if (!Array.isArray(value.subagents)) fail(ctx.statusPath, "subagents", "an array");
-  (value.subagents as unknown[]).forEach((sub, i) => {
+  for (let i = 0; i < (value.subagents as unknown[]).length; i++) {
+    const sub = (value.subagents as unknown[])[i];
     const subCtx: ValidationContext = { prefix: `subagents[${i}]`, statusPath: ctx.statusPath };
     expectObject(sub, `subagents[${i}]`, ctx.statusPath);
     expectFields(sub, { id: "string", name: "string", startedAt: "string" }, subCtx);
     expectEnum(sub.status, ["running", "completed", "failed"], { prefix: `subagents[${i}].status`, statusPath: ctx.statusPath });
     optionalString(sub, "completedAt", subCtx);
-  });
+  }
 }
 
 function validateRecovery(value: Record<string, unknown>, ctx: ValidationContext): void {
@@ -410,6 +431,17 @@ function validateRuntimeStatus(value: unknown, statusPath: string): asserts valu
   validateLastOutcome(value, { prefix: "", statusPath: p });
 }
 
+type ActivePlanStatus = { planPath?: string; loopState?: string; updatedAt?: string };
+
+async function readActiveStatus(statusPath: string): Promise<ActivePlanStatus | null> {
+  try {
+    const raw = await fs.readFile(statusPath, "utf8");
+    return JSON.parse(raw) as ActivePlanStatus;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Scan plans/runtime/ for the most recently updated non-complete managed plan.
  * Returns the plan's absolute path, or null if none is active.
@@ -426,15 +458,12 @@ export async function resolveLastActivePlanPath(cwd: string): Promise<string | n
   let best: { planPath: string; updatedAt: string } | null = null;
   for (const entry of entries) {
     if (entry === "_planless") continue;
-    const statusPath = path.join(runtimeRoot, entry, "status.json");
-    try {
-      const raw = await fs.readFile(statusPath, "utf8");
-      const status = JSON.parse(raw) as { planPath?: string; loopState?: string; updatedAt?: string };
-      if (!status.planPath || status.loopState === "complete") continue;
-      if (!best || (status.updatedAt && status.updatedAt > best.updatedAt)) {
-        best = { planPath: status.planPath, updatedAt: status.updatedAt ?? "" };
-      }
-    } catch { continue; }
+    const statusPath = path.join(runtimeRoot, entry, STATUS_FILENAME);
+    const status = await readActiveStatus(statusPath);
+    if (!status?.planPath || status.loopState === "complete") continue;
+    if (!best || (status.updatedAt && status.updatedAt > best.updatedAt)) {
+      best = { planPath: status.planPath, updatedAt: status.updatedAt ?? "" };
+    }
   }
   return best?.planPath ?? null;
 }

@@ -1,7 +1,7 @@
 import { HybridLoopRuntime, isManagedPlanUnavailable, resolveManagedPlanPath } from "../runtime/runtime.js";
-import { buildTurnOutcomeIngestionEvent, type TurnOutcomeTrailerParseResult } from "../runtime/turn-outcome-trailer.js";
+import { buildTurnOutcomeIngestionEvent, type TurnOutcomeTrailerParseResult } from "../prompt/turn-outcome-trailer.js";
 import type { RuntimeVendor } from "../runtime/types.js";
-import { setEmbeddingIpcRoot } from "../runtime/vault-embeddings.js";
+import { setEmbeddingIpcRoot } from "../index/vault-embeddings.js";
 import { hfLog } from "../runtime/logger.js";
 import { withDeadline } from "../runtime/utils.js";
 
@@ -13,7 +13,6 @@ export function isDestructiveCommand(command: string): boolean {
 
 export const PROTECTED_CONFIG_FILES = [
   ".oxlintrc.json",
-  "sonar-project.properties",
   ".husky/pre-commit"
 ] as const;
 
@@ -21,7 +20,7 @@ export function isProtectedConfigEdit(filePath: string): boolean {
   if (process.env.HF_ALLOW_CONFIG_EDIT === "1") {
     return false;
   }
-  const normalized = filePath.replace(/\\/g, "/");
+  const normalized = filePath.replaceAll("\\", "/");
   return PROTECTED_CONFIG_FILES.some((f) => normalized === f || normalized.endsWith(`/${f}`));
 }
 

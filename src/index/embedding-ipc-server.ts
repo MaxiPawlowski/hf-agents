@@ -22,7 +22,7 @@ import {
   resolveEmbeddingIpcEndpoint,
 } from "./embedding-ipc-protocol.js";
 import { embed, embedBatch } from "./vault-embeddings.js";
-import { isNumber, isRecord, isString } from "./utils.js";
+import { isNumber, isRecord, isString } from "../runtime/utils.js";
 
 const JSON_RPC_PARSE_ERROR = -32700;
 const JSON_RPC_INVALID_REQUEST = -32600;
@@ -36,18 +36,30 @@ export interface EmbeddingIpcServerHandle {
   close(): Promise<void>;
 }
 
+interface EmbeddingIpcServerOptions {
+  transport: EmbeddingIpcManifest["transport"];
+  endpoint: string;
+  manifestPath: string;
+  server: net.Server;
+}
+
 class EmbeddingIpcServer implements EmbeddingIpcServerHandle {
+  readonly transport: EmbeddingIpcManifest["transport"];
+  readonly endpoint: string;
+  readonly manifestPath: string;
+  private readonly server: net.Server;
   private readonly ownedSocketPath: string | null;
   private closed = false;
 
   constructor(
     readonly repoRoot: string,
-    readonly transport: EmbeddingIpcManifest["transport"],
-    readonly endpoint: string,
-    readonly manifestPath: string,
-    private readonly server: net.Server
-   
+    options: EmbeddingIpcServerOptions
   ) {
+    const { transport, endpoint, manifestPath, server } = options;
+    this.transport = transport;
+    this.endpoint = endpoint;
+    this.manifestPath = manifestPath;
+    this.server = server;
     this.ownedSocketPath = transport === EMBEDDING_IPC_TRANSPORT_UNIX_SOCKET ? endpoint : null;
   }
 
@@ -99,20 +111,19 @@ export async function startEmbeddingIpcServer(repoRoot: string): Promise<Embeddi
       endpoint: resolved.endpoint,
     });
   } catch (error) {
-    await closeServerWithTimeout(server, EMBEDDING_IPC_SHUTDOWN_TIMEOUT_MS).catch(() => undefined);
+    await closeServerWithTimeout(server, EMBEDDING_IPC_SHUTDOWN_TIMEOUT_MS).catch(() => {});
     if (resolved.transport === EMBEDDING_IPC_TRANSPORT_UNIX_SOCKET) {
       await removeFileIfPresent(resolved.endpoint);
     }
     throw error;
   }
 
-  return new EmbeddingIpcServer(
-    repoRoot,
-    resolved.transport,
-    resolved.endpoint,
-    resolved.manifestPath,
+  return new EmbeddingIpcServer(repoRoot, {
+    transport: resolved.transport,
+    endpoint: resolved.endpoint,
+    manifestPath: resolved.manifestPath,
     server,
-  );
+  });
 }
 
 async function handleConnection(socket: net.Socket): Promise<void> {

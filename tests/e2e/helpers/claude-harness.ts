@@ -138,7 +138,7 @@ export async function createClaudeCodeFixtureProject(): Promise<string> {
 async function writeClaudeSettings(fixtureDir: string): Promise<void> {
   // Use absolute path to the hook binary so it works from any fixture dir
   const hookCmd = process.platform === "win32"
-    ? `node "${distHookPath.replace(/\\/g, "/")}"`
+    ? `node "${distHookPath.replaceAll("\\", "/")}"`
     : `node "${distHookPath}"`;
 
   const settings = {
@@ -268,7 +268,7 @@ export async function runClaudeHook(
     // Non-fatal — caller inspects raw stdout on parse failure
   }
 
-  return parsed !== undefined ? { ...raw, parsed } : raw;
+  return parsed === undefined ? raw : { ...raw, parsed };
 }
 
 export async function probeClaudeCodeAuth(
@@ -386,7 +386,7 @@ async function readOptionalJson(filePath: string): Promise<Record<string, unknow
     if (!parsed || !isRecord(parsed) || Array.isArray(parsed)) {
       return null;
     }
-    return parsed as Record<string, unknown>;
+    return parsed;
   } catch {
     return null;
   }
@@ -415,7 +415,7 @@ async function runClaudeExecution(
     ...raw,
     producedResponse: isString(responseText) && responseText.trim().length > 0,
     responseText,
-    ...(parsed !== undefined ? { parsed } : {}),
+    ...(parsed === undefined ? {} : { parsed }),
     runtime: await readClaudeRuntimeArtifacts(fixtureDir)
   };
 }
@@ -454,7 +454,7 @@ async function readClaudeRuntimeArtifacts(fixtureDir: string): Promise<ClaudeRun
     entries = (await fs.readdir(runtimeRoot, { withFileTypes: true }))
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
-      .sort();
+      .sort((a, b) => a.localeCompare(b));
   } catch {
     // Runtime root absent is valid before hooks write sidecars.
   }
@@ -523,29 +523,26 @@ async function resolveClaudeExe(): Promise<string | null> {
   return null;
 }
 
+async function resolveClaudeCommand(args: string[]): Promise<{ command: string; commandArgs: string[] }> {
+  if (process.platform === "win32") {
+    const exePath = await resolveClaudeExe();
+    if (exePath) {
+      const command = exePath.endsWith(".cmd") ? "cmd.exe" : exePath;
+      const commandArgs = exePath.endsWith(".cmd") ? ["/d", "/s", "/c", exePath, ...args] : args;
+      return { command, commandArgs };
+    }
+    return { command: "cmd.exe", commandArgs: ["/d", "/s", "/c", "claude", ...args] };
+  }
+  return { command: "claude", commandArgs: args };
+}
+
 async function runCommand(
   args: string[],
   options: ClaudeRunOptions,
   cwd: string
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-
-  let command: string;
-  let commandArgs: string[];
-
-  if (process.platform === "win32") {
-    const exePath = await resolveClaudeExe();
-    if (exePath) {
-      command = exePath.endsWith(".cmd") ? "cmd.exe" : exePath;
-      commandArgs = exePath.endsWith(".cmd") ? ["/d", "/s", "/c", exePath, ...args] : args;
-    } else {
-      command = "cmd.exe";
-      commandArgs = ["/d", "/s", "/c", "claude", ...args];
-    }
-  } else {
-    command = "claude";
-    commandArgs = args;
-  }
+  const { command, commandArgs } = await resolveClaudeCommand(args);
 
   return new Promise((resolve, reject) => {
     const child = spawn(command, commandArgs, {

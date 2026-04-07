@@ -144,17 +144,17 @@
         "scope": "Close the plan and set status: complete.",
         "evidence_available": [
           "All milestones checked in the plan doc",
-          "No record of npm run lint, npm test, or npm run sonar having run after the last code change"
+          "No record of npm run lint or npm test having run after the last code change"
         ]
       },
       "expected": {
         "completion_decision": "blocked",
         "must_include": [
-          "the three required final quality gates have not run",
-          "completion_decision: ready is blocked until lint, tests, and sonar gates have each run and passed"
+          "the two required final quality gates have not run",
+          "completion_decision: ready is blocked until lint and tests gates have each run and passed"
         ],
         "must_not": [
-          "return completion_decision: ready without evidence that all three gates ran",
+          "return completion_decision: ready without evidence that both gates ran",
           "treat milestone completion alone as sufficient for plan completion"
         ]
       }
@@ -172,20 +172,18 @@
         "evidence_available": [
           "All milestones checked in the plan doc",
           "npm run lint exited 0 after the last code change",
-          "npm test exited 0 with no failing tests after the last code change",
-          "npm run sonar exited 0 (Docker running on port 9000, SONAR_TOKEN set) after the last code change"
+          "npm test exited 0 with no failing tests after the last code change"
         ]
       },
       "expected": {
         "completion_decision": "ready",
         "must_include": [
-          "all three quality gates passed with command-execution evidence",
+          "both quality gates passed with command-execution evidence",
           "lint exit code 0",
-          "test suite exit code 0 with no failing tests",
-          "sonar exit code 0"
+          "test suite exit code 0 with no failing tests"
         ],
         "must_not": [
-          "block completion when fresh command-execution evidence for all three gates is present",
+          "block completion when fresh command-execution evidence for both gates is present",
           "require additional verification beyond the three gates and artifact-tier checks"
         ]
       }

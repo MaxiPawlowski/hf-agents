@@ -342,7 +342,7 @@ async function runOpenCodeWithDebugLogs(
     'child.once("close", (code) => { clearTimeout(timeout); finish({ stdout, stderr, exitCode: code ?? 1, commandArgs }); });'
   ].join("\n");
 
-  const result = await new Promise<{
+  return await new Promise<{
     stdout: string;
     stderr: string;
     exitCode: number;
@@ -389,8 +389,6 @@ async function runOpenCodeWithDebugLogs(
       }
     });
   });
-
-  return result;
 }
 
 async function readDebugLogEntries(logPath: string): Promise<DebugLogEntry[]> {
@@ -569,57 +567,62 @@ function toNumber(value: unknown): number | null {
   return isNumber(value) && Number.isFinite(value) ? value : null;
 }
 
+function buildRunRows(run: RunDiagnostics): SummaryRow[] {
+  const rows: SummaryRow[] = [];
+  rows.push({
+    phase: "hydration total",
+    run: run.label,
+    durationMs: run.hydrationMs,
+    timeoutLabel: "HYDRATION_TIMEOUT_MS",
+    timeoutMs: HYDRATION_TIMEOUT_MS
+  });
+  rows.push({
+    phase: "ONNX model load",
+    run: run.label,
+    durationMs: run.modelLoadMs,
+    timeoutLabel: "HYDRATION_TIMEOUT_MS",
+    timeoutMs: HYDRATION_TIMEOUT_MS,
+    notes: "parsed from embedding-model loadExtractor timer"
+  });
+  const timeoutBase = run.fixtureKind === "unified" ? UNIFIED_INDEX_TIMEOUT_MS : VAULT_INDEX_TIMEOUT_MS;
+  rows.push({
+    phase: "embedding generation per chunk (avg)",
+    run: run.label,
+    durationMs: run.averageEmbeddingPerChunkMs,
+    timeoutLabel: run.fixtureKind === "unified"
+      ? `UNIFIED_INDEX_TIMEOUT_MS / ${run.chunkCount ?? "?"}`
+      : `VAULT_INDEX_TIMEOUT_MS / ${run.chunkCount ?? "?"}`,
+    timeoutMs: run.chunkCount && run.chunkCount > 0
+      ? Math.round((timeoutBase / run.chunkCount) * 10) / 10
+      : null,
+    notes: run.chunkCount ? `${run.chunkCount} chunks` : "chunk count unavailable"
+  });
+  if (run.fixtureKind === "unified") {
+    rows.push({
+      phase: "unified index build total",
+      run: run.label,
+      durationMs: run.unifiedIndexMs,
+      timeoutLabel: "UNIFIED_INDEX_TIMEOUT_MS",
+      timeoutMs: UNIFIED_INDEX_TIMEOUT_MS
+    });
+  }
+  if (run.fixtureKind === "vault") {
+    rows.push({
+      phase: "vault index build total",
+      run: run.label,
+      durationMs: run.vaultIndexMs,
+      timeoutLabel: "VAULT_INDEX_TIMEOUT_MS",
+      timeoutMs: VAULT_INDEX_TIMEOUT_MS
+    });
+  }
+  return rows;
+}
+
 function buildSummaryRows(runs: RunDiagnostics[]): SummaryRow[] {
   const rows: SummaryRow[] = [];
 
   for (const run of runs) {
-    rows.push({
-      phase: "hydration total",
-      run: run.label,
-      durationMs: run.hydrationMs,
-      timeoutLabel: "HYDRATION_TIMEOUT_MS",
-      timeoutMs: HYDRATION_TIMEOUT_MS
-    });
-    rows.push({
-      phase: "ONNX model load",
-      run: run.label,
-      durationMs: run.modelLoadMs,
-      timeoutLabel: "HYDRATION_TIMEOUT_MS",
-      timeoutMs: HYDRATION_TIMEOUT_MS,
-      notes: "parsed from embedding-model loadExtractor timer"
-    });
-    rows.push({
-      phase: "embedding generation per chunk (avg)",
-      run: run.label,
-      durationMs: run.averageEmbeddingPerChunkMs,
-      timeoutLabel: run.fixtureKind === "unified"
-        ? `UNIFIED_INDEX_TIMEOUT_MS / ${run.chunkCount ?? "?"}`
-        : `VAULT_INDEX_TIMEOUT_MS / ${run.chunkCount ?? "?"}`,
-      timeoutMs: run.chunkCount && run.chunkCount > 0
-        ? Math.round(((run.fixtureKind === "unified" ? UNIFIED_INDEX_TIMEOUT_MS : VAULT_INDEX_TIMEOUT_MS) / run.chunkCount) * 10) / 10
-        : null,
-      notes: run.chunkCount ? `${run.chunkCount} chunks` : "chunk count unavailable"
-    });
-
-    if (run.fixtureKind === "unified") {
-      rows.push({
-        phase: "unified index build total",
-        run: run.label,
-        durationMs: run.unifiedIndexMs,
-        timeoutLabel: "UNIFIED_INDEX_TIMEOUT_MS",
-        timeoutMs: UNIFIED_INDEX_TIMEOUT_MS
-      });
-    }
-
-    if (run.fixtureKind === "vault") {
-      rows.push({
-        phase: "vault index build total",
-        run: run.label,
-        durationMs: run.vaultIndexMs,
-        timeoutLabel: "VAULT_INDEX_TIMEOUT_MS",
-        timeoutMs: VAULT_INDEX_TIMEOUT_MS
-      });
-    }
+    rows.push(...buildRunRows(run));
   }
 
   return rows;

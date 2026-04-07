@@ -100,7 +100,7 @@ describe("opencode runtime e2e", () => {
     const indexedSources = index.items
       .map((item) => item.metadata.source ?? item.metadata.kind)
       .filter((value): value is string => value === "vault" || value === "code")
-      .sort();
+      .sort((a, b) => a.localeCompare(b));
 
     expect(indexedSources).toContain("vault");
     expect(indexedSources).toContain("code");

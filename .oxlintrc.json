@@ -26,7 +26,22 @@
     "unicorn/prefer-module": "error",
     "unicorn/prefer-node-protocol": "error",
     "no-console": "warn",
-    "max-lines": ["error", { "max": 500, "skipBlankLines": true, "skipComments": true }]
+    "max-lines": ["error", { "max": 500, "skipBlankLines": true, "skipComments": true }],
+    "unicorn/no-useless-undefined": "error",
+    "unicorn/no-lonely-if": "error",
+    "unicorn/no-negated-condition": "warn",
+    "unicorn/prefer-logical-operator-over-ternary": "error",
+    "unicorn/no-array-for-each": "warn",
+    "unicorn/prefer-optional-catch-binding": "error",
+    "unicorn/prefer-array-flat-map": "error",
+    "unicorn/prefer-spread": "warn",
+    "unicorn/prefer-string-replace-all": "warn",
+    "no-else-return": "warn",
+    "no-useless-constructor": "error",
+    "no-useless-rename": "error",
+    "no-unneeded-ternary": "error",
+    "typescript/no-inferrable-types": "error",
+    "typescript/prefer-as-const": "error"
   },
   "overrides": [
     {
@@ -38,7 +53,11 @@
         "max-depth": "off",
         "no-magic-numbers": "off",
         "typescript/no-explicit-any": "warn",
-        "no-console": "off"
+        "no-console": "off",
+        "no-else-return": "off",
+        "unicorn/no-useless-undefined": "off",
+        "unicorn/no-array-for-each": "off",
+        "typescript/no-inferrable-types": "off"
       }
     },
     {

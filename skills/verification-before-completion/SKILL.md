@@ -42,15 +42,12 @@ The plan doc remains the canonical record of milestone state. Runtime artifacts 
 
 ## Final Quality Gate
 
-Before any `completion_decision: ready` is reported, run all three gates in order: lint → tests → sonar. A gate that has not run or has not passed blocks `completion_decision: ready`.
+Before any `completion_decision: ready` is reported, run both gates in order: lint → tests. A gate that has not run or has not passed blocks `completion_decision: ready`.
 
 **Gate order and tier classification:**
 
 - `npm run lint` — runs oxlint and eslint. Tier: `command-execution`. Must exit 0.
 - `npm test` — runs the unit and integration test suite (excludes e2e tests). Tier: `command-execution`. Must exit 0 with no failing tests.
-- `npm run sonar` — requires Docker running on port 9000 and `SONAR_TOKEN` set in `.env`.
-  - When both are available: tier is `command-execution`. Run the command and report the exit code.
-  - When Docker is not running on port 9000 or `SONAR_TOKEN` is not set: tier is `manual-attestation`. Do not run the command. Escalate to the user for manual attestation before completion. This is a direct application of the `manual-attestation` trigger rule: sonar depends on external infrastructure not available in the current environment.
 
 **Blocking rule:** `completion_decision: ready` is blocked if any gate has not run or has not passed. Do not downgrade a gate's tier or substitute a weaker check.
 

@@ -55,7 +55,7 @@ function makeMessageUpdatedHook(deps: HookDeps): OpenCodeHook {
       }
     }
     hfLog({ tag: "plugin", msg: "message.updated: flags updated", data: { sessionId, activeAgentIsHf: flags.activeAgentIsHf, interrupted: flags.interrupted } });
-    return null;
+    return {};
   };
 }
 
@@ -202,7 +202,7 @@ function createSubagentHooks(deps: HookDeps): Record<string, OpenCodeHook> {
           name: String(input?.subagent_name ?? input?.name ?? "unnamed"),
           status: "running"
         });
-        return null;
+        return {};
       })(), null);
     },
     "subagent.completed": async (input?: HookInput, output?: HookInput) => {
@@ -220,9 +220,9 @@ function createSubagentHooks(deps: HookDeps): Record<string, OpenCodeHook> {
         await recordSubagentLifecycle(runtime, {
           id: String(input?.subagent_id ?? input?.id ?? "unknown"),
           name: String(input?.subagent_name ?? input?.name ?? "unnamed"),
-          status: input?.error !== undefined ? "failed" : "completed"
+          status: input?.error === undefined ? "completed" : "failed"
         });
-        return null;
+        return {};
       })(), null);
     }
   };
@@ -248,6 +248,7 @@ function createCompactionHook(internalHooks: Record<string, OpenCodeHook>) {
         (async () => {
           return internalHooks["session.compacted"]?.({ sessionID: input.sessionID });
         })(),
+        // oxlint-disable-next-line unicorn/no-useless-undefined -- required positional arg for fallback: T
         undefined
       );
       const additionalContext = (result as { additionalContext?: string } | undefined)?.additionalContext;
@@ -292,7 +293,7 @@ function createEventDispatcher(internalHooks: Record<string, OpenCodeHook>) {
 
         default:
           if (event.type.startsWith("subagent.")) {
-            const hookName = event.type as string;
+            const hookName = event.type;
             await internalHooks[hookName]?.(props);
           }
           break;
